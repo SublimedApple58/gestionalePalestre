@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Gestionale Palestre</p>
-            <h1>{`Ciao ${currentUser.firstName}`}</h1>
+            <h1 className="page-title">{`Ciao ${currentUser.firstName}`}</h1>
             <p className="subtitle">{`Ruolo: ${roleLabel(currentUser.role)}`}</p>
           </div>
         </header>

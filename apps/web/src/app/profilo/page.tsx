@@ -34,7 +34,7 @@ export default async function ProfilePage() {
         <header className="profile-header">
           <div>
             <p className="eyebrow">Profilo</p>
-            <h1>I tuoi dati personali</h1>
+            <h1 className="page-title">I tuoi dati personali</h1>
             <p className="subtitle">Pagina dedicata semplice per informazioni, documenti e recapiti.</p>
           </div>
         </header>
