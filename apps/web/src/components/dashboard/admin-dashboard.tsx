@@ -190,11 +190,15 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
                       <div className="row-actions">
                         <form action={changeUserRoleAction} className="inline-form">
                           <input type="hidden" name="targetUserId" value={user.id} />
-                          <select name="role" defaultValue={user.role}>
-                            <option value={UserRole.ADMIN}>Admin</option>
-                            <option value={UserRole.INSTRUCTOR}>Istruttore</option>
-                            <option value={UserRole.SUBSCRIBER}>Iscritto</option>
-                          </select>
+                          <CustomSelect
+                            name="role"
+                            label={`Ruolo per ${user.firstName} ${user.lastName}`}
+                            options={roleOptions}
+                            defaultValue={user.role}
+                            compact
+                            hideLabel
+                            required
+                          />
                           <button type="submit" className="button button-ghost small">
                             Salva ruolo
                           </button>

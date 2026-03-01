@@ -27,6 +27,8 @@ test.describe("dashboard role-based", () => {
     await expect(page.getByText("Ruolo: Admin")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Controllo porta palestra" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Lista utenti" })).toBeVisible();
+    await expect(page.locator("form.inline-form select[name='role']")).toHaveCount(0);
+    await expect(page.locator("form.inline-form .custom-select-button").first()).toBeVisible();
   });
 
   test("abbonato attivo vede il codice nascosto e puo' mostrarlo", async ({ page }) => {

@@ -16,6 +16,8 @@ type CustomSelectProps = {
   placeholder?: string;
   searchable?: boolean;
   required?: boolean;
+  compact?: boolean;
+  hideLabel?: boolean;
 };
 
 export function CustomSelect({
@@ -25,7 +27,9 @@ export function CustomSelect({
   defaultValue,
   placeholder = "Seleziona",
   searchable = false,
-  required = false
+  required = false,
+  compact = false,
+  hideLabel = false
 }: CustomSelectProps) {
   const initialOption = options.find((option) => option.value === defaultValue) ?? options[0] ?? null;
 
@@ -57,8 +61,8 @@ export function CustomSelect({
   }
 
   return (
-    <label className="input-group custom-select-field">
-      <span>{label}</span>
+    <label className={`input-group custom-select-field ${compact ? "compact" : ""}`}>
+      <span className={hideLabel ? "sr-only" : undefined}>{label}</span>
 
       <div className="custom-select-control">
         {searchable ? (
@@ -67,6 +71,7 @@ export function CustomSelect({
             value={query}
             className="custom-select-input"
             placeholder={placeholder}
+            aria-label={hideLabel ? label : undefined}
             onFocus={() => setOpen(true)}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -80,7 +85,12 @@ export function CustomSelect({
             }}
           />
         ) : (
-          <button type="button" className="custom-select-button" onClick={() => setOpen((current) => !current)}>
+          <button
+            type="button"
+            className="custom-select-button"
+            aria-label={hideLabel ? label : undefined}
+            onClick={() => setOpen((current) => !current)}
+          >
             {selected?.label ?? placeholder}
           </button>
         )}

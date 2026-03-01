@@ -15,14 +15,25 @@ type AuthenticatedShellProps = {
 
 export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
   const navItems = getAppNavigationItems(currentPath);
+  const currentRoleLabel = roleLabel(user.role);
 
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="sidebar-top">
-          <p className="eyebrow">Gestionale Palestre</p>
-          <h2 className="sidebar-title">Pannello</h2>
-          <p className="sidebar-subtitle">{`Ciao ${user.firstName} - ${roleLabel(user.role)}`}</p>
+          <div className="sidebar-brand">
+            <span className="sidebar-brand-mark" aria-hidden="true">
+              GP
+            </span>
+
+            <div>
+              <p className="eyebrow">Gestionale Palestre</p>
+              <h2 className="sidebar-title">Control Room</h2>
+            </div>
+          </div>
+
+          <p className="sidebar-subtitle">{`Ciao ${user.firstName}`}</p>
+          <p className="sidebar-role-pill">{currentRoleLabel}</p>
         </div>
 
         <nav className="sidebar-nav" aria-label="Navigazione principale">
@@ -32,12 +43,14 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
               href={item.href}
               className={`sidebar-link ${item.active ? "active" : ""}`}
             >
-              {item.label}
+              <span className="sidebar-link-dot" aria-hidden="true" />
+              <span>{item.label}</span>
             </Link>
           ))}
         </nav>
 
         <div className="sidebar-footer">
+          <p className="sidebar-footnote">Sessione attiva</p>
           <LogoutButton />
         </div>
       </aside>
