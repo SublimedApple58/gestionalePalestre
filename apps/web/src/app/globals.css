@@ -107,6 +107,12 @@ p {
   margin-bottom: 16px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .dashboard-header h1 {
   margin-top: 8px;
   font-size: clamp(2rem, 4.8vw, 3.2rem);
@@ -114,6 +120,20 @@ p {
 
 .dashboard-error {
   margin-bottom: 14px;
+}
+
+.profile-shell {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 28px 18px 80px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .dashboard-grid {
@@ -188,16 +208,47 @@ p {
   position: relative;
 }
 
+.custom-select-control {
+  position: relative;
+}
+
+.custom-select-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  padding: 10px 34px 10px 12px;
+  min-height: 42px;
+  outline: none;
+  font: inherit;
+  color: var(--black);
+  background: var(--white);
+}
+
+.custom-select-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(223, 37, 19, 0.15);
+}
+
 .custom-select-button {
   min-height: 42px;
   width: 100%;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.14);
-  padding: 10px 12px;
+  padding: 10px 34px 10px 12px;
   background: var(--white);
   text-align: left;
   cursor: pointer;
   font: inherit;
+}
+
+.custom-select-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
 }
 
 .custom-select-dropdown {
@@ -488,8 +539,13 @@ th {
     grid-column: 1 / -1;
   }
 
-  .dashboard-header {
+  .dashboard-header,
+  .profile-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
   }
 }

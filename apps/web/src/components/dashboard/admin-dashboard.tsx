@@ -13,7 +13,7 @@ import {
   deleteUserAction,
   openGymDoorAction
 } from "@/app/actions/dashboard-actions";
-import { documentTypeLabel, getMissingDocumentTypes } from "@/lib/documents";
+import { documentTypeLabel, getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 
@@ -155,7 +155,8 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
             </thead>
             <tbody>
               {users.map((user) => {
-                const missing = getMissingDocumentTypes(user.role, user.documents);
+                const missingRequired = getMissingDocumentTypes(user.role, user.documents);
+                const missingOverall = getMissingOverallDocumentTypes(user.documents);
 
                 return (
                   <tr key={user.id}>
@@ -173,10 +174,16 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
                         : "-"}
                     </td>
                     <td>
-                      {user.role === UserRole.SUBSCRIBER && missing.length > 0 ? (
-                        <p className="status-badge missing">{`Mancano: ${missing.map((type) => documentTypeLabel(type)).join(", ")}`}</p>
+                      {missingOverall.length > 0 ? (
+                        <p className={`status-badge ${user.role === UserRole.SUBSCRIBER ? "missing" : "warning"}`}>
+                          {`Mancano: ${missingOverall.map((type) => documentTypeLabel(type)).join(", ")}${
+                            user.role === UserRole.SUBSCRIBER && missingRequired.length > 0
+                              ? " (bloccante)"
+                              : " (non bloccante)"
+                          }`}
+                        </p>
                       ) : (
-                        <p className="status-badge ok">Documenti in regola</p>
+                        <p className="status-badge ok">Tutti i documenti presenti</p>
                       )}
                     </td>
                     <td>

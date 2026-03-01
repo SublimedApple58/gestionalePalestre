@@ -1,10 +1,10 @@
 import { db, UserRole } from "@gestionale/db";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard";
-import { PersonalOverview } from "@/components/dashboard/personal-overview";
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
 import { roleLabel } from "@/lib/roles";
 import { requireSessionUser } from "@/lib/session";
@@ -75,24 +75,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <h1>{`Ciao ${currentUser.firstName}`}</h1>
           <p className="subtitle">{`Ruolo: ${roleLabel(currentUser.role)}`}</p>
         </div>
-        <LogoutButton />
+        <div className="header-actions">
+          <Link href="/profilo" className="button button-ghost">
+            Dati personali
+          </Link>
+          <LogoutButton />
+        </div>
       </header>
 
       {params.error && ERROR_MAP[params.error] ? (
         <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
       ) : null}
-
-      <PersonalOverview
-        user={{
-          firstName: currentUser.firstName,
-          lastName: currentUser.lastName,
-          email: currentUser.email,
-          phoneNumber: currentUser.phoneNumber,
-          role: currentUser.role,
-          documents: currentUser.documents,
-          subscription: currentUser.subscription
-        }}
-      />
 
       {currentUser.role === UserRole.ADMIN ? (
         <AdminView currentUserId={currentUser.id} accessCode={currentUser.accessCode} />

@@ -60,28 +60,35 @@ export function CustomSelect({
     <label className="input-group custom-select-field">
       <span>{label}</span>
 
-      {searchable ? (
-        <input
-          type="text"
-          value={query}
-          placeholder={placeholder}
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-          onBlur={() => {
-            window.setTimeout(() => {
-              setQuery(selected?.label ?? "");
-              setOpen(false);
-            }, 120);
-          }}
-        />
-      ) : (
-        <button type="button" className="custom-select-button" onClick={() => setOpen((current) => !current)}>
-          {selected?.label ?? placeholder}
-        </button>
-      )}
+      <div className="custom-select-control">
+        {searchable ? (
+          <input
+            type="text"
+            value={query}
+            className="custom-select-input"
+            placeholder={placeholder}
+            onFocus={() => setOpen(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+            onBlur={() => {
+              window.setTimeout(() => {
+                setQuery(selected?.label ?? "");
+                setOpen(false);
+              }, 120);
+            }}
+          />
+        ) : (
+          <button type="button" className="custom-select-button" onClick={() => setOpen((current) => !current)}>
+            {selected?.label ?? placeholder}
+          </button>
+        )}
+
+        <span className="custom-select-arrow" aria-hidden="true">
+          ▾
+        </span>
+      </div>
 
       <input type="hidden" name={name} value={selected?.value ?? ""} required={required} />
 

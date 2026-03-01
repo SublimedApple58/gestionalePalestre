@@ -46,3 +46,11 @@ export function getMissingDocumentTypes(
 export function hasRequiredDocuments(role: UserRole, documents: Array<Pick<UserDocument, "type">>): boolean {
   return getMissingDocumentTypes(role, documents).length === 0;
 }
+
+export function getMissingOverallDocumentTypes(
+  documents: Array<Pick<UserDocument, "type">>
+): DocumentType[] {
+  const uploaded = new Set(documents.map((document) => document.type));
+
+  return ALL_DOCUMENT_TYPES.filter((documentType) => !uploaded.has(documentType));
+}
