@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <section className="auth-card">
         <p className="eyebrow">Gestionale Palestre</p>
         <h1>Accedi</h1>
-        <p className="subtitle">Area role-based per admin, istruttori e abbonati.</p>
+        <p className="subtitle">Area role-based per admin, istruttori e iscritti.</p>
 
         {error ? <p className="error-banner">{error}</p> : null}
 

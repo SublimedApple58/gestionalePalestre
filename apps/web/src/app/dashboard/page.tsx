@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard";
+import { PersonalOverview } from "@/components/dashboard/personal-overview";
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
 import { roleLabel } from "@/lib/roles";
 import { requireSessionUser } from "@/lib/session";
@@ -21,11 +22,14 @@ const ERROR_MAP: Record<string, string> = {
   invalid_role: "Assegnazione non valida per il ruolo selezionato.",
   not_found: "Elemento non trovato.",
   subscription_inactive: "Abbonamento non attivo: ingresso non consentito.",
+  missing_required_documents: "Accesso bloccato: carica prima i documenti richiesti.",
   "utente-non-valido": "Dati utente non validi.",
   "ruolo-non-valido": "Ruolo selezionato non valido.",
   "utente-non-trovato": "Utente non trovato.",
   "abbonamento-non-valido": "Dati abbonamento non validi.",
-  "assegnazione-non-valida": "Assegnazione istruttore non valida."
+  "assegnazione-non-valida": "Assegnazione istruttore non valida.",
+  "profilo-non-valido": "Cellulare non valido.",
+  "documento-non-valido": "Dati documento non validi."
 };
 
 export const dynamic = "force-dynamic";
@@ -39,6 +43,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     include: {
       subscription: true,
       workoutPlan: true,
+      documents: true,
       assignedInstructor: {
         select: {
           firstName: true,
@@ -77,6 +82,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
       ) : null}
 
+      <PersonalOverview
+        user={{
+          firstName: currentUser.firstName,
+          lastName: currentUser.lastName,
+          email: currentUser.email,
+          phoneNumber: currentUser.phoneNumber,
+          role: currentUser.role,
+          documents: currentUser.documents,
+          subscription: currentUser.subscription
+        }}
+      />
+
       {currentUser.role === UserRole.ADMIN ? (
         <AdminView currentUserId={currentUser.id} accessCode={currentUser.accessCode} />
       ) : null}
@@ -93,6 +110,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <SubscriberDashboard
           accessCode={currentUser.accessCode}
           assignedInstructor={currentUser.assignedInstructor}
+          documents={currentUser.documents}
           subscription={currentUser.subscription}
           workoutPlan={currentUser.workoutPlan}
         />
@@ -111,6 +129,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     db.user.findMany({
       include: {
         subscription: true,
+        documents: true,
         assignedInstructor: {
           select: {
             firstName: true,

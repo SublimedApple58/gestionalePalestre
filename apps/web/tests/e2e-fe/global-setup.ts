@@ -11,6 +11,14 @@ function run(command: string, env: NodeJS.ProcessEnv, cwd: string) {
   });
 }
 
+function hasRealConnectionString(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return !value.includes("YOUR-") && !value.includes("DB_NAME_TEST");
+}
+
 export default async function globalSetup(_config: FullConfig) {
   void _config;
   const repositoryRoot = path.resolve(__dirname, "../../../../");
@@ -18,7 +26,7 @@ export default async function globalSetup(_config: FullConfig) {
   const testDbUrl = process.env.DATABASE_URL_TEST ?? process.env.DATABASE_URL;
   const testDirectUrl = process.env.DIRECT_URL_TEST ?? process.env.DIRECT_URL ?? testDbUrl;
 
-  if (!testDbUrl || !testDirectUrl) {
+  if (!hasRealConnectionString(testDbUrl) || !hasRealConnectionString(testDirectUrl)) {
     console.warn("[playwright] DATABASE_URL_TEST/DIRECT_URL_TEST non configurati: i test FE e2e verranno skip.");
     return;
   }

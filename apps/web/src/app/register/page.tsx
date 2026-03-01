@@ -36,7 +36,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       <section className="auth-card">
         <p className="eyebrow">Gestionale Palestre</p>
         <h1>Registrati</h1>
-        <p className="subtitle">Crei un account abbonato. Ruolo modificabile dall&apos;admin.</p>
+        <p className="subtitle">Crei un account iscritto. Ruolo modificabile dall&apos;admin.</p>
 
         {error ? <p className="error-banner">{error}</p> : null}
 

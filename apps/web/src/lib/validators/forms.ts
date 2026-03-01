@@ -1,4 +1,4 @@
-import { SubscriptionTier, UserRole } from "@gestionale/db";
+import { DocumentType, SubscriptionTier, UserRole } from "@gestionale/db";
 import { z } from "zod";
 
 const email = z.string().trim().email("Email non valida");
@@ -41,4 +41,17 @@ export const assignSubscriptionSchema = z.object({
 export const assignInstructorSchema = z.object({
   subscriberId: z.string().min(1),
   instructorId: z.string().min(1)
+});
+
+export const uploadDocumentSchema = z.object({
+  type: z.nativeEnum(DocumentType),
+  fileLabel: z.string().trim().min(3).max(160)
+});
+
+export const updatePersonalInfoSchema = z.object({
+  phoneNumber: z
+    .string()
+    .trim()
+    .max(30)
+    .transform((value) => (value.length ? value : null))
 });

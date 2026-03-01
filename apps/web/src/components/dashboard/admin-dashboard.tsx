@@ -1,4 +1,9 @@
-import { SubscriptionTier, UserRole, type AccessEventType } from "@gestionale/db";
+import {
+  SubscriptionTier,
+  UserRole,
+  type AccessEventType,
+  type UserDocument
+} from "@gestionale/db";
 
 import {
   assignInstructorAction,
@@ -8,9 +13,12 @@ import {
   deleteUserAction,
   openGymDoorAction
 } from "@/app/actions/dashboard-actions";
+import { documentTypeLabel, getMissingDocumentTypes } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 
+import { CustomCalendar } from "../ui/custom-calendar";
+import { CustomSelect } from "../ui/custom-select";
 import { MaskedAccessCode } from "../ui/masked-access-code";
 
 type AdminUserRow = {
@@ -20,6 +28,7 @@ type AdminUserRow = {
   email: string;
   role: UserRole;
   accessCode: string;
+  documents: UserDocument[];
   assignedInstructor: {
     firstName: string;
     lastName: string;
@@ -55,6 +64,30 @@ type AdminDashboardProps = {
 export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboardProps) {
   const instructors = users.filter((user) => user.role === UserRole.INSTRUCTOR);
   const subscribers = users.filter((user) => user.role === UserRole.SUBSCRIBER);
+
+  const roleOptions = [
+    { value: UserRole.ADMIN, label: "Admin" },
+    { value: UserRole.INSTRUCTOR, label: "Istruttore" },
+    { value: UserRole.SUBSCRIBER, label: "Iscritto" }
+  ];
+
+  const subscriptionOptions = [
+    { value: SubscriptionTier.MONTHLY, label: "Mensile" },
+    { value: SubscriptionTier.QUARTERLY, label: "Trimestrale" },
+    { value: SubscriptionTier.YEARLY, label: "Annuale" }
+  ];
+
+  const subscriberOptions = subscribers.map((subscriber) => ({
+    value: subscriber.id,
+    label: `${subscriber.firstName} ${subscriber.lastName}`,
+    details: subscriber.email
+  }));
+
+  const instructorOptions = instructors.map((instructor) => ({
+    value: instructor.id,
+    label: `${instructor.firstName} ${instructor.lastName}`,
+    details: instructor.email
+  }));
 
   return (
     <div className="dashboard-grid">
@@ -95,14 +128,7 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
             <input type="password" name="password" required minLength={8} />
           </label>
 
-          <label className="input-group">
-            <span>Ruolo</span>
-            <select name="role" defaultValue={UserRole.SUBSCRIBER}>
-              <option value={UserRole.ADMIN}>Admin</option>
-              <option value={UserRole.INSTRUCTOR}>Istruttore</option>
-              <option value={UserRole.SUBSCRIBER}>Abbonato</option>
-            </select>
-          </label>
+          <CustomSelect name="role" label="Ruolo" options={roleOptions} defaultValue={UserRole.SUBSCRIBER} required />
 
           <button type="submit" className="button button-primary">
             Crea account
@@ -123,49 +149,61 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
                 <th>Ruolo</th>
                 <th>Istruttore</th>
                 <th>Abbonamento</th>
+                <th>Documenti</th>
                 <th>Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td>{`${user.firstName} ${user.lastName}`}</td>
-                  <td>{user.email}</td>
-                  <td>{roleLabel(user.role)}</td>
-                  <td>
-                    {user.assignedInstructor
-                      ? `${user.assignedInstructor.firstName} ${user.assignedInstructor.lastName}`
-                      : "-"}
-                  </td>
-                  <td>
-                    {user.subscription
-                      ? `${tierLabel(user.subscription.tier)} (${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")})`
-                      : "-"}
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      <form action={changeUserRoleAction} className="inline-form">
-                        <input type="hidden" name="targetUserId" value={user.id} />
-                        <select name="role" defaultValue={user.role}>
-                          <option value={UserRole.ADMIN}>Admin</option>
-                          <option value={UserRole.INSTRUCTOR}>Istruttore</option>
-                          <option value={UserRole.SUBSCRIBER}>Abbonato</option>
-                        </select>
-                        <button type="submit" className="button button-ghost small">
-                          Salva ruolo
-                        </button>
-                      </form>
+              {users.map((user) => {
+                const missing = getMissingDocumentTypes(user.role, user.documents);
 
-                      <form action={deleteUserAction}>
-                        <input type="hidden" name="targetUserId" value={user.id} />
-                        <button type="submit" className="button button-danger small">
-                          Rimuovi
-                        </button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                return (
+                  <tr key={user.id}>
+                    <td>{`${user.firstName} ${user.lastName}`}</td>
+                    <td>{user.email}</td>
+                    <td>{roleLabel(user.role)}</td>
+                    <td>
+                      {user.assignedInstructor
+                        ? `${user.assignedInstructor.firstName} ${user.assignedInstructor.lastName}`
+                        : "-"}
+                    </td>
+                    <td>
+                      {user.subscription
+                        ? `${tierLabel(user.subscription.tier)} (${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")})`
+                        : "-"}
+                    </td>
+                    <td>
+                      {user.role === UserRole.SUBSCRIBER && missing.length > 0 ? (
+                        <p className="status-badge missing">{`Mancano: ${missing.map((type) => documentTypeLabel(type)).join(", ")}`}</p>
+                      ) : (
+                        <p className="status-badge ok">Documenti in regola</p>
+                      )}
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        <form action={changeUserRoleAction} className="inline-form">
+                          <input type="hidden" name="targetUserId" value={user.id} />
+                          <select name="role" defaultValue={user.role}>
+                            <option value={UserRole.ADMIN}>Admin</option>
+                            <option value={UserRole.INSTRUCTOR}>Istruttore</option>
+                            <option value={UserRole.SUBSCRIBER}>Iscritto</option>
+                          </select>
+                          <button type="submit" className="button button-ghost small">
+                            Salva ruolo
+                          </button>
+                        </form>
+
+                        <form action={deleteUserAction}>
+                          <input type="hidden" name="targetUserId" value={user.id} />
+                          <button type="submit" className="button button-danger small">
+                            Rimuovi
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -176,28 +214,24 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
         <h3 className="panel-title">Assegna piano</h3>
 
         <form action={assignSubscriptionAction} className="grid-form compact">
-          <label className="input-group">
-            <span>Abbonato</span>
-            <select name="targetUserId" required>
-              {subscribers.map((subscriber) => (
-                <option key={subscriber.id} value={subscriber.id}>{`${subscriber.firstName} ${subscriber.lastName}`}</option>
-              ))}
-            </select>
-          </label>
+          <CustomSelect
+            name="targetUserId"
+            label="Iscritto"
+            options={subscriberOptions}
+            placeholder="Cerca iscritto"
+            searchable
+            required
+          />
 
-          <label className="input-group">
-            <span>Piano</span>
-            <select name="tier" defaultValue={SubscriptionTier.MONTHLY}>
-              <option value={SubscriptionTier.MONTHLY}>Mensile</option>
-              <option value={SubscriptionTier.QUARTERLY}>Trimestrale</option>
-              <option value={SubscriptionTier.YEARLY}>Annuale</option>
-            </select>
-          </label>
+          <CustomSelect
+            name="tier"
+            label="Piano"
+            options={subscriptionOptions}
+            defaultValue={SubscriptionTier.MONTHLY}
+            required
+          />
 
-          <label className="input-group">
-            <span>Data inizio</span>
-            <input type="date" name="startsAt" />
-          </label>
+          <CustomCalendar name="startsAt" label="Data inizio" />
 
           <button type="submit" className="button button-primary">
             Assegna abbonamento
@@ -210,23 +244,23 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
         <h3 className="panel-title">Assegna istruttore</h3>
 
         <form action={assignInstructorAction} className="grid-form compact">
-          <label className="input-group">
-            <span>Abbonato</span>
-            <select name="subscriberId" required>
-              {subscribers.map((subscriber) => (
-                <option key={subscriber.id} value={subscriber.id}>{`${subscriber.firstName} ${subscriber.lastName}`}</option>
-              ))}
-            </select>
-          </label>
+          <CustomSelect
+            name="subscriberId"
+            label="Iscritto"
+            options={subscriberOptions}
+            placeholder="Cerca iscritto"
+            searchable
+            required
+          />
 
-          <label className="input-group">
-            <span>Istruttore</span>
-            <select name="instructorId" required>
-              {instructors.map((instructor) => (
-                <option key={instructor.id} value={instructor.id}>{`${instructor.firstName} ${instructor.lastName}`}</option>
-              ))}
-            </select>
-          </label>
+          <CustomSelect
+            name="instructorId"
+            label="Istruttore"
+            options={instructorOptions}
+            placeholder="Cerca istruttore"
+            searchable
+            required
+          />
 
           <button type="submit" className="button button-primary">
             Assegna istruttore

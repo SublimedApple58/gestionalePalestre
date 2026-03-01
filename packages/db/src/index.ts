@@ -1,6 +1,7 @@
 export { db } from "./client";
 export {
   AccessEventType,
+  DocumentType,
   Prisma,
   PrismaClient,
   SubscriptionTier,
@@ -11,6 +12,7 @@ export type {
   Account,
   Session,
   User,
+  UserDocument,
   UserSubscription,
   VerificationToken,
   WorkoutPlan

@@ -1,6 +1,7 @@
-import { SubscriptionTier, type WorkoutPlan } from "@gestionale/db";
+import { SubscriptionTier, type UserDocument, UserRole, type WorkoutPlan } from "@gestionale/db";
 
 import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
+import { documentTypeLabel, getMissingDocumentTypes, hasRequiredDocuments } from "@/lib/documents";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -19,15 +20,20 @@ type SubscriberDashboardProps = {
     lastName: string;
     email: string;
   } | null;
+  documents: UserDocument[];
 };
 
 export function SubscriberDashboard({
   accessCode,
   workoutPlan,
   subscription,
-  assignedInstructor
+  assignedInstructor,
+  documents
 }: SubscriberDashboardProps) {
   const subscriptionActive = isSubscriptionActive(subscription);
+  const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents);
+  const missingDocuments = getMissingDocumentTypes(UserRole.SUBSCRIBER, documents);
+  const canEnterGym = subscriptionActive && documentsReady;
 
   return (
     <div className="dashboard-grid">
@@ -63,9 +69,9 @@ export function SubscriberDashboard({
         )}
       </section>
 
-      {subscriptionActive ? (
+      {canEnterGym ? (
         <>
-          <MaskedAccessCode code={accessCode} title="Codice ingresso abbonato" />
+          <MaskedAccessCode code={accessCode} title="Codice ingresso iscritto" />
 
           <section className="panel">
             <p className="panel-kicker">Ingresso</p>
@@ -81,7 +87,13 @@ export function SubscriberDashboard({
         <section className="panel panel-full">
           <p className="panel-kicker">Ingresso palestra</p>
           <h3 className="panel-title">Codice non disponibile</h3>
-          <p>Il codice di accesso viene mostrato solo con abbonamento attivo.</p>
+          <p>
+            {!subscriptionActive
+              ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
+              : `Accesso bloccato: mancano ${missingDocuments
+                  .map((type) => documentTypeLabel(type))
+                  .join(", ")}.`}
+          </p>
         </section>
       )}
 

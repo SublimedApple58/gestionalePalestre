@@ -3,7 +3,7 @@
 Gestionale palestra role-based con:
 - `admin`
 - `istruttore`
-- `abbonato`
+- `iscritto`
 
 Stack:
 - Next.js App Router (`apps/web`)
@@ -23,21 +23,27 @@ Stack:
 - modifica ruolo utente
 - rimozione utente con protezione ultimo admin
 - assegnazione piano abbonamento (Mensile/Trimestrale/Annuale)
-- assegnazione istruttore a un abbonato (1:1 lato abbonato)
+- assegnazione istruttore a un iscritto (1:1 lato iscritto)
 - storico ingressi mock
+- stato documenti in lista utenti (codice fiscale, documento identita', certificato medico)
+- caricamento documenti in modalita mock (metadati file, no storage reale)
 
 ### Istruttore
 - codice ingresso personale con toggle occhio
 - lista allievi assegnati
 - piano allenamento settimanale semplice (lun-dom)
 - simulazione ingresso mock
+- panoramica informazioni personali (nome, email, cellulare, ruolo, documenti, abbonamento)
+- caricamento documenti in modalita mock dal proprio account
 
-### Abbonato
+### Iscritto
 - stato abbonamento (attivo/non attivo)
 - tipo piano e data scadenza
 - piano allenamento settimanale semplice (lun-dom)
-- codice ingresso visibile solo se abbonamento attivo
-- simulazione ingresso mock solo se attivo
+- codice ingresso visibile solo se abbonamento attivo e documenti obbligatori completi
+- simulazione ingresso mock solo se attivo e documenti obbligatori completi
+- panoramica informazioni personali (nome, email, cellulare, ruolo, documenti, abbonamento)
+- caricamento documenti in modalita mock dal proprio account
 
 ## Struttura
 - `apps/web`: frontend + server actions + auth
@@ -93,6 +99,7 @@ App disponibile su `http://localhost:3000`.
   - `istruttore@example.com` / `Password123!`
   - `abbonato.attivo@example.com` / `Password123!`
   - `abbonato.nonattivo@example.com` / `Password123!`
+  - `iscritto.docsmancanti@example.com` / `Password123!`
 
 ## Comandi utili
 

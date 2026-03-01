@@ -7,7 +7,7 @@ export function roleLabel(role: UserRole): string {
     case UserRole.INSTRUCTOR:
       return "Istruttore";
     case UserRole.SUBSCRIBER:
-      return "Abbonato";
+      return "Iscritto";
     default:
       return role;
   }

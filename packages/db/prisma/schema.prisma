@@ -25,11 +25,18 @@ enum AccessEventType {
   DOOR_OPEN
 }
 
+enum DocumentType {
+  TAX_CODE
+  IDENTITY_DOCUMENT
+  MEDICAL_CERTIFICATE
+}
+
 model User {
   id                    String             @id @default(cuid())
   firstName             String
   lastName              String
   email                 String             @unique
+  phoneNumber           String?
   passwordHash          String
   role                  UserRole           @default(SUBSCRIBER)
   accessCode            String             @db.VarChar(6)
@@ -39,6 +46,8 @@ model User {
   subscription          UserSubscription?
   workoutPlan           WorkoutPlan?
   accessEvents          AccessEvent[]
+  documents             UserDocument[]     @relation("UserDocuments")
+  uploadedDocuments     UserDocument[]     @relation("UserUploadedDocuments")
   sessions              Session[]
   accounts              Account[]
   subscriptionsAssigned UserSubscription[] @relation("AdminAssignedSubscriptions")
@@ -47,6 +56,23 @@ model User {
 
   @@index([role])
   @@index([assignedInstructorId])
+}
+
+model UserDocument {
+  id           String       @id @default(cuid())
+  userId       String
+  type         DocumentType
+  fileLabel    String
+  uploadedById String?
+  uploadedAt   DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  user         User         @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation("UserUploadedDocuments", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, type])
+  @@index([userId, uploadedAt(sort: Desc)])
+  @@index([uploadedById])
 }
 
 model UserSubscription {

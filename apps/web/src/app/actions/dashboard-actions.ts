@@ -11,12 +11,14 @@ import {
   recordEntrySimulation,
   ensureSubscriberCanEnter
 } from "@/lib/services/access-event-service";
+import { uploadUserDocument } from "@/lib/services/document-service";
 import { DomainError } from "@/lib/services/errors";
 import {
   assignInstructorByAdmin,
   assignSubscriptionByAdmin,
   createUserByAdmin,
   deleteUserByAdmin,
+  updatePersonalInfo,
   updateUserRoleByAdmin
 } from "@/lib/services/user-service";
 import { saveWorkoutPlan } from "@/lib/services/workout-service";
@@ -25,7 +27,9 @@ import {
   adminDeleteUserSchema,
   adminRoleChangeSchema,
   assignInstructorSchema,
-  assignSubscriptionSchema
+  assignSubscriptionSchema,
+  updatePersonalInfoSchema,
+  uploadDocumentSchema
 } from "@/lib/validators/forms";
 
 function parseDateInput(value: string | null): Date {
@@ -184,5 +188,50 @@ export async function openGymDoorAction(): Promise<void> {
   const user = await requireRole([UserRole.ADMIN]);
 
   await recordDoorOpen(db, user.id);
+  revalidatePath("/dashboard");
+}
+
+export async function updatePersonalInfoAction(formData: FormData): Promise<void> {
+  const user = await requireSessionUser();
+
+  const parsed = updatePersonalInfoSchema.safeParse({
+    phoneNumber: formData.get("phoneNumber")
+  });
+
+  if (!parsed.success) {
+    redirect("/dashboard?error=profilo-non-valido");
+  }
+
+  await updatePersonalInfo(db, {
+    userId: user.id,
+    phoneNumber: parsed.data.phoneNumber
+  });
+
+  revalidatePath("/dashboard");
+}
+
+export async function uploadMyDocumentAction(formData: FormData): Promise<void> {
+  const user = await requireSessionUser();
+
+  const parsed = uploadDocumentSchema.safeParse({
+    type: formData.get("type"),
+    fileLabel: formData.get("fileLabel")
+  });
+
+  if (!parsed.success) {
+    redirect("/dashboard?error=documento-non-valido");
+  }
+
+  try {
+    await uploadUserDocument(db, {
+      userId: user.id,
+      uploadedById: user.id,
+      type: parsed.data.type,
+      fileLabel: parsed.data.fileLabel
+    });
+  } catch (error) {
+    redirectWithDomainError(error);
+  }
+
   revalidatePath("/dashboard");
 }

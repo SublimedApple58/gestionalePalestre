@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 
 import {
+  DocumentType,
   AccessEventType,
   PrismaClient,
   SubscriptionTier,
@@ -18,7 +19,16 @@ import {
   deleteUserByAdmin
 } from "@/lib/services/user-service";
 
-const hasTestDb = Boolean(process.env.DATABASE_URL_TEST && process.env.DIRECT_URL_TEST);
+function hasRealConnectionString(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return !value.includes("YOUR-") && !value.includes("DB_NAME_TEST");
+}
+
+const hasTestDb = hasRealConnectionString(process.env.DATABASE_URL_TEST) &&
+  hasRealConnectionString(process.env.DIRECT_URL_TEST);
 const describeIfDb = hasTestDb ? describe : describe.skip;
 
 describeIfDb("RBAC backend e2e", () => {
@@ -154,6 +164,29 @@ describeIfDb("RBAC backend e2e", () => {
       }
     });
 
+    await prisma.userDocument.createMany({
+      data: [
+        {
+          userId: subscriber.id,
+          type: DocumentType.TAX_CODE,
+          fileLabel: "cf_subscriber.pdf",
+          uploadedById: subscriber.id
+        },
+        {
+          userId: subscriber.id,
+          type: DocumentType.IDENTITY_DOCUMENT,
+          fileLabel: "id_subscriber.pdf",
+          uploadedById: subscriber.id
+        },
+        {
+          userId: subscriber.id,
+          type: DocumentType.MEDICAL_CERTIFICATE,
+          fileLabel: "medical_subscriber.pdf",
+          uploadedById: subscriber.id
+        }
+      ]
+    });
+
     await ensureSubscriberCanEnter(prisma, subscriber.id, new Date("2026-03-15T10:00:00.000Z"));
     await recordEntrySimulation(prisma, subscriber.id);
 
@@ -182,5 +215,29 @@ describeIfDb("RBAC backend e2e", () => {
         targetUserId: admin.id
       })
     ).rejects.toMatchObject({ code: "LAST_ADMIN" });
+  });
+
+  it("blocca ingresso iscritto senza documenti obbligatori", async () => {
+    const subscriber = await prisma.user.create({
+      data: {
+        firstName: "No",
+        lastName: "Docs",
+        email: "no-docs@test.local",
+        passwordHash: "hash",
+        role: UserRole.SUBSCRIBER,
+        accessCode: "909090",
+        subscription: {
+          create: {
+            tier: SubscriptionTier.MONTHLY,
+            startsAt: new Date("2026-02-01T00:00:00.000Z"),
+            endsAt: new Date("2026-04-01T00:00:00.000Z")
+          }
+        }
+      }
+    });
+
+    await expect(
+      ensureSubscriberCanEnter(prisma, subscriber.id, new Date("2026-03-15T10:00:00.000Z"))
+    ).rejects.toMatchObject({ code: "MISSING_REQUIRED_DOCUMENTS" });
   });
 });

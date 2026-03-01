@@ -42,6 +42,11 @@ type AssignInstructorInput = {
   instructorId: string;
 };
 
+type UpdatePersonalInfoInput = {
+  userId: string;
+  phoneNumber: string | null;
+};
+
 function assertAdminRole(actorRole: UserRole): void {
   if (actorRole !== UserRole.ADMIN) {
     throw new DomainError("FORBIDDEN", "Solo un admin puo' eseguire questa azione.");
@@ -183,7 +188,7 @@ export async function assignSubscriptionByAdmin(
   }
 
   if (user.role !== UserRole.SUBSCRIBER) {
-    throw new DomainError("INVALID_ROLE", "L'abbonamento puo' essere assegnato solo agli abbonati.");
+    throw new DomainError("INVALID_ROLE", "L'abbonamento puo' essere assegnato solo agli iscritti.");
   }
 
   const endsAt = computeSubscriptionEndDate(input.tier, input.startsAt);
@@ -229,7 +234,7 @@ export async function assignInstructorByAdmin(
   }
 
   if (subscriber.role !== UserRole.SUBSCRIBER) {
-    throw new DomainError("INVALID_ROLE", "Solo un abbonato puo' ricevere un istruttore.");
+    throw new DomainError("INVALID_ROLE", "Solo un iscritto puo' ricevere un istruttore.");
   }
 
   if (instructor.role !== UserRole.INSTRUCTOR) {
@@ -239,5 +244,17 @@ export async function assignInstructorByAdmin(
   await prisma.user.update({
     where: { id: subscriber.id },
     data: { assignedInstructorId: instructor.id }
+  });
+}
+
+export async function updatePersonalInfo(
+  prisma: PrismaClient,
+  input: UpdatePersonalInfoInput
+): Promise<void> {
+  await prisma.user.update({
+    where: { id: input.userId },
+    data: {
+      phoneNumber: input.phoneNumber
+    }
   });
 }

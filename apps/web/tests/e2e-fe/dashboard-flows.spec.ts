@@ -1,6 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const hasTestDb = Boolean(process.env.DATABASE_URL_TEST && process.env.DIRECT_URL_TEST);
+function hasRealConnectionString(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return !value.includes("YOUR-") && !value.includes("DB_NAME_TEST");
+}
+
+const hasTestDb = hasRealConnectionString(process.env.DATABASE_URL_TEST) &&
+  hasRealConnectionString(process.env.DIRECT_URL_TEST);
 
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
@@ -35,5 +44,12 @@ test.describe("dashboard role-based", () => {
 
     await expect(page.getByText("Codice non disponibile")).toBeVisible();
     await expect(page.getByText("Il codice di accesso viene mostrato solo con abbonamento attivo.")).toBeVisible();
+  });
+
+  test("iscritto attivo senza documenti viene bloccato", async ({ page }) => {
+    await login(page, "iscritto.docsmancanti@example.com", "Password123!");
+
+    await expect(page.getByText("Codice non disponibile")).toBeVisible();
+    await expect(page.getByText("Accesso bloccato: mancano codice fiscale, documento identita', certificato medico.")).toBeVisible();
   });
 });

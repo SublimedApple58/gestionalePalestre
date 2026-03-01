@@ -10,7 +10,7 @@ const openSans = Open_Sans({
 
 export const metadata: Metadata = {
   title: "Gestionale Palestre",
-  description: "Gestionale palestre role-based con admin, istruttori e abbonati"
+  description: "Gestionale palestre role-based con admin, istruttori e iscritti"
 };
 
 export default function RootLayout({

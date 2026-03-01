@@ -37,7 +37,7 @@ export function InstructorDashboard({
 
       <section className="panel panel-full">
         <p className="panel-kicker">Allievi</p>
-        <h3 className="panel-title">Abbonati assegnati</h3>
+        <h3 className="panel-title">Iscritti assegnati</h3>
 
         <ul className="event-list">
           {assignedSubscribers.length === 0 ? (
