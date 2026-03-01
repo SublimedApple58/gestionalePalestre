@@ -94,7 +94,8 @@ p {
 }
 
 .dashboard-shell {
-  width: min(1200px, 100%);
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 28px 18px 80px;
 }
@@ -123,7 +124,8 @@ p {
 }
 
 .profile-shell {
-  width: min(980px, 100%);
+  width: 100%;
+  max-width: 980px;
   margin: 0 auto;
   padding: 28px 18px 80px;
 }
@@ -249,6 +251,68 @@ p {
   color: var(--text-muted);
   font-size: 14px;
   pointer-events: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.app-sidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  padding: 20px 14px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar-top {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-title {
+  font-size: 1.4rem;
+}
+
+.sidebar-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.sidebar-link {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-decoration: none;
+  font-weight: 600;
+  background: var(--white);
+}
+
+.sidebar-link.active {
+  border-color: rgba(223, 37, 19, 0.65);
+  background: rgba(223, 37, 19, 0.14);
+}
+
+.sidebar-footer {
+  display: grid;
+}
+
+.app-content {
+  min-width: 0;
 }
 
 .custom-select-dropdown {
@@ -547,5 +611,22 @@ th {
 
   .header-actions {
     flex-wrap: wrap;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(160px, 1fr);
+    overflow-x: auto;
   }
 }

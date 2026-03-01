@@ -1,11 +1,10 @@
 import { db, UserRole } from "@gestionale/db";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { LogoutButton } from "@/components/auth/logout-button";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard";
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
+import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { roleLabel } from "@/lib/roles";
 import { requireSessionUser } from "@/lib/session";
 
@@ -68,47 +67,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   return (
-    <main className="dashboard-shell">
-      <header className="dashboard-header">
-        <div>
-          <p className="eyebrow">Gestionale Palestre</p>
-          <h1>{`Ciao ${currentUser.firstName}`}</h1>
-          <p className="subtitle">{`Ruolo: ${roleLabel(currentUser.role)}`}</p>
-        </div>
-        <div className="header-actions">
-          <Link href="/profilo" className="button button-ghost">
-            Dati personali
-          </Link>
-          <LogoutButton />
-        </div>
-      </header>
+    <AuthenticatedShell
+      currentPath="/dashboard"
+      user={{
+        firstName: currentUser.firstName,
+        role: currentUser.role
+      }}
+    >
+      <main className="dashboard-shell">
+        <header className="dashboard-header">
+          <div>
+            <p className="eyebrow">Gestionale Palestre</p>
+            <h1>{`Ciao ${currentUser.firstName}`}</h1>
+            <p className="subtitle">{`Ruolo: ${roleLabel(currentUser.role)}`}</p>
+          </div>
+        </header>
 
-      {params.error && ERROR_MAP[params.error] ? (
-        <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
-      ) : null}
+        {params.error && ERROR_MAP[params.error] ? (
+          <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
+        ) : null}
 
-      {currentUser.role === UserRole.ADMIN ? (
-        <AdminView currentUserId={currentUser.id} accessCode={currentUser.accessCode} />
-      ) : null}
+        {currentUser.role === UserRole.ADMIN ? (
+          <AdminView currentUserId={currentUser.id} accessCode={currentUser.accessCode} />
+        ) : null}
 
-      {currentUser.role === UserRole.INSTRUCTOR ? (
-        <InstructorDashboard
-          accessCode={currentUser.accessCode}
-          assignedSubscribers={currentUser.assignedSubscribers}
-          workoutPlan={currentUser.workoutPlan}
-        />
-      ) : null}
+        {currentUser.role === UserRole.INSTRUCTOR ? (
+          <InstructorDashboard
+            accessCode={currentUser.accessCode}
+            assignedSubscribers={currentUser.assignedSubscribers}
+            workoutPlan={currentUser.workoutPlan}
+          />
+        ) : null}
 
-      {currentUser.role === UserRole.SUBSCRIBER ? (
-        <SubscriberDashboard
-          accessCode={currentUser.accessCode}
-          assignedInstructor={currentUser.assignedInstructor}
-          documents={currentUser.documents}
-          subscription={currentUser.subscription}
-          workoutPlan={currentUser.workoutPlan}
-        />
-      ) : null}
-    </main>
+        {currentUser.role === UserRole.SUBSCRIBER ? (
+          <SubscriberDashboard
+            accessCode={currentUser.accessCode}
+            assignedInstructor={currentUser.assignedInstructor}
+            documents={currentUser.documents}
+            subscription={currentUser.subscription}
+            workoutPlan={currentUser.workoutPlan}
+          />
+        ) : null}
+      </main>
+    </AuthenticatedShell>
   );
 }
 
