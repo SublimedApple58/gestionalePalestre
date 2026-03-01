@@ -39,6 +39,20 @@ test.describe("dashboard role-based", () => {
     await expect(page.locator(".custom-select-dropdown.portal")).toHaveCount(0);
   });
 
+  test("mobile: sidebar chiusa di default e apribile dal bottone in alto a sinistra", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, "umberto.giancola00@gmail.com", "Castiglione1!");
+
+    const sidebarToggle = page.locator("#sidebar-toggle");
+    await expect(sidebarToggle).not.toBeChecked();
+
+    await page.getByLabel("Apri menu laterale").click();
+    await expect(sidebarToggle).toBeChecked();
+
+    await page.getByLabel("Chiudi menu laterale").click();
+    await expect(sidebarToggle).not.toBeChecked();
+  });
+
   test("abbonato attivo vede il codice nascosto e puo' mostrarlo", async ({ page }) => {
     await login(page, "abbonato.attivo@example.com", "Password123!");
 

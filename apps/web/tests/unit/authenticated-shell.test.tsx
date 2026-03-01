@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
@@ -31,5 +31,25 @@ describe("AuthenticatedShell", () => {
     expect(screen.queryByText(/Ciao/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
     expect(screen.getByText("Contenuto pagina")).toBeVisible();
+  });
+
+  it("espone controllo drawer mobile con toggle checkbox", () => {
+    render(
+      <AuthenticatedShell
+        currentPath="/dashboard"
+        user={{ firstName: "Mario", role: "ADMIN" }}
+      >
+        <div>Contenuto pagina</div>
+      </AuthenticatedShell>
+    );
+
+    const toggle = document.getElementById("sidebar-toggle") as HTMLInputElement;
+    expect(toggle).not.toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("Apri menu laterale"));
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("Chiudi menu laterale"));
+    expect(toggle).not.toBeChecked();
   });
 });

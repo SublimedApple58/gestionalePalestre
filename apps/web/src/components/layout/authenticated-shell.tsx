@@ -18,7 +18,23 @@ export function AuthenticatedShell({ children, currentPath }: AuthenticatedShell
 
   return (
     <div className="app-shell">
+      <input id="sidebar-toggle" type="checkbox" className="sidebar-toggle-input" aria-hidden="true" />
+
+      <label htmlFor="sidebar-toggle" className="sidebar-open-button" aria-label="Apri menu laterale">
+        <span />
+        <span />
+        <span />
+      </label>
+
+      <label htmlFor="sidebar-toggle" className="sidebar-overlay" aria-hidden="true" />
+
       <aside className="app-sidebar">
+        <div className="sidebar-mobile-head">
+          <label htmlFor="sidebar-toggle" className="sidebar-close-button" aria-label="Chiudi menu laterale">
+            ✕
+          </label>
+        </div>
+
         <div className="sidebar-top">
           <div className="sidebar-brand">
             <span className="sidebar-brand-mark" aria-hidden="true">
