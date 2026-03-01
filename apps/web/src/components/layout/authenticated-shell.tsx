@@ -1,21 +1,20 @@
 import Link from "next/link";
+import { type UserRole } from "@gestionale/db";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { getAppNavigationItems } from "@/lib/navigation";
-import { roleLabel } from "@/lib/roles";
 
 type AuthenticatedShellProps = {
   children: React.ReactNode;
   currentPath: "/dashboard" | "/profilo";
   user: {
     firstName: string;
-    role: Parameters<typeof roleLabel>[0];
+    role: UserRole;
   };
 };
 
-export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
+export function AuthenticatedShell({ children, currentPath }: AuthenticatedShellProps) {
   const navItems = getAppNavigationItems(currentPath);
-  const currentRoleLabel = roleLabel(user.role);
 
   return (
     <div className="app-shell">
@@ -28,12 +27,9 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
 
             <div>
               <p className="eyebrow">Gestionale Palestre</p>
-              <h2 className="sidebar-title">Control Room</h2>
+              <h2 className="sidebar-title">HOUSE OF MUSCLE</h2>
             </div>
           </div>
-
-          <p className="sidebar-subtitle">{`Ciao ${user.firstName}`}</p>
-          <p className="sidebar-role-pill">{currentRoleLabel}</p>
         </div>
 
         <nav className="sidebar-nav" aria-label="Navigazione principale">

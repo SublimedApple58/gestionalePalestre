@@ -162,27 +162,6 @@ p {
   letter-spacing: 0.035em;
 }
 
-.sidebar-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.sidebar-role-pill {
-  margin: 0;
-  width: fit-content;
-  border-radius: 999px;
-  border: 1px solid rgba(223, 37, 49, 0.55);
-  background: rgba(223, 37, 49, 0.2);
-  color: #ffd7da;
-  padding: 4px 10px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
 .sidebar-nav {
   display: grid;
   gap: 8px;
