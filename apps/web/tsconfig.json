@@ -7,6 +7,7 @@
     "jsx": "preserve",
     "incremental": true,
     "isolatedModules": true,
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"]
