@@ -30,9 +30,11 @@ describe("CustomSelect", () => {
     expect(hiddenInput.value).toBe("ADMIN");
 
     fireEvent.click(screen.getByRole("button", { name: "Ruolo utente" }));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Istruttore" }));
 
     expect(hiddenInput.value).toBe("INSTRUCTOR");
     expect(screen.getByRole("button", { name: "Ruolo utente" })).toHaveTextContent("Istruttore");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });
