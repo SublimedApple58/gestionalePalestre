@@ -10,6 +10,7 @@ import {
   documentStatusLabel,
   documentTypeLabel
 } from "@/lib/documents";
+import { CustomCalendar } from "@/components/ui/custom-calendar";
 
 type ReviewDocumentRow = UserDocument & {
   user: {
@@ -86,19 +87,16 @@ export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
                       <form action={approveDocumentAction} className="grid-form">
                         <input type="hidden" name="documentId" value={document.id} />
                         {document.type === DocumentType.MEDICAL_CERTIFICATE ? (
-                          <label className="input-group">
-                            <span>Scadenza certificato</span>
-                            <input
-                              type="date"
-                              name="medicalCertificateExpiresAt"
-                              defaultValue={
-                                document.medicalCertificateExpiresAt
-                                  ? new Date(document.medicalCertificateExpiresAt).toISOString().slice(0, 10)
-                                  : ""
-                              }
-                              required
-                            />
-                          </label>
+                          <CustomCalendar
+                            name="medicalCertificateExpiresAt"
+                            label="Scadenza certificato"
+                            defaultValue={
+                              document.medicalCertificateExpiresAt
+                                ? new Date(document.medicalCertificateExpiresAt).toISOString().slice(0, 10)
+                                : undefined
+                            }
+                            required
+                          />
                         ) : null}
                         <button type="submit" className="button button-primary small">
                           Approva

@@ -1,11 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { CalendarDays } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type CustomCalendarProps = {
-  name: string;
+  name?: string;
   label: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  required?: boolean;
+  min?: string;
+  max?: string;
+  hideLabel?: boolean;
+  compact?: boolean;
 };
 
 const DAY_LABELS = ["L", "M", "M", "G", "V", "S", "D"];
@@ -40,13 +48,74 @@ function sameDay(left: Date, right: Date): boolean {
   );
 }
 
-export function CustomCalendar({ name, label, defaultValue }: CustomCalendarProps) {
-  const initialSelected = parseYmd(defaultValue) ?? new Date();
-  const [selectedDate, setSelectedDate] = useState<Date>(initialSelected);
-  const [viewDate, setViewDate] = useState<Date>(
-    new Date(initialSelected.getFullYear(), initialSelected.getMonth(), 1)
-  );
+export function CustomCalendar({
+  name,
+  label,
+  defaultValue,
+  value,
+  onChange,
+  required = false,
+  min,
+  max,
+  hideLabel = false,
+  compact = false
+}: CustomCalendarProps) {
+  const controlled = typeof value === "string";
+  const [internalValue, setInternalValue] = useState<string>(defaultValue ?? formatYmd(new Date()));
+
+  const activeValue = controlled ? value : internalValue;
+  const selectedDate = parseYmd(activeValue);
+  const minDate = parseYmd(min);
+  const maxDate = parseYmd(max);
+
   const [open, setOpen] = useState(false);
+  const [viewDate, setViewDate] = useState<Date>(
+    new Date(
+      (selectedDate ?? new Date()).getFullYear(),
+      (selectedDate ?? new Date()).getMonth(),
+      1
+    )
+  );
+
+  const containerRef = useRef<HTMLLabelElement | null>(null);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
+    setViewDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  }, [activeValue]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function onClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (containerRef.current?.contains(target)) {
+        return;
+      }
+
+      setOpen(false);
+    }
+
+    function onEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
 
   const calendarDays = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -75,22 +144,53 @@ export function CustomCalendar({ name, label, defaultValue }: CustomCalendarProp
     return cells;
   }, [viewDate]);
 
+  function commit(nextValue: string) {
+    if (!controlled) {
+      setInternalValue(nextValue);
+    }
+
+    onChange?.(nextValue);
+  }
+
+  function isDisabledDay(day: Date): boolean {
+    if (minDate && day < minDate) {
+      return true;
+    }
+
+    if (maxDate && day > maxDate) {
+      return true;
+    }
+
+    return false;
+  }
+
+  const today = new Date();
+  const displayLabel = selectedDate ? selectedDate.toLocaleDateString("it-IT") : "Seleziona data";
+
   return (
-    <label className="input-group custom-calendar-field">
-      <span>{label}</span>
+    <label
+      ref={containerRef}
+      className={`input-group custom-calendar-field ${compact ? "compact" : ""}`}
+    >
+      <span className={hideLabel ? "sr-only" : undefined}>{label}</span>
 
       <button
         type="button"
-        className="custom-select-button"
+        className="custom-calendar-trigger"
         onClick={() => setOpen((current) => !current)}
+        aria-label={label}
       >
-        {selectedDate.toLocaleDateString("it-IT")}
+        <CalendarDays size={16} aria-hidden="true" />
+        <span className={`custom-calendar-value ${selectedDate ? "" : "placeholder"}`}>{displayLabel}</span>
+        <span className="custom-select-arrow" aria-hidden="true">
+          ▾
+        </span>
       </button>
 
-      <input type="hidden" name={name} value={formatYmd(selectedDate)} />
+      {name ? <input type="hidden" name={name} value={activeValue ?? ""} required={required} /> : null}
 
       {open ? (
-        <div className="calendar-dropdown">
+        <div className="calendar-dropdown fancy">
           <div className="calendar-header">
             <button
               type="button"
@@ -100,7 +200,9 @@ export function CustomCalendar({ name, label, defaultValue }: CustomCalendarProp
               ‹
             </button>
 
-            <strong>{viewDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" })}</strong>
+            <strong className="calendar-title">
+              {viewDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" })}
+            </strong>
 
             <button
               type="button"
@@ -118,23 +220,44 @@ export function CustomCalendar({ name, label, defaultValue }: CustomCalendarProp
           </div>
 
           <div className="calendar-grid">
-            {calendarDays.map((day, index) =>
-              day ? (
+            {calendarDays.map((day, index) => {
+              if (!day) {
+                return <span key={`empty-${index}`} className="calendar-empty" />;
+              }
+
+              const isSelected = !!selectedDate && sameDay(day, selectedDate);
+              const isToday = sameDay(day, today);
+              const disabled = isDisabledDay(day);
+
+              return (
                 <button
                   key={`${day.toISOString()}-${index}`}
                   type="button"
-                  className={`calendar-day ${sameDay(day, selectedDate) ? "selected" : ""}`}
+                  className={`calendar-day ${isSelected ? "selected" : ""} ${isToday ? "today" : ""}`}
+                  disabled={disabled}
                   onClick={() => {
-                    setSelectedDate(day);
+                    commit(formatYmd(day));
                     setOpen(false);
                   }}
                 >
                   {day.getDate()}
                 </button>
-              ) : (
-                <span key={`empty-${index}`} className="calendar-empty" />
-              )
-            )}
+              );
+            })}
+          </div>
+
+          <div className="calendar-actions">
+            <button
+              type="button"
+              className="button button-ghost small"
+              onClick={() => {
+                const nowValue = formatYmd(new Date());
+                commit(nowValue);
+                setOpen(false);
+              }}
+            >
+              Oggi
+            </button>
           </div>
         </div>
       ) : null}

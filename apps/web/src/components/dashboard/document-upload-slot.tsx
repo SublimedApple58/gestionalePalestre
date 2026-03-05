@@ -10,6 +10,8 @@ import {
   documentStatusLabel,
   documentTypeLabel
 } from "@/lib/documents";
+import { CustomCalendar } from "@/components/ui/custom-calendar";
+import { CustomFilePicker } from "@/components/ui/custom-file-picker";
 
 type DocumentUploadSlotProps = {
   type: DocumentType;
@@ -61,9 +63,11 @@ export function DocumentUploadSlot({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(current?.fileName ?? null);
   const [medicalExpiry, setMedicalExpiry] = useState<string>(
     current?.medicalCertificateExpiresAt ? new Date(current.medicalCertificateExpiresAt).toISOString().slice(0, 10) : ""
   );
+  const todayYmd = new Date().toISOString().slice(0, 10);
 
   const remainingAttempts = useMemo(() => {
     if (!current) {
@@ -158,6 +162,7 @@ export function DocumentUploadSlot({
           ? "Documento caricato. Analisi automatica avviata."
           : "Documento caricato con successo."
       );
+      setSelectedFileName(file.name);
 
       router.refresh();
     } catch (uploadError) {
@@ -191,34 +196,26 @@ export function DocumentUploadSlot({
       {current?.rejectionReason ? <p className="status-badge missing">{current.rejectionReason}</p> : null}
 
       {medicalCertificateRequired ? (
-        <label className="input-group">
-          <span>Scadenza certificato medico</span>
-          <input
-            type="date"
-            value={medicalExpiry}
-            onChange={(event) => setMedicalExpiry(event.target.value)}
-            required
-          />
-        </label>
+        <CustomCalendar
+          label="Scadenza certificato medico"
+          value={medicalExpiry}
+          onChange={setMedicalExpiry}
+          min={todayYmd}
+          required
+        />
       ) : null}
 
-      <label className="input-group">
-        <span>Seleziona file</span>
-        <input
-          type="file"
-          accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
-          disabled={uploading}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-
-            if (file) {
-              void handleUpload(file);
-            }
-
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
+      <CustomFilePicker
+        label="Carica documento"
+        accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
+        disabled={uploading}
+        selectedFileName={selectedFileName}
+        hint="Dimensione massima consigliata: 12 MB"
+        onPickFile={(file) => {
+          setSelectedFileName(file.name);
+          void handleUpload(file);
+        }}
+      />
 
       {error ? <p className="error-banner">{error}</p> : null}
       {success ? <p className="status-badge ok">{success}</p> : null}
