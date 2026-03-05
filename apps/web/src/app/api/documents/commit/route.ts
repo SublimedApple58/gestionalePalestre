@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.code, message: error.message }, { status: toStatusCode(error) });
     }
 
+    console.error("[commit] unhandled error:", error);
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
