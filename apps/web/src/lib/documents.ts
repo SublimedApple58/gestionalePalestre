@@ -179,10 +179,10 @@ export function getMissingOverallDocumentTypes(
   return CORE_DOCUMENT_TYPES.filter((type) => !presentAndApproved.has(type));
 }
 
-export function getDocumentSlot(
-  documents: Array<Pick<UserDocument, "type" | "side" | "status" | "medicalCertificateExpiresAt">>,
+export function getDocumentSlot<T extends Pick<UserDocument, "type" | "side">>(
+  documents: T[],
   slot: DocumentSlot
-) {
+): T | null {
   return documents.find((document) => document.type === slot.type && document.side === slot.side) ?? null;
 }
 
