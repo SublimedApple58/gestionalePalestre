@@ -183,7 +183,9 @@ export async function extractDocumentDataWithAi(input: ExtractInput): Promise<Ex
   });
 
   if (!response.ok) {
-    throw new DomainError("AI_PROVIDER_ERROR", `OpenAI error ${response.status}`);
+    const errorBody = await response.text().catch(() => "(unreadable)");
+    console.error(`[document-ai] OpenAI error ${response.status}:`, errorBody);
+    throw new DomainError("AI_PROVIDER_ERROR", `OpenAI error ${response.status}: ${errorBody}`);
   }
 
   const completionPayload = (await response.json()) as unknown;
