@@ -58,11 +58,9 @@ export function SubscriberDashboard({
 
     return slots.some((slot) =>
       slot
-        ? [
-            DocumentStatus.UPLOADED,
-            DocumentStatus.AI_PROCESSING,
-            DocumentStatus.PENDING_ADMIN_REVIEW
-          ].includes(slot.status)
+        ? slot.status === DocumentStatus.UPLOADED ||
+          slot.status === DocumentStatus.AI_PROCESSING ||
+          slot.status === DocumentStatus.PENDING_ADMIN_REVIEW
         : false
     );
   });
