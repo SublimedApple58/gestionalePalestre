@@ -1,4 +1,4 @@
-import { db, DocumentStatus, UserRole } from "@gestionale/db";
+import { db, DocumentStatus, DocumentType, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -134,20 +134,7 @@ type AdminViewProps = {
 };
 
 async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
-  const [users, accessLogs, reviewDocumentsRaw] = await Promise.all([
-    db.user.findMany({
-      include: {
-        subscription: true,
-        documents: true,
-        assignedInstructor: {
-          select: {
-            firstName: true,
-            lastName: true
-          }
-        }
-      },
-      orderBy: [{ role: "asc" }, { lastName: "asc" }]
-    }),
+  const [accessLogs, reviewDocumentsRaw] = await Promise.all([
     db.accessEvent.findMany({
       include: {
         user: {
@@ -162,11 +149,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       take: 60
     }),
     db.userDocument.findMany({
-      where: {
-        status: {
-          in: [DocumentStatus.PENDING_ADMIN_REVIEW]
-        }
-      },
+      where: { status: { in: [DocumentStatus.PENDING_ADMIN_REVIEW] } },
       include: {
         user: {
           select: {
@@ -177,9 +160,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
           }
         }
       },
-      orderBy: {
-        uploadedAt: "desc"
-      },
+      orderBy: { uploadedAt: "desc" },
       take: 80
     })
   ]);
@@ -196,12 +177,35 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     }))
   );
 
+  // Deduplicate: one entry per subscriber with pending medical cert
+  const seenSubscriberIds = new Set<string>();
+  const pendingMedicalSubscribers: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    uploadedAt: Date;
+  }> = [];
+
+  for (const doc of reviewDocumentsRaw) {
+    if (doc.type !== DocumentType.MEDICAL_CERTIFICATE) continue;
+    if (seenSubscriberIds.has(doc.user.id)) continue;
+    seenSubscriberIds.add(doc.user.id);
+    pendingMedicalSubscribers.push({
+      id: doc.user.id,
+      firstName: doc.user.firstName,
+      lastName: doc.user.lastName,
+      email: doc.user.email,
+      uploadedAt: doc.uploadedAt
+    });
+  }
+
   return (
     <AdminDashboard
       currentUser={{ id: currentUserId, accessCode }}
-      users={users}
       accessLogs={accessLogs}
       reviewDocuments={reviewDocuments}
+      pendingMedicalSubscribers={pendingMedicalSubscribers}
     />
   );
 }

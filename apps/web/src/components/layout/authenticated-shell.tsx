@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, LogOut, User } from "lucide-react";
+import { LayoutDashboard, LogOut, User, Users } from "lucide-react";
 import { type UserRole } from "@gestionale/db";
 
 import { logoutAction } from "@/app/actions/auth-actions";
@@ -8,7 +8,7 @@ import { getAppNavigationItems } from "@/lib/navigation";
 
 type AuthenticatedShellProps = {
   children: React.ReactNode;
-  currentPath: "/dashboard" | "/profilo";
+  currentPath: "/dashboard" | "/utenti" | "/profilo";
   user: {
     firstName: string;
     role: UserRole;
@@ -17,16 +17,18 @@ type AuthenticatedShellProps = {
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={20} aria-hidden="true" />,
+  "/utenti": <Users size={20} aria-hidden="true" />,
   "/profilo": <User size={20} aria-hidden="true" />
 };
 
 const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={22} />,
+  "/utenti": <Users size={22} />,
   "/profilo": <User size={22} />
 };
 
 export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
-  const navItems = getAppNavigationItems(currentPath);
+  const navItems = getAppNavigationItems(currentPath, user.role);
 
   return (
     <div className="app-shell">

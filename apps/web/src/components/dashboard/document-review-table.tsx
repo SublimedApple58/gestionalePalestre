@@ -23,16 +23,13 @@ type ReviewDocumentRow = UserDocument & {
 
 type DocumentReviewTableProps = {
   documents: ReviewDocumentRow[];
+  /** Render senza wrapper panel (es. quando già dentro un panel) */
+  embedded?: boolean;
 };
 
-export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
-  return (
-    <section className="panel panel-full">
-      <div>
-        <p className="panel-kicker">Revisione documenti</p>
-        <h3 className="panel-title">In attesa di validazione admin</h3>
-      </div>
-
+export function DocumentReviewTable({ documents, embedded }: DocumentReviewTableProps) {
+  const inner = (
+    <>
       {documents.length === 0 ? (
         <div className="empty-state">Nessun documento in revisione.</div>
       ) : (
@@ -154,6 +151,20 @@ export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
           </table>
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return inner;
+  }
+
+  return (
+    <section className="panel panel-full">
+      <div>
+        <p className="panel-kicker">Revisione documenti</p>
+        <h3 className="panel-title">In attesa di validazione admin</h3>
+      </div>
+      {inner}
     </section>
   );
 }

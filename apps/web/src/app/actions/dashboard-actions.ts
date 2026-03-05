@@ -60,6 +60,14 @@ function redirectWithDomainError(error: unknown): never {
   throw error;
 }
 
+function redirectWithUtentiError(error: unknown): never {
+  if (error instanceof DomainError) {
+    redirect(`/utenti?error=${error.code.toLowerCase()}`);
+  }
+
+  throw error;
+}
+
 export async function createUserByAdminAction(formData: FormData): Promise<void> {
   const user = await requireRole([UserRole.ADMIN]);
 
@@ -72,16 +80,17 @@ export async function createUserByAdminAction(formData: FormData): Promise<void>
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=utente-non-valido");
+    redirect("/utenti?error=utente-non-valido");
   }
 
   try {
     await createUserByAdmin(db, user.role, parsed.data);
   } catch (error) {
-    redirectWithDomainError(error);
+    redirectWithUtentiError(error);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/utenti");
+  redirect("/utenti");
 }
 
 export async function changeUserRoleAction(formData: FormData): Promise<void> {
@@ -93,16 +102,16 @@ export async function changeUserRoleAction(formData: FormData): Promise<void> {
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=ruolo-non-valido");
+    redirect("/utenti?error=ruolo-non-valido");
   }
 
   try {
     await updateUserRoleByAdmin(db, user.role, parsed.data);
   } catch (error) {
-    redirectWithDomainError(error);
+    redirectWithUtentiError(error);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/utenti");
 }
 
 export async function deleteUserAction(formData: FormData): Promise<void> {
@@ -113,16 +122,16 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=utente-non-trovato");
+    redirect("/utenti?error=utente-non-trovato");
   }
 
   try {
     await deleteUserByAdmin(db, user.role, parsed.data);
   } catch (error) {
-    redirectWithDomainError(error);
+    redirectWithUtentiError(error);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/utenti");
 }
 
 export async function assignSubscriptionAction(formData: FormData): Promise<void> {
@@ -135,16 +144,16 @@ export async function assignSubscriptionAction(formData: FormData): Promise<void
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=abbonamento-non-valido");
+    redirect("/utenti?error=abbonamento-non-valido");
   }
 
   try {
     await assignSubscriptionByAdmin(db, user.role, user.id, parsed.data);
   } catch (error) {
-    redirectWithDomainError(error);
+    redirectWithUtentiError(error);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/utenti");
 }
 
 export async function assignInstructorAction(formData: FormData): Promise<void> {
@@ -156,16 +165,16 @@ export async function assignInstructorAction(formData: FormData): Promise<void> 
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=assegnazione-non-valida");
+    redirect("/utenti?error=assegnazione-non-valida");
   }
 
   try {
     await assignInstructorByAdmin(db, user.role, parsed.data);
   } catch (error) {
-    redirectWithDomainError(error);
+    redirectWithUtentiError(error);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/utenti");
 }
 
 export async function saveWorkoutPlanAction(formData: FormData): Promise<void> {
