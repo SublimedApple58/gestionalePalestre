@@ -1666,6 +1666,25 @@ tbody tr:hover {
   gap: 10px;
 }
 
+.mobile-header-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.mobile-header-logout:hover,
+.mobile-header-logout:active {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
 .mobile-header-title {
   font-size: 0.95rem;
   font-weight: 800;

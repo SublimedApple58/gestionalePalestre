@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { LayoutDashboard, User } from "lucide-react";
+import { LayoutDashboard, LogOut, User } from "lucide-react";
 import { type UserRole } from "@gestionale/db";
 
+import { logoutAction } from "@/app/actions/auth-actions";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { getAppNavigationItems } from "@/lib/navigation";
 
@@ -35,6 +36,11 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
           <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
           <span className="mobile-header-title">HOUSE OF MUSCLE</span>
         </div>
+        <form action={logoutAction}>
+          <button type="submit" className="mobile-header-logout" aria-label="Esci">
+            <LogOut size={20} />
+          </button>
+        </form>
       </header>
 
       {/* ── Desktop sidebar ───────────────────────────────────────── */}
