@@ -1,7 +1,20 @@
-import { SubscriptionTier, type UserDocument, UserRole, type WorkoutPlan } from "@gestionale/db";
+import {
+  DocumentStatus,
+  SubscriptionTier,
+  type UserDocument,
+  UserRole,
+  type WorkoutPlan
+} from "@gestionale/db";
 
 import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
-import { documentTypeLabel, getMissingDocumentTypes, hasRequiredDocuments } from "@/lib/documents";
+import {
+  CORE_DOCUMENT_TYPES,
+  documentTypeLabel,
+  getDocumentSlot,
+  getMissingDocumentTypes,
+  getUploadSlotsForType,
+  hasRequiredDocuments
+} from "@/lib/documents";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -34,6 +47,30 @@ export function SubscriberDashboard({
   const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents);
   const missingDocuments = getMissingDocumentTypes(UserRole.SUBSCRIBER, documents);
   const canEnterGym = subscriptionActive && documentsReady;
+
+  const pendingTypes = CORE_DOCUMENT_TYPES.filter((type) => {
+    const sides = getUploadSlotsForType(type);
+    const slots = sides.map((side) => getDocumentSlot(documents, { type, side }));
+
+    if (slots.every((slot) => slot?.status === DocumentStatus.APPROVED)) {
+      return false;
+    }
+
+    return slots.some((slot) =>
+      slot
+        ? [
+            DocumentStatus.UPLOADED,
+            DocumentStatus.AI_PROCESSING,
+            DocumentStatus.PENDING_ADMIN_REVIEW
+          ].includes(slot.status)
+        : false
+    );
+  });
+
+  const blockedByPendingReview =
+    pendingTypes.length > 0 &&
+    missingDocuments.length > 0 &&
+    missingDocuments.every((type) => pendingTypes.includes(type));
 
   return (
     <div className="dashboard-grid">
@@ -90,6 +127,8 @@ export function SubscriberDashboard({
           <p>
             {!subscriptionActive
               ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
+              : blockedByPendingReview
+              ? `Documenti in verifica: ${pendingTypes.map((type) => documentTypeLabel(type)).join(", ")}.`
               : `Accesso bloccato: mancano ${missingDocuments
                   .map((type) => documentTypeLabel(type))
                   .join(", ")}.`}

@@ -1,7 +1,8 @@
-import { db } from "@gestionale/db";
+import { db, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
+import { SubscriberDocumentOnboarding } from "@/components/dashboard/subscriber-document-onboarding";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { requireSessionUser } from "@/lib/session";
 
@@ -50,6 +51,10 @@ export default async function ProfilePage() {
             subscription: currentUser.subscription
           }}
         />
+
+        {currentUser.role === UserRole.SUBSCRIBER ? (
+          <SubscriberDocumentOnboarding documents={currentUser.documents} />
+        ) : null}
       </main>
     </AuthenticatedShell>
   );

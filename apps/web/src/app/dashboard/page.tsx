@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard";
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
+import { SubscriberDocumentOnboarding } from "@/components/dashboard/subscriber-document-onboarding";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { roleLabel } from "@/lib/roles";
 import { createDocumentDownloadUrl, isDocumentStorageConfigured } from "@/lib/services/document-storage-service";
@@ -110,13 +111,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
 
         {currentUser.role === UserRole.SUBSCRIBER ? (
-          <SubscriberDashboard
-            accessCode={currentUser.accessCode}
-            assignedInstructor={currentUser.assignedInstructor}
-            documents={currentUser.documents}
-            subscription={currentUser.subscription}
-            workoutPlan={currentUser.workoutPlan}
-          />
+          <>
+            <SubscriberDashboard
+              accessCode={currentUser.accessCode}
+              assignedInstructor={currentUser.assignedInstructor}
+              documents={currentUser.documents}
+              subscription={currentUser.subscription}
+              workoutPlan={currentUser.workoutPlan}
+            />
+
+            <SubscriberDocumentOnboarding documents={currentUser.documents} />
+          </>
         ) : null}
       </main>
     </AuthenticatedShell>
@@ -165,6 +170,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       include: {
         user: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             email: true

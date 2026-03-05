@@ -1,4 +1,5 @@
 import {
+  DocumentType,
   SubscriptionTier,
   UserRole,
   type AccessEventType,
@@ -63,6 +64,7 @@ type AdminDashboardProps = {
   reviewDocuments: Array<
     UserDocument & {
       user: {
+        id: string;
         firstName: string;
         lastName: string;
         email: string;
@@ -99,10 +101,65 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
     label: `${instructor.firstName} ${instructor.lastName}`,
     details: instructor.email
   }));
+  const subscriberIds = new Set(subscribers.map((subscriber) => subscriber.id));
+
+  const pendingMedicalSubscribersMap = new Map<
+    string,
+    {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      uploadedAt: Date;
+    }
+  >();
+
+  for (const document of reviewDocuments) {
+    if (document.type !== DocumentType.MEDICAL_CERTIFICATE) {
+      continue;
+    }
+
+    if (!subscriberIds.has(document.user.id)) {
+      continue;
+    }
+
+    if (pendingMedicalSubscribersMap.has(document.user.id)) {
+      continue;
+    }
+
+    pendingMedicalSubscribersMap.set(document.user.id, {
+      id: document.user.id,
+      firstName: document.user.firstName,
+      lastName: document.user.lastName,
+      email: document.user.email,
+      uploadedAt: document.uploadedAt
+    });
+  }
+
+  const pendingMedicalSubscribers = Array.from(pendingMedicalSubscribersMap.values());
 
   return (
     <div className="dashboard-grid">
       <MaskedAccessCode code={currentUser.accessCode} title="Codice personale admin" />
+
+      <section className="panel panel-full">
+        <p className="panel-kicker">Validazioni mediche</p>
+        <h3 className="panel-title">Iscritti pending certificato medico</h3>
+
+        {pendingMedicalSubscribers.length === 0 ? (
+          <p>Nessun iscritto in attesa di revisione medico.</p>
+        ) : (
+          <ul className="pending-medical-list">
+            {pendingMedicalSubscribers.map((subscriber) => (
+              <li key={subscriber.id}>
+                <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
+                <p>{subscriber.email}</p>
+                <small>{`Caricato il ${new Date(subscriber.uploadedAt).toLocaleString("it-IT")}`}</small>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="panel">
         <p className="panel-kicker">Ingresso</p>

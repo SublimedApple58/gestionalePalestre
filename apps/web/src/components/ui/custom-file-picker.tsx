@@ -9,6 +9,8 @@ type CustomFilePickerProps = {
   disabled?: boolean;
   selectedFileName?: string | null;
   hint?: string;
+  enableCamera?: boolean;
+  cameraFacingMode?: "user" | "environment";
   onPickFile: (file: File) => void;
 };
 
@@ -32,9 +34,12 @@ export function CustomFilePicker({
   disabled = false,
   selectedFileName,
   hint,
+  enableCamera = false,
+  cameraFacingMode = "environment",
   onPickFile
 }: CustomFilePickerProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   function openFileDialog() {
@@ -42,7 +47,15 @@ export function CustomFilePicker({
       return;
     }
 
-    inputRef.current?.click();
+    uploadInputRef.current?.click();
+  }
+
+  function openCameraDialog() {
+    if (disabled) {
+      return;
+    }
+
+    cameraInputRef.current?.click();
   }
 
   return (
@@ -50,7 +63,7 @@ export function CustomFilePicker({
       <span>{label}</span>
 
       <input
-        ref={inputRef}
+        ref={uploadInputRef}
         type="file"
         accept={accept}
         disabled={disabled}
@@ -65,6 +78,26 @@ export function CustomFilePicker({
           event.currentTarget.value = "";
         }}
       />
+
+      {enableCamera ? (
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture={cameraFacingMode}
+          disabled={disabled}
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+
+            if (file) {
+              onPickFile(file);
+            }
+
+            event.currentTarget.value = "";
+          }}
+        />
+      ) : null}
 
       <div
         className={`file-picker ${dragOver ? "drag-over" : ""} ${disabled ? "disabled" : ""}`}
@@ -114,17 +147,33 @@ export function CustomFilePicker({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="button button-ghost small"
-          disabled={disabled}
-          onClick={(event) => {
-            event.stopPropagation();
-            openFileDialog();
-          }}
-        >
-          Sfoglia
-        </button>
+        <div className="file-picker-actions">
+          {enableCamera ? (
+            <button
+              type="button"
+              className="button button-ghost small"
+              disabled={disabled}
+              onClick={(event) => {
+                event.stopPropagation();
+                openCameraDialog();
+              }}
+            >
+              Scatta
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className="button button-ghost small"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              openFileDialog();
+            }}
+          >
+            Carica
+          </button>
+        </div>
       </div>
 
       {hint ? <small className="file-picker-hint">{hint}</small> : null}

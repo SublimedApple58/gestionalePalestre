@@ -231,6 +231,8 @@ export function DocumentUploadSlot({
       <CustomFilePicker
         label="Carica documento"
         accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
+        enableCamera
+        cameraFacingMode="environment"
         disabled={uploading}
         selectedFileName={selectedFileName}
         hint="Dimensione massima consigliata: 12 MB"

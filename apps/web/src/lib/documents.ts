@@ -46,6 +46,17 @@ function isDocumentApproved(document: Pick<UserDocument, "status">): boolean {
   return document.status === DocumentStatus.APPROVED;
 }
 
+function isDocumentSubmitted(document: Pick<UserDocument, "status"> | null): boolean {
+  if (!document) {
+    return false;
+  }
+
+  return (
+    document.status !== DocumentStatus.REJECTED &&
+    document.status !== DocumentStatus.NEEDS_REUPLOAD
+  );
+}
+
 function isMedicalCertificateExpired(
   document: Pick<UserDocument, "type" | "medicalCertificateExpiresAt">,
   now: Date
@@ -135,6 +146,32 @@ export function hasRequiredDocuments(
   now: Date = new Date()
 ): boolean {
   return getMissingDocumentSlots(role, documents, now).length === 0;
+}
+
+export function hasRequiredDocumentSubmissions(
+  role: UserRole,
+  documents: Array<Pick<UserDocument, "type" | "side" | "status">>
+): boolean {
+  return getMissingSubmissionSlots(role, documents).length === 0;
+}
+
+export function getMissingSubmissionSlots(
+  role: UserRole,
+  documents: Array<Pick<UserDocument, "type" | "side" | "status">>
+): DocumentSlot[] {
+  const required = getRequiredDocumentSlots(role);
+
+  if (required.length === 0) {
+    return [];
+  }
+
+  return required.filter((slot) => {
+    const document = documents.find(
+      (candidate) => candidate.type === slot.type && candidate.side === slot.side
+    );
+
+    return !isDocumentSubmitted(document ?? null);
+  });
 }
 
 export function getMissingDocumentSlots(
