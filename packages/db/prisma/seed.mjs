@@ -1,4 +1,12 @@
-import { DocumentType, PrismaClient, SubscriptionTier, UserRole } from "@prisma/client";
+import {
+  DocumentSide,
+  DocumentStatus,
+  DocumentType,
+  PrismaClient,
+  SubscriptionTier,
+  UserRole
+} from "@prisma/client";
+import { createHash } from "node:crypto";
 import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -9,6 +17,12 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "Castiglione1!";
 function addMonths(date, months) {
   const value = new Date(date);
   value.setMonth(value.getMonth() + months);
+  return value;
+}
+
+function addDays(date, days) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
   return value;
 }
 
@@ -25,6 +39,14 @@ function buildSubscriptionRange(tier, startsAt = new Date()) {
     default:
       return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 1) };
   }
+}
+
+function mockSha(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function buildStorageKey(userId, type, side, fileName) {
+  return `seed/${userId}/${type}/${side}/${fileName}`;
 }
 
 async function upsertUser({
@@ -82,24 +104,58 @@ async function upsertSubscription({ userId, tier, assignedById, startsAt }) {
   });
 }
 
-async function upsertDocument({ userId, uploadedById, type, fileLabel }) {
+async function upsertDocument({
+  userId,
+  uploadedById,
+  type,
+  side = DocumentSide.SINGLE,
+  fileName,
+  mimeType = "application/pdf",
+  sizeBytes = 1024,
+  status = DocumentStatus.APPROVED,
+  medicalCertificateExpiresAt = null,
+  extractedTaxCode = null,
+  extractedIdentityNumber = null
+}) {
+  const storageKey = buildStorageKey(userId, type, side, fileName);
+
   return prisma.userDocument.upsert({
     where: {
-      userId_type: {
+      userId_type_side: {
         userId,
-        type
+        type,
+        side
       }
     },
     update: {
       uploadedById,
-      fileLabel,
-      uploadedAt: new Date()
+      storageKey,
+      fileName,
+      fileLabel: fileName,
+      mimeType,
+      sizeBytes,
+      sha256: mockSha(`${userId}-${type}-${side}-${fileName}`),
+      status,
+      uploadedAt: new Date(),
+      medicalCertificateExpiresAt,
+      extractedTaxCode,
+      extractedIdentityNumber
     },
     create: {
       userId,
       uploadedById,
       type,
-      fileLabel
+      side,
+      storageKey,
+      fileName,
+      fileLabel: fileName,
+      mimeType,
+      sizeBytes,
+      sha256: mockSha(`${userId}-${type}-${side}-${fileName}`),
+      status,
+      medicalCertificateExpiresAt,
+      extractedTaxCode,
+      extractedIdentityNumber
     }
   });
 }
@@ -216,35 +272,71 @@ async function main() {
     userId: activeSubscriber.id,
     uploadedById: activeSubscriber.id,
     type: DocumentType.TAX_CODE,
-    fileLabel: "cf_luca_bianchi.pdf"
+    side: DocumentSide.FRONT,
+    fileName: "cf_luca_bianchi_front.pdf",
+    extractedTaxCode: "BNCLCU90A01H501X"
+  });
+
+  await upsertDocument({
+    userId: activeSubscriber.id,
+    uploadedById: activeSubscriber.id,
+    type: DocumentType.TAX_CODE,
+    side: DocumentSide.BACK,
+    fileName: "cf_luca_bianchi_back.pdf",
+    extractedTaxCode: "BNCLCU90A01H501X"
   });
 
   await upsertDocument({
     userId: activeSubscriber.id,
     uploadedById: activeSubscriber.id,
     type: DocumentType.IDENTITY_DOCUMENT,
-    fileLabel: "id_luca_bianchi.pdf"
+    side: DocumentSide.FRONT,
+    fileName: "id_luca_bianchi_front.pdf",
+    extractedIdentityNumber: "CA1234567"
+  });
+
+  await upsertDocument({
+    userId: activeSubscriber.id,
+    uploadedById: activeSubscriber.id,
+    type: DocumentType.IDENTITY_DOCUMENT,
+    side: DocumentSide.BACK,
+    fileName: "id_luca_bianchi_back.pdf",
+    extractedIdentityNumber: "CA1234567"
   });
 
   await upsertDocument({
     userId: activeSubscriber.id,
     uploadedById: activeSubscriber.id,
     type: DocumentType.MEDICAL_CERTIFICATE,
-    fileLabel: "certificato_medico_luca_bianchi.pdf"
+    side: DocumentSide.SINGLE,
+    fileName: "certificato_medico_luca_bianchi.pdf",
+    medicalCertificateExpiresAt: addDays(new Date(), 120)
+  });
+
+  await upsertDocument({
+    userId: activeSubscriber.id,
+    uploadedById: activeSubscriber.id,
+    type: DocumentType.PROFILE_PHOTO,
+    side: DocumentSide.SINGLE,
+    fileName: "profile_luca_bianchi.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 240000
   });
 
   await upsertDocument({
     userId: inactiveSubscriber.id,
     uploadedById: inactiveSubscriber.id,
     type: DocumentType.TAX_CODE,
-    fileLabel: "cf_giulia_neri.pdf"
+    side: DocumentSide.FRONT,
+    fileName: "cf_giulia_neri_front.pdf"
   });
 
   await upsertDocument({
     userId: admin.id,
     uploadedById: admin.id,
     type: DocumentType.IDENTITY_DOCUMENT,
-    fileLabel: "id_umberto_giancola.pdf"
+    side: DocumentSide.SINGLE,
+    fileName: "id_umberto_giancola.pdf"
   });
 
   console.log("Seed completato con admin e utenti demo.");

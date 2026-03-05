@@ -20,6 +20,6 @@
     "db:migrate": "pnpm --filter @gestionale/db db:migrate",
     "db:seed": "pnpm --filter @gestionale/db db:seed",
     "db:studio": "pnpm --filter @gestionale/db db:studio",
-    "postinstall": "pnpm db:generate"
+    "postinstall": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 pnpm db:generate"
   }
 }

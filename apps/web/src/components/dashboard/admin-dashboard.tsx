@@ -17,6 +17,7 @@ import { documentTypeLabel, getMissingDocumentTypes, getMissingOverallDocumentTy
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 
+import { DocumentReviewTable } from "./document-review-table";
 import { CustomCalendar } from "../ui/custom-calendar";
 import { CustomSelect } from "../ui/custom-select";
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -59,9 +60,19 @@ type AdminDashboardProps = {
   };
   users: AdminUserRow[];
   accessLogs: AccessLogRow[];
+  reviewDocuments: Array<
+    UserDocument & {
+      user: {
+        firstName: string;
+        lastName: string;
+        email: string;
+      };
+      previewUrl: string | null;
+    }
+  >;
 };
 
-export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboardProps) {
+export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments }: AdminDashboardProps) {
   const instructors = users.filter((user) => user.role === UserRole.INSTRUCTOR);
   const subscribers = users.filter((user) => user.role === UserRole.SUBSCRIBER);
 
@@ -298,6 +309,8 @@ export function AdminDashboard({ currentUser, users, accessLogs }: AdminDashboar
           )}
         </ul>
       </section>
+
+      <DocumentReviewTable documents={reviewDocuments} />
     </div>
   );
 }

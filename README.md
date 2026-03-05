@@ -26,7 +26,8 @@ Stack:
 - assegnazione istruttore a un iscritto (1:1 lato iscritto)
 - storico ingressi mock
 - stato documenti in lista utenti (codice fiscale, documento identita', certificato medico)
-- caricamento documenti in modalita mock (metadati file, no storage reale)
+- revisione documenti in coda con approvazione/rifiuto/richiesta nuovo upload
+- preview documento via URL firmata temporanea (se storage configurato)
 
 ### Istruttore
 - codice ingresso personale con toggle occhio
@@ -34,16 +35,21 @@ Stack:
 - piano allenamento settimanale semplice (lun-dom)
 - simulazione ingresso mock
 - panoramica informazioni personali (nome, email, cellulare, ruolo, documenti, abbonamento)
-- caricamento documenti in modalita mock dal proprio account
+- upload documenti reali dal proprio account (CF/ID fronte-retro, certificato medico, foto profilo)
 
 ### Iscritto
 - stato abbonamento (attivo/non attivo)
 - tipo piano e data scadenza
 - piano allenamento settimanale semplice (lun-dom)
-- codice ingresso visibile solo se abbonamento attivo e documenti obbligatori completi
-- simulazione ingresso mock solo se attivo e documenti obbligatori completi
+- codice ingresso visibile solo se abbonamento attivo e documenti obbligatori approvati
+- simulazione ingresso mock solo se attivo e documenti obbligatori approvati
 - panoramica informazioni personali (nome, email, cellulare, ruolo, documenti, abbonamento)
-- caricamento documenti in modalita mock dal proprio account
+- upload documenti reali dal proprio account:
+  - codice fiscale fronte/retro
+  - documento identita' fronte/retro
+  - certificato medico (con scadenza manuale, sempre revisione admin)
+  - foto profilo facoltativa
+- estrazione AI automatica di codice fiscale e numero documento di identita'
 
 ## Struttura
 - `apps/web`: frontend + server actions + auth
@@ -70,6 +76,16 @@ cp packages/db/.env.example packages/db/.env
 3. Imposta anche:
 - `AUTH_SECRET`
 - `AUTH_URL` (es. `http://localhost:3000`)
+- `OPENAI_API_KEY`
+- `OPENAI_DOCS_MODEL` (default `gpt-4.1-mini`)
+- `DOC_AI_MIN_CONFIDENCE` (default `0.85`)
+- `DOC_AI_MAX_RETRIES` (default `3`)
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET`
+- `R2_ENDPOINT`
+- `CRON_SECRET`
 - opzionale seed admin:
   - `SEED_ADMIN_EMAIL` (default `umberto.giancola00@gmail.com`)
   - `SEED_ADMIN_PASSWORD` (default `Castiglione1!`)

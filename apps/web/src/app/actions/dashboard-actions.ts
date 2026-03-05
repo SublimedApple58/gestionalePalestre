@@ -11,7 +11,11 @@ import {
   recordEntrySimulation,
   ensureSubscriberCanEnter
 } from "@/lib/services/access-event-service";
-import { uploadUserDocument } from "@/lib/services/document-service";
+import {
+  approveDocumentByAdmin,
+  rejectDocumentByAdmin,
+  requestDocumentReuploadByAdmin
+} from "@/lib/services/document-service";
 import { DomainError } from "@/lib/services/errors";
 import {
   assignInstructorByAdmin,
@@ -26,10 +30,12 @@ import {
   adminCreateUserSchema,
   adminDeleteUserSchema,
   adminRoleChangeSchema,
+  approveDocumentSchema,
   assignInstructorSchema,
   assignSubscriptionSchema,
-  updatePersonalInfoSchema,
-  uploadDocumentSchema
+  rejectDocumentSchema,
+  requestReuploadDocumentSchema,
+  updatePersonalInfoSchema
 } from "@/lib/validators/forms";
 
 function parseDateInput(value: string | null): Date {
@@ -210,12 +216,12 @@ export async function updatePersonalInfoAction(formData: FormData): Promise<void
   revalidatePath("/dashboard");
 }
 
-export async function uploadMyDocumentAction(formData: FormData): Promise<void> {
-  const user = await requireSessionUser();
+export async function approveDocumentAction(formData: FormData): Promise<void> {
+  const user = await requireRole([UserRole.ADMIN]);
 
-  const parsed = uploadDocumentSchema.safeParse({
-    type: formData.get("type"),
-    fileLabel: formData.get("fileLabel")
+  const parsed = approveDocumentSchema.safeParse({
+    documentId: formData.get("documentId"),
+    medicalCertificateExpiresAt: formData.get("medicalCertificateExpiresAt")
   });
 
   if (!parsed.success) {
@@ -223,15 +229,55 @@ export async function uploadMyDocumentAction(formData: FormData): Promise<void> 
   }
 
   try {
-    await uploadUserDocument(db, {
-      userId: user.id,
-      uploadedById: user.id,
-      type: parsed.data.type,
-      fileLabel: parsed.data.fileLabel
-    });
+    await approveDocumentByAdmin(db, user.role, user.id, parsed.data);
   } catch (error) {
     redirectWithDomainError(error);
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/profilo");
+}
+
+export async function rejectDocumentAction(formData: FormData): Promise<void> {
+  const user = await requireRole([UserRole.ADMIN]);
+
+  const parsed = rejectDocumentSchema.safeParse({
+    documentId: formData.get("documentId"),
+    rejectionReason: formData.get("rejectionReason")
+  });
+
+  if (!parsed.success) {
+    redirect("/dashboard?error=documento-non-valido");
+  }
+
+  try {
+    await rejectDocumentByAdmin(db, user.role, user.id, parsed.data);
+  } catch (error) {
+    redirectWithDomainError(error);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/profilo");
+}
+
+export async function requestReuploadAction(formData: FormData): Promise<void> {
+  const user = await requireRole([UserRole.ADMIN]);
+
+  const parsed = requestReuploadDocumentSchema.safeParse({
+    documentId: formData.get("documentId"),
+    reason: formData.get("reason")
+  });
+
+  if (!parsed.success) {
+    redirect("/dashboard?error=documento-non-valido");
+  }
+
+  try {
+    await requestDocumentReuploadByAdmin(db, user.role, user.id, parsed.data);
+  } catch (error) {
+    redirectWithDomainError(error);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/profilo");
 }

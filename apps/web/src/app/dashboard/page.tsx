@@ -1,4 +1,4 @@
-import { db, UserRole } from "@gestionale/db";
+import { db, DocumentStatus, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -6,6 +6,7 @@ import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { roleLabel } from "@/lib/roles";
+import { createDocumentDownloadUrl, isDocumentStorageConfigured } from "@/lib/services/document-storage-service";
 import { requireSessionUser } from "@/lib/session";
 
 type DashboardPageProps = {
@@ -28,7 +29,16 @@ const ERROR_MAP: Record<string, string> = {
   "abbonamento-non-valido": "Dati abbonamento non validi.",
   "assegnazione-non-valida": "Assegnazione istruttore non valida.",
   "profilo-non-valido": "Cellulare non valido.",
-  "documento-non-valido": "Dati documento non validi."
+  "documento-non-valido": "Dati documento non validi.",
+  invalid_document_side: "Lato documento non valido.",
+  invalid_document_mime: "Formato file documento non supportato.",
+  invalid_document_size: "File troppo grande o non valido.",
+  invalid_document_hash: "Hash documento non valido.",
+  invalid_document_magic_bytes: "File non coerente con il formato dichiarato.",
+  invalid_medical_certificate_expiry: "Data scadenza certificato medico non valida.",
+  document_rate_limit: "Troppi tentativi in poco tempo. Riprova tra pochi minuti.",
+  document_storage_not_configured: "Storage documentale non configurato.",
+  invalid_rejection_reason: "Motivazione rifiuto non valida."
 };
 
 export const dynamic = "force-dynamic";
@@ -119,7 +129,7 @@ type AdminViewProps = {
 };
 
 async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
-  const [users, accessLogs] = await Promise.all([
+  const [users, accessLogs, reviewDocumentsRaw] = await Promise.all([
     db.user.findMany({
       include: {
         subscription: true,
@@ -145,8 +155,47 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       },
       orderBy: { occurredAt: "desc" },
       take: 60
+    }),
+    db.userDocument.findMany({
+      where: {
+        status: {
+          in: [DocumentStatus.PENDING_ADMIN_REVIEW]
+        }
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        uploadedAt: "desc"
+      },
+      take: 80
     })
   ]);
 
-  return <AdminDashboard currentUser={{ id: currentUserId, accessCode }} users={users} accessLogs={accessLogs} />;
+  const storageConfigured = isDocumentStorageConfigured();
+  const reviewDocuments = await Promise.all(
+    reviewDocumentsRaw.map(async (document) => ({
+      ...document,
+      previewUrl: storageConfigured
+        ? await createDocumentDownloadUrl({ storageKey: document.storageKey, expiresInSeconds: 300 }).catch(
+            () => null
+          )
+        : null
+    }))
+  );
+
+  return (
+    <AdminDashboard
+      currentUser={{ id: currentUserId, accessCode }}
+      users={users}
+      accessLogs={accessLogs}
+      reviewDocuments={reviewDocuments}
+    />
+  );
 }

@@ -1,6 +1,6 @@
 import { AccessEventType, type PrismaClient, UserRole } from "@gestionale/db";
 
-import { getMissingDocumentTypes } from "@/lib/documents";
+import { hasRequiredDocuments } from "@/lib/documents";
 
 import { DomainError } from "./errors";
 
@@ -36,7 +36,12 @@ export async function ensureSubscriberCanEnter(
     }),
     prisma.userDocument.findMany({
       where: { userId },
-      select: { type: true }
+      select: {
+        type: true,
+        side: true,
+        status: true,
+        medicalCertificateExpiresAt: true
+      }
     })
   ]);
 
@@ -48,12 +53,12 @@ export async function ensureSubscriberCanEnter(
     throw new DomainError("SUBSCRIPTION_INACTIVE", "Abbonamento non attivo.");
   }
 
-  const missingDocuments = getMissingDocumentTypes(UserRole.SUBSCRIBER, documents);
+  const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents, now);
 
-  if (missingDocuments.length > 0) {
+  if (!documentsReady) {
     throw new DomainError(
       "MISSING_REQUIRED_DOCUMENTS",
-      "Per l'accesso e' necessario caricare documento di identita', codice fiscale e certificato medico."
+      "Per l'accesso e' necessario avere codice fiscale e documento di identita' fronte/retro approvati e certificato medico approvato/non scaduto."
     );
   }
 }

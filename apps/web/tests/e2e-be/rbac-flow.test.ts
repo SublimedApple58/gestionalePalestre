@@ -3,6 +3,8 @@ import path from "node:path";
 
 import {
   DocumentType,
+  DocumentSide,
+  DocumentStatus,
   AccessEventType,
   PrismaClient,
   SubscriptionTier,
@@ -169,20 +171,72 @@ describeIfDb("RBAC backend e2e", () => {
         {
           userId: subscriber.id,
           type: DocumentType.TAX_CODE,
-          fileLabel: "cf_subscriber.pdf",
-          uploadedById: subscriber.id
+          side: DocumentSide.FRONT,
+          status: DocumentStatus.APPROVED,
+          fileName: "cf_subscriber_front.pdf",
+          fileLabel: "cf_subscriber_front.pdf",
+          storageKey: "tests/cf_subscriber_front.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1024,
+          sha256: "1111111111111111111111111111111111111111111111111111111111111111",
+          uploadedById: subscriber.id,
+          extractedTaxCode: "RSSMRA80A01H501U"
+        },
+        {
+          userId: subscriber.id,
+          type: DocumentType.TAX_CODE,
+          side: DocumentSide.BACK,
+          status: DocumentStatus.APPROVED,
+          fileName: "cf_subscriber_back.pdf",
+          fileLabel: "cf_subscriber_back.pdf",
+          storageKey: "tests/cf_subscriber_back.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1024,
+          sha256: "2222222222222222222222222222222222222222222222222222222222222222",
+          uploadedById: subscriber.id,
+          extractedTaxCode: "RSSMRA80A01H501U"
         },
         {
           userId: subscriber.id,
           type: DocumentType.IDENTITY_DOCUMENT,
-          fileLabel: "id_subscriber.pdf",
-          uploadedById: subscriber.id
+          side: DocumentSide.FRONT,
+          status: DocumentStatus.APPROVED,
+          fileName: "id_subscriber_front.pdf",
+          fileLabel: "id_subscriber_front.pdf",
+          storageKey: "tests/id_subscriber_front.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1024,
+          sha256: "3333333333333333333333333333333333333333333333333333333333333333",
+          uploadedById: subscriber.id,
+          extractedIdentityNumber: "CA1234567"
+        },
+        {
+          userId: subscriber.id,
+          type: DocumentType.IDENTITY_DOCUMENT,
+          side: DocumentSide.BACK,
+          status: DocumentStatus.APPROVED,
+          fileName: "id_subscriber_back.pdf",
+          fileLabel: "id_subscriber_back.pdf",
+          storageKey: "tests/id_subscriber_back.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1024,
+          sha256: "4444444444444444444444444444444444444444444444444444444444444444",
+          uploadedById: subscriber.id,
+          extractedIdentityNumber: "CA1234567"
         },
         {
           userId: subscriber.id,
           type: DocumentType.MEDICAL_CERTIFICATE,
+          side: DocumentSide.SINGLE,
+          status: DocumentStatus.APPROVED,
+          fileName: "medical_subscriber.pdf",
           fileLabel: "medical_subscriber.pdf",
-          uploadedById: subscriber.id
+          storageKey: "tests/medical_subscriber.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1024,
+          sha256: "5555555555555555555555555555555555555555555555555555555555555555",
+          uploadedById: subscriber.id,
+          medicalCertificateExpiresAt: new Date("2026-12-31T00:00:00.000Z")
         }
       ]
     });

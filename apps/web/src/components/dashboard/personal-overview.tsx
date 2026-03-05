@@ -1,16 +1,19 @@
-import { DocumentType, SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
+import { DocumentSide, DocumentType, SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
-import { updatePersonalInfoAction, uploadMyDocumentAction } from "@/app/actions/dashboard-actions";
+import { updatePersonalInfoAction } from "@/app/actions/dashboard-actions";
 import {
-  ALL_DOCUMENT_TYPES,
+  documentSideLabel,
   documentTypeLabel,
-  getMissingDocumentTypes,
+  getDocumentSlot,
+  getMissingDocumentSlots,
+  getRequiredDocumentSlots,
   hasRequiredDocuments
 } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
-import { CustomSelect } from "../ui/custom-select";
+import { DocumentUploadSlot } from "./document-upload-slot";
+import { ProfilePhotoUploader } from "./profile-photo-uploader";
 
 type PersonalOverviewProps = {
   user: {
@@ -28,124 +31,128 @@ type PersonalOverviewProps = {
   };
 };
 
-function getDocumentByType(documents: UserDocument[], type: DocumentType): UserDocument | null {
-  return documents.find((document) => document.type === type) ?? null;
-}
+const CORE_SLOTS: Array<{ type: DocumentType; side: DocumentSide }> = [
+  { type: DocumentType.TAX_CODE, side: DocumentSide.FRONT },
+  { type: DocumentType.TAX_CODE, side: DocumentSide.BACK },
+  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.FRONT },
+  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.BACK },
+  { type: DocumentType.MEDICAL_CERTIFICATE, side: DocumentSide.SINGLE }
+];
 
 export function PersonalOverview({ user }: PersonalOverviewProps) {
-  const missingDocuments = getMissingDocumentTypes(user.role, user.documents);
+  const missingSlots = getMissingDocumentSlots(user.role, user.documents);
   const documentsReady = hasRequiredDocuments(user.role, user.documents);
   const subscriptionActive = isSubscriptionActive(user.subscription);
-  const documentOptions = ALL_DOCUMENT_TYPES.map((documentType) => ({
-    value: documentType,
-    label: documentTypeLabel(documentType)
-  }));
+  const requiredSlots = getRequiredDocumentSlots(user.role);
+
+  const profilePhoto = getDocumentSlot(user.documents, {
+    type: DocumentType.PROFILE_PHOTO,
+    side: DocumentSide.SINGLE
+  });
 
   return (
-    <section className="panel panel-full">
-      <p className="panel-kicker">Profilo personale</p>
-      <h3 className="panel-title">Le tue informazioni</h3>
+    <>
+      <section className="panel panel-full">
+        <p className="panel-kicker">Profilo personale</p>
+        <h3 className="panel-title">Le tue informazioni</h3>
 
-      <div className="overview-grid">
-        <div className="overview-item">
-          <small>Nome e cognome</small>
-          <strong>{`${user.firstName} ${user.lastName}`}</strong>
+        <div className="overview-grid">
+          <div className="overview-item">
+            <small>Nome e cognome</small>
+            <strong>{`${user.firstName} ${user.lastName}`}</strong>
+          </div>
+
+          <div className="overview-item">
+            <small>Email</small>
+            <strong>{user.email}</strong>
+          </div>
+
+          <div className="overview-item">
+            <small>Ruolo</small>
+            <strong>{roleLabel(user.role)}</strong>
+          </div>
+
+          <div className="overview-item">
+            <small>Cellulare</small>
+            <strong>{user.phoneNumber || "Non impostato"}</strong>
+          </div>
+
+          <div className="overview-item">
+            <small>Abbonamento</small>
+            <strong>
+              {user.subscription
+                ? `${tierLabel(user.subscription.tier)} - scade ${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}`
+                : "Non assegnato"}
+            </strong>
+            {user.subscription ? (
+              <p className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
+                {subscriptionActive ? "Attivo" : "Non attivo"}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="overview-item">
+            <small>Documenti obbligatori</small>
+            <strong>
+              {user.role === UserRole.SUBSCRIBER
+                ? documentsReady
+                  ? "Completati"
+                  : `Mancano ${missingSlots.length} slot`
+                : "Non vincolanti per il tuo ruolo"}
+            </strong>
+            {missingSlots.length > 0 ? (
+              <p className="status-badge missing">
+                {missingSlots.map((slot) => `${documentTypeLabel(slot.type)} (${documentSideLabel(slot.side)})`).join(", ")}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="overview-item">
-          <small>Email</small>
-          <strong>{user.email}</strong>
-        </div>
-
-        <div className="overview-item">
-          <small>Ruolo</small>
-          <strong>{roleLabel(user.role)}</strong>
-        </div>
-
-        <div className="overview-item">
-          <small>Cellulare</small>
-          <strong>{user.phoneNumber || "Non impostato"}</strong>
-        </div>
-
-        <div className="overview-item">
-          <small>Abbonamento</small>
-          <strong>
-            {user.subscription
-              ? `${tierLabel(user.subscription.tier)} - scade ${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}`
-              : "Non assegnato"}
-          </strong>
-          {user.subscription ? (
-            <p className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
-              {subscriptionActive ? "Attivo" : "Non attivo"}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="overview-item">
-          <small>Documenti obbligatori</small>
-          <strong>
-            {user.role === UserRole.SUBSCRIBER
-              ? documentsReady
-                ? "Completati"
-                : `Mancano ${missingDocuments.length}`
-              : "Non vincolanti per il tuo ruolo"}
-          </strong>
-          {missingDocuments.length > 0 ? (
-            <p className="status-badge missing">
-              {missingDocuments.map((type) => documentTypeLabel(type)).join(", ")}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <form action={updatePersonalInfoAction} className="grid-form compact">
-        <label className="input-group">
-          <span>Aggiorna cellulare</span>
-          <input type="text" name="phoneNumber" placeholder="Es. +39 333 123 4567" defaultValue={user.phoneNumber ?? ""} />
-        </label>
-
-        <button type="submit" className="button button-ghost">
-          Salva dati personali
-        </button>
-      </form>
-
-      <div className="documents-summary">
-        <p className="panel-kicker">Documenti caricati (stato backend)</p>
-        <ul className="event-list">
-          {ALL_DOCUMENT_TYPES.map((documentType) => {
-            const uploaded = getDocumentByType(user.documents, documentType);
-            return (
-              <li key={documentType}>
-                <strong>{documentTypeLabel(documentType)}</strong>
-                {uploaded ? (
-                  <p>{`Presente (${uploaded.fileLabel}) - ${new Date(uploaded.uploadedAt).toLocaleDateString("it-IT")}`}</p>
-                ) : (
-                  <p className="status-badge missing">Non caricato</p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        <form action={uploadMyDocumentAction} className="grid-form compact">
-          <CustomSelect
-            name="type"
-            label="Tipo documento"
-            options={documentOptions}
-            defaultValue={DocumentType.TAX_CODE}
-            required
-          />
-
+        <form action={updatePersonalInfoAction} className="grid-form compact">
           <label className="input-group">
-            <span>Nome file (mock)</span>
-            <input type="text" name="fileLabel" required placeholder="es. certificato_medico_mario_rossi.pdf" />
+            <span>Aggiorna cellulare</span>
+            <input
+              type="text"
+              name="phoneNumber"
+              placeholder="Es. +39 333 123 4567"
+              defaultValue={user.phoneNumber ?? ""}
+            />
           </label>
 
-          <button type="submit" className="button button-primary">
-            Carica documento (mock)
+          <button type="submit" className="button button-ghost">
+            Salva dati personali
           </button>
         </form>
-      </div>
-    </section>
+      </section>
+
+      <section className="panel panel-full">
+        <p className="panel-kicker">Documenti personali</p>
+        <h3 className="panel-title">Upload documenti</h3>
+        {user.role === UserRole.SUBSCRIBER ? (
+          <p className="subtitle">
+            Per sbloccare l&apos;ingresso serve abbonamento attivo + approvazione di codice fiscale fronte/retro,
+            documento identita&apos; fronte/retro e certificato medico valido.
+          </p>
+        ) : null}
+
+        <div className="documents-slots-grid">
+          {CORE_SLOTS.map((slot) => (
+            <DocumentUploadSlot
+              key={`${slot.type}-${slot.side}`}
+              type={slot.type}
+              side={slot.side}
+              current={getDocumentSlot(user.documents, slot)}
+              medicalCertificateRequired={slot.type === DocumentType.MEDICAL_CERTIFICATE}
+            />
+          ))}
+        </div>
+
+        {requiredSlots.length === 0 ? (
+          <p className="subtitle">Per il tuo ruolo questi documenti non sono bloccanti, ma puoi comunque caricarli.</p>
+        ) : null}
+      </section>
+
+      <ProfilePhotoUploader document={profilePhoto} />
+    </>
   );
 }

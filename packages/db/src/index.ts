@@ -1,6 +1,9 @@
 export { db } from "./client";
 export {
   AccessEventType,
+  DocumentJobStatus,
+  DocumentSide,
+  DocumentStatus,
   DocumentType,
   Prisma,
   PrismaClient,
@@ -10,6 +13,7 @@ export {
 export type {
   AccessEvent,
   Account,
+  DocumentProcessingJob,
   Session,
   User,
   UserDocument,

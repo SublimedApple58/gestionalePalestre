@@ -12,6 +12,8 @@
     "test:e2e:fe": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.924.0",
+    "@aws-sdk/s3-request-presigner": "^3.924.0",
     "@auth/prisma-adapter": "^2.11.1",
     "@gestionale/db": "workspace:*",
     "bcryptjs": "^3.0.3",

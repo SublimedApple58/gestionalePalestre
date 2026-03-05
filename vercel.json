@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/document-jobs/run",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

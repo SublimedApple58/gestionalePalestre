@@ -29,6 +29,30 @@ enum DocumentType {
   TAX_CODE
   IDENTITY_DOCUMENT
   MEDICAL_CERTIFICATE
+  PROFILE_PHOTO
+}
+
+enum DocumentSide {
+  FRONT
+  BACK
+  SINGLE
+}
+
+enum DocumentStatus {
+  UPLOADED
+  AI_PROCESSING
+  NEEDS_REUPLOAD
+  PENDING_ADMIN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DocumentJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  ESCALATED
 }
 
 model User {
@@ -48,6 +72,8 @@ model User {
   accessEvents          AccessEvent[]
   documents             UserDocument[]     @relation("UserDocuments")
   uploadedDocuments     UserDocument[]     @relation("UserUploadedDocuments")
+  reviewedDocuments     UserDocument[]     @relation("UserReviewedDocuments")
+  documentJobs          DocumentProcessingJob[]
   sessions              Session[]
   accounts              Account[]
   subscriptionsAssigned UserSubscription[] @relation("AdminAssignedSubscriptions")
@@ -59,20 +85,57 @@ model User {
 }
 
 model UserDocument {
-  id           String       @id @default(cuid())
+  id                          String         @id @default(cuid())
+  userId                      String
+  type                        DocumentType
+  side                        DocumentSide   @default(SINGLE)
+  status                      DocumentStatus @default(UPLOADED)
+  storageKey                  String
+  fileName                    String
+  fileLabel                   String
+  mimeType                    String
+  sizeBytes                   Int
+  sha256                      String         @db.VarChar(64)
+  uploadedById                String?
+  uploadedAt                  DateTime       @default(now())
+  aiAttempts                  Int            @default(0)
+  aiConfidence                Float?
+  aiLastError                 String?
+  extractedTaxCode            String?        @db.VarChar(16)
+  extractedIdentityNumber     String?        @db.VarChar(20)
+  medicalCertificateExpiresAt DateTime?
+  reviewedById                String?
+  reviewedAt                  DateTime?
+  rejectionReason             String?
+  createdAt                   DateTime       @default(now())
+  updatedAt                   DateTime       @updatedAt
+  user                        User           @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedBy                  User?          @relation("UserUploadedDocuments", fields: [uploadedById], references: [id], onDelete: SetNull)
+  reviewedBy                  User?          @relation("UserReviewedDocuments", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, type, side])
+  @@index([userId, type, status])
+  @@index([status, uploadedAt(sort: Desc)])
+  @@index([uploadedById])
+  @@index([reviewedById])
+}
+
+model DocumentProcessingJob {
+  id           String            @id @default(cuid())
   userId       String
   type         DocumentType
-  fileLabel    String
-  uploadedById String?
-  uploadedAt   DateTime     @default(now())
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  user         User         @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
-  uploadedBy   User?        @relation("UserUploadedDocuments", fields: [uploadedById], references: [id], onDelete: SetNull)
+  status       DocumentJobStatus @default(QUEUED)
+  attemptCount Int               @default(0)
+  maxAttempts  Int               @default(3)
+  nextRunAt    DateTime          @default(now())
+  lastError    String?
+  payload      Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, type])
-  @@index([userId, uploadedAt(sort: Desc)])
-  @@index([uploadedById])
+  @@index([status, nextRunAt, createdAt])
+  @@index([userId, type, status])
 }
 
 model UserSubscription {
