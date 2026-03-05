@@ -140,7 +140,6 @@ export async function extractDocumentDataWithAi(input: ExtractInput): Promise<Ex
 
   const payload = {
     model: DOC_AI_MODEL,
-    temperature: 0,
     response_format: {
       type: "json_object"
     },
