@@ -17,6 +17,20 @@ type CustomCalendarProps = {
 };
 
 const DAY_LABELS = ["L", "M", "M", "G", "V", "S", "D"];
+const MONTH_LABELS = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre"
+];
 
 function formatYmd(date: Date): string {
   return [
@@ -144,6 +158,21 @@ export function CustomCalendar({
     return cells;
   }, [viewDate]);
 
+  const yearOptions = useMemo(() => {
+    const currentYear = viewDate.getFullYear();
+    const minYear = minDate ? minDate.getFullYear() : currentYear - 8;
+    const maxYear = maxDate ? maxDate.getFullYear() : currentYear + 12;
+    const safeMin = Math.min(minYear, maxYear);
+    const safeMax = Math.max(minYear, maxYear);
+    const years: number[] = [];
+
+    for (let year = safeMin; year <= safeMax; year += 1) {
+      years.push(year);
+    }
+
+    return years;
+  }, [maxDate, minDate, viewDate]);
+
   function commit(nextValue: string) {
     if (!controlled) {
       setInternalValue(nextValue);
@@ -200,9 +229,47 @@ export function CustomCalendar({
               ‹
             </button>
 
-            <strong className="calendar-title">
-              {viewDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" })}
-            </strong>
+            <div className="calendar-period-controls">
+              <select
+                className="calendar-period-select"
+                value={viewDate.getMonth()}
+                onChange={(event) =>
+                  setViewDate(
+                    new Date(
+                      viewDate.getFullYear(),
+                      Number.parseInt(event.target.value, 10),
+                      1
+                    )
+                  )
+                }
+              >
+                {MONTH_LABELS.map((month, index) => (
+                  <option key={month} value={index}>
+                    {month}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="calendar-period-select year"
+                value={viewDate.getFullYear()}
+                onChange={(event) =>
+                  setViewDate(
+                    new Date(
+                      Number.parseInt(event.target.value, 10),
+                      viewDate.getMonth(),
+                      1
+                    )
+                  )
+                }
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <button
               type="button"
@@ -244,20 +311,6 @@ export function CustomCalendar({
                 </button>
               );
             })}
-          </div>
-
-          <div className="calendar-actions">
-            <button
-              type="button"
-              className="button button-ghost small"
-              onClick={() => {
-                const nowValue = formatYmd(new Date());
-                commit(nowValue);
-                setOpen(false);
-              }}
-            >
-              Oggi
-            </button>
           </div>
         </div>
       ) : null}

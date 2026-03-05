@@ -1,6 +1,11 @@
 "use client";
 
-import { DocumentSide, DocumentType, type UserDocument } from "@gestionale/db";
+import {
+  DocumentSide,
+  DocumentStatus,
+  DocumentType,
+  type UserDocument
+} from "@gestionale/db";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -16,6 +21,7 @@ import { CustomFilePicker } from "@/components/ui/custom-file-picker";
 type DocumentUploadSlotProps = {
   type: DocumentType;
   side: DocumentSide;
+  slotTitle?: string;
   current: Pick<
     UserDocument,
     | "id"
@@ -55,6 +61,7 @@ async function sha256Hex(file: File): Promise<string> {
 export function DocumentUploadSlot({
   type,
   side,
+  slotTitle,
   current,
   medicalCertificateRequired = false,
   maxAttempts = 3
@@ -76,6 +83,22 @@ export function DocumentUploadSlot({
 
     return countRemainingAiAttempts({ aiAttempts: current.aiAttempts }, maxAttempts);
   }, [current, maxAttempts]);
+
+  function statusTone(status?: DocumentStatus): "ok" | "warning" | "missing" {
+    if (!status) {
+      return "missing";
+    }
+
+    if (status === DocumentStatus.APPROVED) {
+      return "ok";
+    }
+
+    if (status === DocumentStatus.REJECTED || status === DocumentStatus.NEEDS_REUPLOAD) {
+      return "missing";
+    }
+
+    return "warning";
+  }
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -175,8 +198,8 @@ export function DocumentUploadSlot({
   return (
     <div className="upload-slot">
       <div className="upload-slot-header">
-        <strong>{`${documentTypeLabel(type)} - ${documentSideLabel(side)}`}</strong>
-        <span className={`status-badge ${current?.status === "APPROVED" ? "ok" : "warning"}`}>
+        <strong>{slotTitle ?? `${documentTypeLabel(type)} - ${documentSideLabel(side)}`}</strong>
+        <span className={`status-badge ${statusTone(current?.status)}`}>
           {current ? documentStatusLabel(current.status) : "Mancante"}
         </span>
       </div>

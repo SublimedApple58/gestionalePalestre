@@ -2,6 +2,7 @@ import { DocumentSide, DocumentType, SubscriptionTier, UserRole, type UserDocume
 
 import { updatePersonalInfoAction } from "@/app/actions/dashboard-actions";
 import {
+  CORE_DOCUMENT_TYPES,
   documentSideLabel,
   documentTypeLabel,
   getDocumentSlot,
@@ -12,7 +13,7 @@ import {
 import { roleLabel } from "@/lib/roles";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
-import { DocumentUploadSlot } from "./document-upload-slot";
+import { DocumentUploadCard } from "./document-upload-card";
 import { ProfilePhotoUploader } from "./profile-photo-uploader";
 
 type PersonalOverviewProps = {
@@ -30,14 +31,6 @@ type PersonalOverviewProps = {
     } | null;
   };
 };
-
-const CORE_SLOTS: Array<{ type: DocumentType; side: DocumentSide }> = [
-  { type: DocumentType.TAX_CODE, side: DocumentSide.FRONT },
-  { type: DocumentType.TAX_CODE, side: DocumentSide.BACK },
-  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.FRONT },
-  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.BACK },
-  { type: DocumentType.MEDICAL_CERTIFICATE, side: DocumentSide.SINGLE }
-];
 
 export function PersonalOverview({ user }: PersonalOverviewProps) {
   const missingSlots = getMissingDocumentSlots(user.role, user.documents);
@@ -136,14 +129,8 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
         ) : null}
 
         <div className="documents-slots-grid">
-          {CORE_SLOTS.map((slot) => (
-            <DocumentUploadSlot
-              key={`${slot.type}-${slot.side}`}
-              type={slot.type}
-              side={slot.side}
-              current={getDocumentSlot(user.documents, slot)}
-              medicalCertificateRequired={slot.type === DocumentType.MEDICAL_CERTIFICATE}
-            />
+          {CORE_DOCUMENT_TYPES.map((type) => (
+            <DocumentUploadCard key={type} type={type} documents={user.documents} />
           ))}
         </div>
 

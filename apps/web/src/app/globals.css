@@ -608,12 +608,30 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
-.calendar-title {
-  font-size: 13px;
-  text-transform: capitalize;
-  letter-spacing: 0.06em;
+.calendar-period-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.calendar-period-select {
+  border-radius: 8px;
+  border: 1px solid var(--border-quiet);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.calendar-period-select.year {
+  max-width: 92px;
 }
 
 .calendar-nav {
@@ -684,13 +702,6 @@ p {
 
 .calendar-empty {
   min-height: 34px;
-}
-
-.calendar-actions {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 8px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .button {
@@ -882,6 +893,114 @@ th {
   gap: 12px;
 }
 
+.document-type-card {
+  border: 1px solid rgba(223, 37, 49, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 12% -25%, rgba(223, 37, 49, 0.24), transparent 42%),
+    linear-gradient(170deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.document-type-card:hover {
+  border-color: rgba(223, 37, 49, 0.58);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.document-type-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(223, 37, 49, 0.26);
+}
+
+.document-type-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.document-type-card-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.document-type-card-action {
+  font-size: 12px;
+  color: #ffc3ca;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.document-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(3, 3, 7, 0.78);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.document-modal {
+  width: min(980px, 100%);
+  max-height: 90dvh;
+  overflow: auto;
+  border: 1px solid rgba(223, 37, 49, 0.34);
+  border-radius: 18px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 18% -26%, rgba(223, 37, 49, 0.24), transparent 40%),
+    linear-gradient(180deg, rgba(20, 20, 28, 0.98), rgba(11, 11, 16, 0.98));
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.55);
+  display: grid;
+  gap: 14px;
+}
+
+.document-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.document-modal-title {
+  font-size: 1.15rem;
+}
+
+.document-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-quiet);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+}
+
+.document-modal-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.document-modal-grid.double {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-modal-grid.single {
+  grid-template-columns: 1fr;
+}
+
 .upload-slot {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
@@ -1047,6 +1166,23 @@ th {
 @media (max-width: 880px) {
   .panel {
     grid-column: 1 / -1;
+  }
+
+  .document-modal {
+    padding: 14px;
+  }
+
+  .document-modal-grid.double {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-period-controls {
+    gap: 4px;
+  }
+
+  .calendar-period-select {
+    min-height: 30px;
+    font-size: 11px;
   }
 
   .file-picker {
