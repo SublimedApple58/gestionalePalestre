@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LayoutDashboard, User } from "lucide-react";
 import { type UserRole } from "@gestionale/db";
 
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -13,34 +14,34 @@ type AuthenticatedShellProps = {
   };
 };
 
-export function AuthenticatedShell({ children, currentPath }: AuthenticatedShellProps) {
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  "/dashboard": <LayoutDashboard size={20} aria-hidden="true" />,
+  "/profilo": <User size={20} aria-hidden="true" />
+};
+
+const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
+  "/dashboard": <LayoutDashboard size={22} />,
+  "/profilo": <User size={22} />
+};
+
+export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
   const navItems = getAppNavigationItems(currentPath);
 
   return (
     <div className="app-shell">
-      <input id="sidebar-toggle" type="checkbox" className="sidebar-toggle-input" aria-hidden="true" />
-
-      <label htmlFor="sidebar-toggle" className="sidebar-open-button" aria-label="Apri menu laterale">
-        <span />
-        <span />
-        <span />
-      </label>
-
-      <label htmlFor="sidebar-toggle" className="sidebar-overlay" aria-hidden="true" />
-
-      <aside className="app-sidebar">
-        <div className="sidebar-mobile-head">
-          <label htmlFor="sidebar-toggle" className="sidebar-close-button" aria-label="Chiudi menu laterale">
-            ✕
-          </label>
+      {/* ── Mobile top header ─────────────────────────────────────── */}
+      <header className="mobile-header" aria-label="Intestazione app">
+        <div className="mobile-header-brand">
+          <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
+          <span className="mobile-header-title">HOUSE OF MUSCLE</span>
         </div>
+      </header>
 
+      {/* ── Desktop sidebar ───────────────────────────────────────── */}
+      <aside className="app-sidebar">
         <div className="sidebar-top">
           <div className="sidebar-brand">
-            <span className="sidebar-brand-mark" aria-hidden="true">
-              GP
-            </span>
-
+            <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
             <div>
               <p className="eyebrow">Gestionale Palestre</p>
               <h2 className="sidebar-title">HOUSE OF MUSCLE</h2>
@@ -55,19 +56,35 @@ export function AuthenticatedShell({ children, currentPath }: AuthenticatedShell
               href={item.href}
               className={`sidebar-link ${item.active ? "active" : ""}`}
             >
-              <span className="sidebar-link-dot" aria-hidden="true" />
+              <span className="sidebar-link-icon">{NAV_ICONS[item.href]}</span>
               <span>{item.label}</span>
             </Link>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <p className="sidebar-footnote">Sessione attiva</p>
+          <p className="sidebar-footnote">Sessione attiva · {user.firstName}</p>
           <LogoutButton />
         </div>
       </aside>
 
+      {/* ── Main content ──────────────────────────────────────────── */}
       <div className="app-content">{children}</div>
+
+      {/* ── Mobile bottom nav ─────────────────────────────────────── */}
+      <nav className="bottom-nav" aria-label="Navigazione principale">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`bottom-nav-link ${item.active ? "active" : ""}`}
+            aria-current={item.active ? "page" : undefined}
+          >
+            {BOTTOM_NAV_ICONS[item.href]}
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

@@ -28,13 +28,15 @@ type DocumentReviewTableProps = {
 export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
   return (
     <section className="panel panel-full">
-      <p className="panel-kicker">Revisione documenti</p>
-      <h3 className="panel-title">In attesa di validazione admin</h3>
+      <div>
+        <p className="panel-kicker">Revisione documenti</p>
+        <h3 className="panel-title">In attesa di validazione admin</h3>
+      </div>
 
       {documents.length === 0 ? (
-        <p>Nessun documento in revisione.</p>
+        <div className="empty-state">Nessun documento in revisione.</div>
       ) : (
-        <div className="table-wrapper">
+        <div className="table-wrapper responsive-table">
           <table>
             <thead>
               <tr>
@@ -49,40 +51,54 @@ export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
             <tbody>
               {documents.map((document) => (
                 <tr key={document.id}>
-                  <td>
-                    <strong>{`${document.user.firstName} ${document.user.lastName}`}</strong>
-                    <p>{document.user.email}</p>
-                  </td>
-                  <td>
-                    <p>{`${documentTypeLabel(document.type)} - ${documentSideLabel(document.side)}`}</p>
-                    <small>{document.fileName}</small>
-                    {document.type === DocumentType.MEDICAL_CERTIFICATE ? (
-                      <p>
-                        Scadenza:{" "}
-                        {document.medicalCertificateExpiresAt
-                          ? new Date(document.medicalCertificateExpiresAt).toLocaleDateString("it-IT")
-                          : "non impostata"}
+                  <td data-label="Utente">
+                    <div>
+                      <strong>{`${document.user.firstName} ${document.user.lastName}`}</strong>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                        {document.user.email}
                       </p>
-                    ) : null}
+                    </div>
                   </td>
-                  <td>
-                    <p className="status-badge warning">{documentStatusLabel(document.status)}</p>
+
+                  <td data-label="Documento">
+                    <div>
+                      <p style={{ margin: 0 }}>{`${documentTypeLabel(document.type)} — ${documentSideLabel(document.side)}`}</p>
+                      <small style={{ color: "var(--text-muted)" }}>{document.fileName}</small>
+                      {document.type === DocumentType.MEDICAL_CERTIFICATE ? (
+                        <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                          {`Scadenza: ${
+                            document.medicalCertificateExpiresAt
+                              ? new Date(document.medicalCertificateExpiresAt).toLocaleDateString("it-IT")
+                              : "non impostata"
+                          }`}
+                        </p>
+                      ) : null}
+                    </div>
                   </td>
-                  <td>
-                    <p>{`CF: ${document.extractedTaxCode ?? "-"}`}</p>
-                    <p>{`Doc ID: ${document.extractedIdentityNumber ?? "-"}`}</p>
-                    <p>{`Confidenza: ${document.aiConfidence ? document.aiConfidence.toFixed(2) : "-"}`}</p>
+
+                  <td data-label="Stato">
+                    <span className="status-badge warning">{documentStatusLabel(document.status)}</span>
                   </td>
-                  <td>
+
+                  <td data-label="Dati AI">
+                    <div style={{ display: "grid", gap: "2px", fontSize: "13px" }}>
+                      <span>{`CF: ${document.extractedTaxCode ?? "—"}`}</span>
+                      <span>{`Doc ID: ${document.extractedIdentityNumber ?? "—"}`}</span>
+                      <span>{`Confidenza: ${document.aiConfidence ? document.aiConfidence.toFixed(2) : "—"}`}</span>
+                    </div>
+                  </td>
+
+                  <td data-label="Preview">
                     {document.previewUrl ? (
                       <a href={document.previewUrl} target="_blank" rel="noreferrer" className="button button-ghost small">
                         Apri file
                       </a>
                     ) : (
-                      <small>Preview non disponibile</small>
+                      <small style={{ color: "var(--text-muted)" }}>Non disponibile</small>
                     )}
                   </td>
-                  <td>
+
+                  <td data-label="Azioni" className="td-actions">
                     <div className="row-actions">
                       <form action={approveDocumentAction} className="grid-form">
                         <input type="hidden" name="documentId" value={document.id} />
@@ -118,7 +134,13 @@ export function DocumentReviewTable({ documents }: DocumentReviewTableProps) {
                         <input type="hidden" name="documentId" value={document.id} />
                         <label className="input-group">
                           <span>Richiedi reupload</span>
-                          <input type="text" name="reason" placeholder="Immagine sfocata o incompleta" minLength={4} maxLength={400} />
+                          <input
+                            type="text"
+                            name="reason"
+                            placeholder="Immagine sfocata o incompleta"
+                            minLength={4}
+                            maxLength={400}
+                          />
                         </label>
                         <button type="submit" className="button button-ghost small">
                           Da rifare

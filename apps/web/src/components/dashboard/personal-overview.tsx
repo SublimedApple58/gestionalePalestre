@@ -45,9 +45,12 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
 
   return (
     <>
+      {/* ── Info personali ──────────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Profilo personale</p>
-        <h3 className="panel-title">Le tue informazioni</h3>
+        <div>
+          <p className="panel-kicker">Profilo personale</p>
+          <h3 className="panel-title">Le tue informazioni</h3>
+        </div>
 
         <div className="overview-grid">
           <div className="overview-item">
@@ -74,13 +77,13 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
             <small>Abbonamento</small>
             <strong>
               {user.subscription
-                ? `${tierLabel(user.subscription.tier)} - scade ${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}`
+                ? `${tierLabel(user.subscription.tier)} — scade ${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}`
                 : "Non assegnato"}
             </strong>
             {user.subscription ? (
-              <p className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
+              <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
                 {subscriptionActive ? "Attivo" : "Non attivo"}
-              </p>
+              </span>
             ) : null}
           </div>
 
@@ -94,9 +97,9 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
                 : "Non vincolanti per il tuo ruolo"}
             </strong>
             {missingSlots.length > 0 ? (
-              <p className="status-badge missing">
+              <span className="status-badge missing">
                 {missingSlots.map((slot) => `${documentTypeLabel(slot.type)} (${documentSideLabel(slot.side)})`).join(", ")}
-              </p>
+              </span>
             ) : null}
           </div>
         </div>
@@ -118,15 +121,18 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
         </form>
       </section>
 
+      {/* ── Documenti personali ─────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Documenti personali</p>
-        <h3 className="panel-title">Upload documenti</h3>
-        {user.role === UserRole.SUBSCRIBER ? (
-          <p className="subtitle">
-            Per sbloccare l&apos;ingresso serve abbonamento attivo + approvazione di codice fiscale fronte/retro,
-            documento identita&apos; fronte/retro e certificato medico valido.
-          </p>
-        ) : null}
+        <div>
+          <p className="panel-kicker">Documenti personali</p>
+          <h3 className="panel-title">Upload documenti</h3>
+          {user.role === UserRole.SUBSCRIBER ? (
+            <p className="subtitle">
+              Per sbloccare l&apos;ingresso serve abbonamento attivo + approvazione di codice fiscale
+              fronte/retro, documento identità fronte/retro e certificato medico valido.
+            </p>
+          ) : null}
+        </div>
 
         <div className="documents-slots-grid">
           {CORE_DOCUMENT_TYPES.map((type) => (
@@ -135,10 +141,13 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
         </div>
 
         {requiredSlots.length === 0 ? (
-          <p className="subtitle">Per il tuo ruolo questi documenti non sono bloccanti, ma puoi comunque caricarli.</p>
+          <p className="subtitle">
+            Per il tuo ruolo questi documenti non sono bloccanti, ma puoi comunque caricarli.
+          </p>
         ) : null}
       </section>
 
+      {/* ── Foto profilo ────────────────────────────────────────── */}
       <ProfilePhotoUploader document={profilePhoto} />
     </>
   );

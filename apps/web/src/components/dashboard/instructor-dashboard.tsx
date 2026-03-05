@@ -23,11 +23,15 @@ export function InstructorDashboard({
 }: InstructorDashboardProps) {
   return (
     <div className="dashboard-grid">
+      {/* ── Codice istruttore ────────────────────────────────────── */}
       <MaskedAccessCode code={accessCode} title="Codice personale istruttore" />
 
+      {/* ── Ingresso ─────────────────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Ingresso</p>
-        <h3 className="panel-title">Registra accesso</h3>
+        <div>
+          <p className="panel-kicker">Ingresso</p>
+          <h3 className="panel-title">Registra accesso</h3>
+        </div>
         <form action={simulateEntryAction}>
           <button type="submit" className="button button-primary">
             Simula ingresso
@@ -35,27 +39,42 @@ export function InstructorDashboard({
         </form>
       </section>
 
+      {/* ── Allievi ──────────────────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Allievi</p>
-        <h3 className="panel-title">Iscritti assegnati</h3>
+        <div>
+          <p className="panel-kicker">Allievi</p>
+          <h3 className="panel-title">
+            {`Iscritti assegnati${assignedSubscribers.length > 0 ? ` (${assignedSubscribers.length})` : ""}`}
+          </h3>
+        </div>
 
-        <ul className="event-list">
-          {assignedSubscribers.length === 0 ? (
-            <li>Ancora nessun allievo assegnato.</li>
-          ) : (
-            assignedSubscribers.map((subscriber) => (
-              <li key={subscriber.id}>
-                <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
-                <p>{subscriber.email}</p>
-              </li>
-            ))
-          )}
-        </ul>
+        {assignedSubscribers.length === 0 ? (
+          <div className="empty-state">Ancora nessun allievo assegnato.</div>
+        ) : (
+          <div className="user-list">
+            {assignedSubscribers.map((subscriber) => (
+              <div key={subscriber.id} className="user-card">
+                <span className="user-avatar">
+                  {subscriber.firstName.charAt(0).toUpperCase()}
+                </span>
+                <div className="user-card-info">
+                  <span className="user-card-name">
+                    {`${subscriber.firstName} ${subscriber.lastName}`}
+                  </span>
+                  <span className="user-card-meta">{subscriber.email}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      <section className="panel panel-full">
-        <WeeklyPlanForm action={saveWorkoutPlanAction} plan={workoutPlan} title="Il tuo piano settimanale" />
-      </section>
+      {/* ── Piano settimanale ────────────────────────────────────── */}
+      <WeeklyPlanForm
+        action={saveWorkoutPlanAction}
+        plan={workoutPlan}
+        title="Il tuo piano settimanale"
+      />
     </div>
   );
 }

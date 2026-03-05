@@ -70,47 +70,80 @@ export function SubscriberDashboard({
     missingDocuments.length > 0 &&
     missingDocuments.every((type) => pendingTypes.includes(type));
 
+  const instructorInitial = assignedInstructor
+    ? assignedInstructor.firstName.charAt(0).toUpperCase()
+    : null;
+
   return (
     <div className="dashboard-grid">
+      {/* ── Abbonamento ─────────────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Abbonamento</p>
-        <h3 className="panel-title">Stato abbonamento</h3>
+        <div>
+          <p className="panel-kicker">Abbonamento</p>
+          <h3 className="panel-title">Stato abbonamento</h3>
+        </div>
 
         {subscription ? (
           <>
-            <p>
-              Piano attivo: <strong>{tierLabel(subscription.tier)}</strong>
-            </p>
-            <p>
-              Scadenza: <strong>{new Date(subscription.endsAt).toLocaleDateString("it-IT")}</strong>
-            </p>
-            <p>
-              Stato: <strong>{subscriptionActive ? "Attivo" : "Non attivo"}</strong>
-            </p>
+            <div className="stat-row">
+              <span className="stat-value-large">{tierLabel(subscription.tier)}</span>
+              <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
+                {subscriptionActive ? "Attivo" : "Scaduto"}
+              </span>
+            </div>
+
+            <div className="stat-meta-list">
+              <div className="stat-meta-row">
+                <span className="stat-meta-label">Inizio</span>
+                <span className="stat-meta-value">
+                  {new Date(subscription.startsAt).toLocaleDateString("it-IT")}
+                </span>
+              </div>
+              <div className="stat-meta-row">
+                <span className="stat-meta-label">Scadenza</span>
+                <span className="stat-meta-value">
+                  {new Date(subscription.endsAt).toLocaleDateString("it-IT")}
+                </span>
+              </div>
+            </div>
           </>
         ) : (
-          <p>Nessun abbonamento assegnato.</p>
+          <p className="subtitle">Nessun abbonamento assegnato.</p>
         )}
       </section>
 
+      {/* ── Istruttore ──────────────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Istruttore</p>
-        <h3 className="panel-title">Supporto assegnato</h3>
+        <div>
+          <p className="panel-kicker">Istruttore</p>
+          <h3 className="panel-title">Supporto assegnato</h3>
+        </div>
 
         {assignedInstructor ? (
-          <p>{`${assignedInstructor.firstName} ${assignedInstructor.lastName} (${assignedInstructor.email})`}</p>
+          <div className="user-card">
+            <span className="user-avatar">{instructorInitial}</span>
+            <div className="user-card-info">
+              <span className="user-card-name">
+                {`${assignedInstructor.firstName} ${assignedInstructor.lastName}`}
+              </span>
+              <span className="user-card-meta">{assignedInstructor.email}</span>
+            </div>
+          </div>
         ) : (
-          <p>Nessun istruttore assegnato.</p>
+          <div className="empty-state">Nessun istruttore assegnato.</div>
         )}
       </section>
 
+      {/* ── Codice accesso o blocco ──────────────────────────────── */}
       {canEnterGym ? (
         <>
           <MaskedAccessCode code={accessCode} title="Codice ingresso iscritto" />
 
           <section className="panel">
-            <p className="panel-kicker">Ingresso</p>
-            <h3 className="panel-title">Registra accesso</h3>
+            <div>
+              <p className="panel-kicker">Ingresso</p>
+              <h3 className="panel-title">Registra accesso</h3>
+            </div>
             <form action={simulateEntryAction}>
               <button type="submit" className="button button-primary">
                 Simula ingresso
@@ -120,9 +153,11 @@ export function SubscriberDashboard({
         </>
       ) : (
         <section className="panel panel-full">
-          <p className="panel-kicker">Ingresso palestra</p>
-          <h3 className="panel-title">Codice non disponibile</h3>
-          <p>
+          <div>
+            <p className="panel-kicker">Ingresso palestra</p>
+            <h3 className="panel-title">Codice non disponibile</h3>
+          </div>
+          <p className="subtitle">
             {!subscriptionActive
               ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
               : blockedByPendingReview
@@ -134,9 +169,8 @@ export function SubscriberDashboard({
         </section>
       )}
 
-      <section className="panel panel-full">
-        <WeeklyPlanForm action={saveWorkoutPlanAction} plan={workoutPlan} />
-      </section>
+      {/* ── Piano allenamento ───────────────────────────────────── */}
+      <WeeklyPlanForm action={saveWorkoutPlanAction} plan={workoutPlan} />
     </div>
   );
 }

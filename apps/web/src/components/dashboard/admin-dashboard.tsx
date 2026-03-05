@@ -101,6 +101,7 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
     label: `${instructor.firstName} ${instructor.lastName}`,
     details: instructor.email
   }));
+
   const subscriberIds = new Set(subscribers.map((subscriber) => subscriber.id));
 
   const pendingMedicalSubscribersMap = new Map<
@@ -115,17 +116,9 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
   >();
 
   for (const document of reviewDocuments) {
-    if (document.type !== DocumentType.MEDICAL_CERTIFICATE) {
-      continue;
-    }
-
-    if (!subscriberIds.has(document.user.id)) {
-      continue;
-    }
-
-    if (pendingMedicalSubscribersMap.has(document.user.id)) {
-      continue;
-    }
+    if (document.type !== DocumentType.MEDICAL_CERTIFICATE) continue;
+    if (!subscriberIds.has(document.user.id)) continue;
+    if (pendingMedicalSubscribersMap.has(document.user.id)) continue;
 
     pendingMedicalSubscribersMap.set(document.user.id, {
       id: document.user.id,
@@ -140,30 +133,15 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
 
   return (
     <div className="dashboard-grid">
+      {/* ── Codice admin ─────────────────────────────────────────── */}
       <MaskedAccessCode code={currentUser.accessCode} title="Codice personale admin" />
 
-      <section className="panel panel-full">
-        <p className="panel-kicker">Validazioni mediche</p>
-        <h3 className="panel-title">Iscritti pending certificato medico</h3>
-
-        {pendingMedicalSubscribers.length === 0 ? (
-          <p>Nessun iscritto in attesa di revisione medico.</p>
-        ) : (
-          <ul className="pending-medical-list">
-            {pendingMedicalSubscribers.map((subscriber) => (
-              <li key={subscriber.id}>
-                <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
-                <p>{subscriber.email}</p>
-                <small>{`Caricato il ${new Date(subscriber.uploadedAt).toLocaleString("it-IT")}`}</small>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
+      {/* ── Porta palestra ───────────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Ingresso</p>
-        <h3 className="panel-title">Controllo porta palestra</h3>
+        <div>
+          <p className="panel-kicker">Ingresso</p>
+          <h3 className="panel-title">Controllo porta palestra</h3>
+        </div>
         <form action={openGymDoorAction}>
           <button type="submit" className="button button-primary">
             Apri porta palestra
@@ -171,9 +149,39 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
         </form>
       </section>
 
+      {/* ── Validazioni mediche ──────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Utenti</p>
-        <h3 className="panel-title">Aggiungi utente</h3>
+        <div>
+          <p className="panel-kicker">Validazioni mediche</p>
+          <h3 className="panel-title">Iscritti in attesa di revisione certificato</h3>
+        </div>
+
+        {pendingMedicalSubscribers.length === 0 ? (
+          <div className="empty-state">Nessun iscritto in attesa di revisione medico.</div>
+        ) : (
+          <ul className="pending-medical-list">
+            {pendingMedicalSubscribers.map((subscriber) => (
+              <li key={subscriber.id}>
+                <span className="user-avatar">
+                  {subscriber.firstName.charAt(0).toUpperCase()}
+                </span>
+                <div className="pending-medical-info">
+                  <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
+                  <p>{subscriber.email}</p>
+                  <small>{`Caricato il ${new Date(subscriber.uploadedAt).toLocaleString("it-IT")}`}</small>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ── Aggiungi utente ──────────────────────────────────────── */}
+      <section className="panel panel-full">
+        <div>
+          <p className="panel-kicker">Utenti</p>
+          <h3 className="panel-title">Aggiungi utente</h3>
+        </div>
 
         <form action={createUserByAdminAction} className="grid-form compact">
           <label className="input-group">
@@ -204,11 +212,14 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
         </form>
       </section>
 
+      {/* ── Lista utenti ─────────────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Gestione ruoli</p>
-        <h3 className="panel-title">Lista utenti</h3>
+        <div>
+          <p className="panel-kicker">Gestione ruoli</p>
+          <h3 className="panel-title">Lista utenti</h3>
+        </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper responsive-table">
           <table>
             <thead>
               <tr>
@@ -228,33 +239,33 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
 
                 return (
                   <tr key={user.id}>
-                    <td>{`${user.firstName} ${user.lastName}`}</td>
-                    <td>{user.email}</td>
-                    <td>{roleLabel(user.role)}</td>
-                    <td>
+                    <td data-label="Nome">{`${user.firstName} ${user.lastName}`}</td>
+                    <td data-label="Email">{user.email}</td>
+                    <td data-label="Ruolo">{roleLabel(user.role)}</td>
+                    <td data-label="Istruttore">
                       {user.assignedInstructor
                         ? `${user.assignedInstructor.firstName} ${user.assignedInstructor.lastName}`
-                        : "-"}
+                        : "—"}
                     </td>
-                    <td>
+                    <td data-label="Abbonamento">
                       {user.subscription
                         ? `${tierLabel(user.subscription.tier)} (${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")})`
-                        : "-"}
+                        : "—"}
                     </td>
-                    <td>
+                    <td data-label="Documenti">
                       {missingOverall.length > 0 ? (
-                        <p className={`status-badge ${user.role === UserRole.SUBSCRIBER ? "missing" : "warning"}`}>
+                        <span className={`status-badge ${user.role === UserRole.SUBSCRIBER ? "missing" : "warning"}`}>
                           {`Mancano: ${missingOverall.map((type) => documentTypeLabel(type)).join(", ")}${
                             user.role === UserRole.SUBSCRIBER && missingRequired.length > 0
                               ? " (bloccante)"
                               : " (non bloccante)"
                           }`}
-                        </p>
+                        </span>
                       ) : (
-                        <p className="status-badge ok">Tutti i documenti presenti</p>
+                        <span className="status-badge ok">Completi</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Azioni" className="td-actions">
                       <div className="row-actions">
                         <form action={changeUserRoleAction} className="inline-form">
                           <input type="hidden" name="targetUserId" value={user.id} />
@@ -288,9 +299,12 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
         </div>
       </section>
 
+      {/* ── Assegna abbonamento ──────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Abbonamenti</p>
-        <h3 className="panel-title">Assegna piano</h3>
+        <div>
+          <p className="panel-kicker">Abbonamenti</p>
+          <h3 className="panel-title">Assegna piano</h3>
+        </div>
 
         <form action={assignSubscriptionAction} className="grid-form compact">
           <CustomSelect
@@ -318,9 +332,12 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
         </form>
       </section>
 
+      {/* ── Assegna istruttore ───────────────────────────────────── */}
       <section className="panel">
-        <p className="panel-kicker">Istruttori</p>
-        <h3 className="panel-title">Assegna istruttore</h3>
+        <div>
+          <p className="panel-kicker">Istruttori</p>
+          <h3 className="panel-title">Assegna istruttore</h3>
+        </div>
 
         <form action={assignInstructorAction} className="grid-form compact">
           <CustomSelect
@@ -347,26 +364,32 @@ export function AdminDashboard({ currentUser, users, accessLogs, reviewDocuments
         </form>
       </section>
 
+      {/* ── Storico accessi ──────────────────────────────────────── */}
       <section className="panel panel-full">
-        <p className="panel-kicker">Ingressi</p>
-        <h3 className="panel-title">Storico accessi (mock)</h3>
+        <div>
+          <p className="panel-kicker">Ingressi</p>
+          <h3 className="panel-title">Storico accessi recenti</h3>
+        </div>
 
-        <ul className="event-list">
-          {accessLogs.length === 0 ? (
-            <li>Nessun ingresso registrato.</li>
-          ) : (
-            accessLogs.map((log) => (
+        {accessLogs.length === 0 ? (
+          <div className="empty-state">Nessun ingresso registrato.</div>
+        ) : (
+          <ul className="event-list">
+            {accessLogs.map((log) => (
               <li key={log.id}>
                 <strong>{`${log.user.firstName} ${log.user.lastName}`}</strong>
-                <span>{` (${roleLabel(log.user.role)})`}</span>
-                <p>{`${log.eventType === "DOOR_OPEN" ? "Apri porta" : "Simula ingresso"} - ${new Date(log.occurredAt).toLocaleString("it-IT")}`}</p>
-                {log.note ? <small>{log.note}</small> : null}
+                <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+                  {` · ${roleLabel(log.user.role)}`}
+                </span>
+                <p>{`${log.eventType === "DOOR_OPEN" ? "Apri porta" : "Simula ingresso"} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}</p>
+                {log.note ? <small style={{ color: "var(--text-muted)", fontSize: "12px" }}>{log.note}</small> : null}
               </li>
-            ))
-          )}
-        </ul>
+            ))}
+          </ul>
+        )}
       </section>
 
+      {/* ── Revisione documenti ──────────────────────────────────── */}
       <DocumentReviewTable documents={reviewDocuments} />
     </div>
   );
