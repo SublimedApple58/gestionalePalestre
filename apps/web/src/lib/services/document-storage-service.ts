@@ -6,6 +6,8 @@ import { DOC_PRESIGN_TTL_SECONDS, DOCUMENT_ALLOWED_MIME_TYPES } from "@/lib/docu
 
 import { DomainError } from "./errors";
 
+const asciiDecoder = new TextDecoder("ascii");
+
 type R2Config = {
   accessKeyId: string;
   secretAccessKey: string;
@@ -178,8 +180,8 @@ function isWebpMagic(bytes: Uint8Array): boolean {
     return false;
   }
 
-  const riff = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
-  const webp = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+  const riff = asciiDecoder.decode(bytes.subarray(0, 4));
+  const webp = asciiDecoder.decode(bytes.subarray(8, 12));
 
   return riff === "RIFF" && webp === "WEBP";
 }
