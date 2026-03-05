@@ -43,7 +43,7 @@ type OnboardingStep = {
   slots: DocumentSide[];
 };
 
-const STEPS: OnboardingStep[] = [
+const STEPS: [OnboardingStep, OnboardingStep, OnboardingStep] = [
   {
     id: "tax",
     title: "Codice fiscale",
