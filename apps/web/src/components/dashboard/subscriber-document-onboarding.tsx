@@ -7,7 +7,7 @@ import {
   UserRole,
   type UserDocument
 } from "@gestionale/db";
-import { ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -47,24 +47,21 @@ const STEPS: [OnboardingStep, OnboardingStep, OnboardingStep] = [
   {
     id: "tax",
     title: "Codice fiscale",
-    description:
-      "Carica fronte e retro. Puoi scattare una foto dal telefono o caricare file esistenti.",
+    description: "Carica fronte e retro della tessera. Puoi scattare una foto dal telefono.",
     type: DocumentType.TAX_CODE,
     slots: [DocumentSide.FRONT, DocumentSide.BACK]
   },
   {
     id: "identity",
-    title: "Documento identita'",
-    description:
-      "Carica fronte e retro del documento. L'AI estrae automaticamente il numero documento.",
+    title: "Documento d'identità",
+    description: "Carica fronte e retro. Il numero documento viene estratto automaticamente.",
     type: DocumentType.IDENTITY_DOCUMENT,
     slots: [DocumentSide.FRONT, DocumentSide.BACK]
   },
   {
     id: "medical",
     title: "Certificato medico",
-    description:
-      "Carica il certificato e imposta la data di scadenza. Passera' in revisione admin.",
+    description: "Carica il certificato e imposta la data di scadenza.",
     type: DocumentType.MEDICAL_CERTIFICATE,
     slots: [DocumentSide.SINGLE]
   }
@@ -114,18 +111,24 @@ export function SubscriberDocumentOnboarding({
   }
 
   const activeStep = STEPS[activeStepIndex] ?? STEPS[0];
+  const progressPct = ((activeStepIndex + 1) / STEPS.length) * 100;
 
   return (
     <div className="onboarding-blocker" role="dialog" aria-modal="true" aria-label="Onboarding documenti obbligatori">
       <section className="onboarding-card">
+
+        {/* ── Progress bar — mobile only ─────────────────────────── */}
+        <div className="onboarding-progress-track" aria-hidden="true">
+          <div className="onboarding-progress-fill" style={{ width: `${progressPct}%` }} />
+        </div>
+
+        {/* ── Header ────────────────────────────────────────────── */}
         <header className="onboarding-header">
-          <p className="panel-kicker">Onboarding obbligatorio</p>
-          <h2 className="onboarding-title">Completa i documenti per attivare il tuo account</h2>
-          <p className="subtitle">
-            Finche&apos; non completi i passaggi richiesti non puoi usare liberamente la piattaforma.
-          </p>
+          <p className="panel-kicker">Documenti obbligatori</p>
+          <h2 className="onboarding-title">Attiva il tuo account</h2>
         </header>
 
+        {/* ── Stepper — desktop only ─────────────────────────────── */}
         <div className="onboarding-stepper">
           {STEPS.map((step, index) => {
             const status = completedSteps[index]
@@ -142,36 +145,37 @@ export function SubscriberDocumentOnboarding({
                 onClick={() => setActiveStepIndex(index)}
               >
                 <span className="onboarding-step-index">
-                  {completedSteps[index] ? <ShieldCheck size={14} aria-hidden="true" /> : index + 1}
+                  {completedSteps[index] ? <ShieldCheck size={13} aria-hidden="true" /> : index + 1}
                 </span>
                 <span className="onboarding-step-copy">
                   <strong>{step.title}</strong>
-                  <small>
-                    {completedSteps[index] ? "Completato" : "Da completare"}
-                  </small>
+                  <small>{completedSteps[index] ? "Completato" : "Da completare"}</small>
                 </span>
               </button>
             );
           })}
         </div>
 
+        {/* ── Step content ──────────────────────────────────────── */}
         <section className="onboarding-step-content">
-          <p className="panel-kicker">{`Step ${activeStepIndex + 1} di ${STEPS.length}`}</p>
-          <h3 className="panel-title">{activeStep.title}</h3>
-          <p className="subtitle">{activeStep.description}</p>
+          <div className="onboarding-step-meta">
+            <p className="panel-kicker">{`${activeStepIndex + 1} / ${STEPS.length}`}</p>
+            <h3 className="panel-title">{activeStep.title}</h3>
+            <p className="subtitle">{activeStep.description}</p>
+          </div>
 
-          <div
-            className={`onboarding-slots-grid ${
-              activeStep.slots.length > 1 ? "double" : "single"
-            }`}
-          >
+          <div className={`onboarding-slots-grid ${activeStep.slots.length > 1 ? "double" : "single"}`}>
             {activeStep.slots.map((side) => (
               <DocumentUploadSlot
                 key={`${activeStep.type}-${side}`}
                 type={activeStep.type}
                 side={side}
                 slotTitle={
-                  side === DocumentSide.SINGLE ? documentTypeLabel(activeStep.type) : side === DocumentSide.FRONT ? "Fronte" : "Retro"
+                  side === DocumentSide.SINGLE
+                    ? documentTypeLabel(activeStep.type)
+                    : side === DocumentSide.FRONT
+                    ? "Fronte"
+                    : "Retro"
                 }
                 current={getDocumentSlot(documents, { type: activeStep.type, side })}
                 medicalCertificateRequired={activeStep.type === DocumentType.MEDICAL_CERTIFICATE}
@@ -179,6 +183,41 @@ export function SubscriberDocumentOnboarding({
             ))}
           </div>
         </section>
+
+        {/* ── Mobile prev/next nav ───────────────────────────────── */}
+        <div className="onboarding-mobile-nav">
+          <button
+            type="button"
+            className="button button-ghost onboarding-nav-btn"
+            disabled={activeStepIndex === 0}
+            onClick={() => setActiveStepIndex((i) => Math.max(0, i - 1))}
+            aria-label="Step precedente"
+          >
+            <ChevronLeft size={16} />
+            Indietro
+          </button>
+
+          <span className="onboarding-nav-dots" aria-hidden="true">
+            {STEPS.map((_, i) => (
+              <span
+                key={i}
+                className={`onboarding-dot ${i === activeStepIndex ? "active" : ""} ${completedSteps[i] ? "done" : ""}`}
+              />
+            ))}
+          </span>
+
+          <button
+            type="button"
+            className="button onboarding-nav-btn"
+            disabled={activeStepIndex === STEPS.length - 1}
+            onClick={() => setActiveStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
+            aria-label="Step successivo"
+          >
+            Avanti
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
       </section>
     </div>
   );

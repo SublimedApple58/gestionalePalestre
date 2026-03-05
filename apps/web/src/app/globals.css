@@ -47,19 +47,23 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   margin: 0;
-  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--bg-0);
 }
 
 body {
+  margin: 0;
+  min-height: 100dvh;
   color: var(--text);
   background:
     radial-gradient(circle at 8% -4%, var(--brand-65), transparent 34%),
     radial-gradient(circle at 92% 104%, var(--brand-45), transparent 30%),
     linear-gradient(175deg, var(--black) 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
 }
 
 a {
@@ -1177,7 +1181,7 @@ tbody tr:hover {
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .overview-item {
@@ -1483,42 +1487,62 @@ tbody tr:hover {
 
 /* ─── ONBOARDING ─────────────────────────────────────────────────────────── */
 
+/* ── Overlay ──────────────────────────────────────────────────────────────── */
 .onboarding-blocker {
   position: fixed;
   inset: 0;
   z-index: 2400;
-  background: rgba(3, 3, 7, 0.86);
-  backdrop-filter: blur(4px);
+  background: rgba(3, 3, 7, 0.85);
+  backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: 20px;
 }
 
+/* ── Card — desktop compact ───────────────────────────────────────────────── */
 .onboarding-card {
-  width: min(1100px, 100%);
-  max-height: 92dvh;
+  width: min(720px, 100%);
+  max-height: 90dvh;
   overflow: auto;
   border-radius: var(--radius-xl);
-  border: 1px solid rgba(223, 37, 49, 0.36);
+  border: 1px solid rgba(223, 37, 49, 0.28);
   background:
-    radial-gradient(circle at 14% -30%, rgba(223, 37, 49, 0.26), transparent 40%),
-    linear-gradient(180deg, rgba(20, 20, 28, 0.98), rgba(10, 10, 15, 0.98));
-  box-shadow: 0 26px 56px rgba(0, 0, 0, 0.6);
-  padding: 24px;
+    radial-gradient(circle at 14% -30%, rgba(223, 37, 49, 0.18), transparent 38%),
+    linear-gradient(180deg, rgba(20, 20, 28, 0.99), rgba(10, 10, 15, 0.99));
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.55);
+  padding: 20px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
+/* ── Progress bar (hidden on desktop, shown full-screen on mobile) ─────────── */
+.onboarding-progress-track {
+  display: none;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
 .onboarding-header {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .onboarding-title {
-  font-size: clamp(1.3rem, 2.8vw, 1.85rem);
+  font-size: 1.4rem;
   font-weight: 800;
+  line-height: 1.2;
 }
 
+/* ── Stepper (3 columns on desktop) ──────────────────────────────────────── */
 .onboarding-stepper {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1532,7 +1556,7 @@ tbody tr:hover {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   cursor: pointer;
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1547,22 +1571,22 @@ tbody tr:hover {
 
 .onboarding-step.active {
   border-color: rgba(223, 37, 49, 0.6);
-  background: rgba(223, 37, 49, 0.2);
+  background: rgba(223, 37, 49, 0.16);
 }
 
 .onboarding-step.done {
   border-color: rgba(50, 182, 89, 0.5);
-  background: rgba(50, 182, 89, 0.14);
+  background: rgba(50, 182, 89, 0.1);
 }
 
 .onboarding-step-index {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   display: inline-grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1573,7 +1597,7 @@ tbody tr:hover {
 }
 
 .onboarding-step-copy strong {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
@@ -1582,15 +1606,22 @@ tbody tr:hover {
   font-size: 11px;
 }
 
+/* ── Step content panel ───────────────────────────────────────────────────── */
 .onboarding-step-content {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px;
   display: grid;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
+.onboarding-step-meta {
+  display: grid;
+  gap: 4px;
+}
+
+/* ── Upload slots grid ────────────────────────────────────────────────────── */
 .onboarding-slots-grid {
   display: grid;
   gap: 10px;
@@ -1602,6 +1633,43 @@ tbody tr:hover {
 
 .onboarding-slots-grid.single {
   grid-template-columns: 1fr;
+}
+
+/* ── Mobile prev/next nav (hidden on desktop) ─────────────────────────────── */
+.onboarding-mobile-nav {
+  display: none;
+}
+
+.onboarding-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.onboarding-nav-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.onboarding-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.onboarding-dot.active {
+  background: var(--brand);
+  transform: scale(1.35);
+}
+
+.onboarding-dot.done {
+  background: rgba(50, 182, 89, 0.75);
 }
 
 /* ─── PENDING LIST ───────────────────────────────────────────────────────── */
@@ -1856,17 +1924,65 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Onboarding */
+  /* Onboarding — mobile full-screen */
+  .onboarding-blocker {
+    padding: 0;
+    place-items: start;
+    align-items: stretch;
+  }
+
   .onboarding-card {
-    padding: 16px;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    grid-template-rows: 3px auto 1fr auto;
+  }
+
+  .onboarding-progress-track {
+    display: block;
+  }
+
+  .onboarding-header {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border-quiet);
+  }
+
+  .onboarding-title {
+    font-size: 1.15rem;
   }
 
   .onboarding-stepper {
-    grid-template-columns: 1fr;
+    display: none;
+  }
+
+  .onboarding-step-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
   }
 
   .onboarding-slots-grid.double {
     grid-template-columns: 1fr;
+  }
+
+  .onboarding-mobile-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-quiet);
+    background: rgba(10, 10, 15, 0.98);
+    flex-shrink: 0;
   }
 
   /* Document modal */
@@ -1951,6 +2067,12 @@ tbody tr:hover {
 
   .overview-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .overview-item {
+    padding: 16px;
+    border-color: rgba(255, 255, 255, 0.11);
   }
 
   .stat-row {
