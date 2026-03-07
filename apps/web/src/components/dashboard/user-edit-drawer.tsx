@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ExternalLink, Loader2, X } from "lucide-react";
 import {
   DocumentSide,
@@ -132,15 +131,6 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
   const [activeTab, setActiveTab] = useState<Tab>("dettagli");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  // ── Slide-in via CSS transition (doppio rAF garantisce frame iniziale paintato)
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setVisible(true));
-    });
-    return () => cancelAnimationFrame(id);
-  }, []);
-
   // ── Keyboard close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -189,7 +179,6 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
       {/* Overlay */}
       <div
         className="user-drawer-overlay"
-        data-visible={visible ? "true" : "false"}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -197,7 +186,6 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
       {/* Drawer */}
       <aside
         className="user-drawer"
-        data-visible={visible ? "true" : "false"}
         role="dialog"
         aria-modal="true"
         aria-label={`Modifica ${user.firstName} ${user.lastName}`}
