@@ -127,6 +127,17 @@ function useActionToast(result: ActionResult) {
 export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerProps) {
   const { addToast } = useToast();
 
+  // ── Slide-in via CSS transition (più affidabile di CSS animation su mount React)
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    // Doppio rAF: garantisce che il browser abbia paintato lo stato iniziale
+    // (translateX 100%) prima di avviare la transizione verso translateX(0)
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   // ── Keyboard close ──────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -167,11 +178,17 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
   return (
     <>
       {/* Overlay */}
-      <div className="user-drawer-overlay" onClick={onClose} aria-hidden="true" />
+      <div
+        className="user-drawer-overlay"
+        data-visible={visible ? "true" : "false"}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       {/* Drawer */}
       <aside
         className="user-drawer"
+        data-visible={visible ? "true" : "false"}
         role="dialog"
         aria-modal="true"
         aria-label={`Modifica ${user.firstName} ${user.lastName}`}

@@ -142,22 +142,12 @@ export function UserManagement({ users }: UserManagementProps) {
                       </td>
 
                       <td data-label="Documenti">
-                        {missingOverall.length > 0 ? (
-                          <span
-                            className={`status-badge ${
-                              user.role === UserRole.SUBSCRIBER ? "missing" : "warning"
-                            }`}
-                          >
-                            {`Mancano: ${missingOverall
-                              .map((t) => documentTypeLabel(t))
-                              .join(", ")}${
-                              user.role === UserRole.SUBSCRIBER && missingRequired.length > 0
-                                ? " (bloccante)"
-                                : " (non bloccante)"
-                            }`}
-                          </span>
-                        ) : (
+                        {missingOverall.length === 0 ? (
                           <span className="status-badge ok">Completi</span>
+                        ) : user.role === UserRole.SUBSCRIBER && missingRequired.length > 0 ? (
+                          <span className="status-badge missing">Bloccante</span>
+                        ) : (
+                          <span className="status-badge warning">Incompleto</span>
                         )}
                       </td>
 

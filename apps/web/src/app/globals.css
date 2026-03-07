@@ -2066,34 +2066,11 @@ tbody tr:hover td:first-child {
 }
 
 /* ─── USER EDIT DRAWER ───────────────────────────────────────────────────── */
-
-@keyframes drawer-overlay-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes drawer-slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-    box-shadow: none;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes drawer-section-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/*
+ * Usiamo CSS transition (non animation) triggerata da data-visible React:
+ * il doppio requestAnimationFrame nel componente garantisce che il browser
+ * abbia paintato lo stato iniziale (offscreen) prima di avviare la slide.
+ */
 
 .user-drawer-overlay {
   position: fixed;
@@ -2102,7 +2079,12 @@ tbody tr:hover td:first-child {
   background: rgba(3, 3, 7, 0.62);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  animation: drawer-overlay-in 280ms var(--ease-smooth) both;
+  opacity: 0;
+  transition: opacity 280ms var(--ease-smooth);
+}
+
+.user-drawer-overlay[data-visible="true"] {
+  opacity: 1;
 }
 
 .user-drawer {
@@ -2124,12 +2106,22 @@ tbody tr:hover td:first-child {
     -4px 0 16px rgba(0, 0, 0, 0.4);
   overflow-y: auto;
   overscroll-behavior: contain;
-  animation: drawer-slide-in var(--dur-enter) var(--ease-expo-out) both;
+  /* stato iniziale — fuori schermo */
+  transform: translateX(100%);
+  opacity: 0;
+  transition:
+    transform var(--dur-enter) var(--ease-expo-out),
+    opacity 200ms ease;
+}
+
+.user-drawer[data-visible="true"] {
+  transform: translateX(0);
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .user-drawer { animation: none; }
-  .user-drawer-overlay { animation: none; }
+  .user-drawer,
+  .user-drawer-overlay { transition: none; }
 }
 
 .user-drawer-header {
