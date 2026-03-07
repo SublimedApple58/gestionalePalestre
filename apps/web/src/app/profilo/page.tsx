@@ -16,7 +16,8 @@ export default async function ProfilePage() {
     include: {
       subscription: true,
       documents: true
-    }
+    },
+    // address è un campo scalare incluso di default
   });
 
   if (!currentUser) {
@@ -32,20 +33,13 @@ export default async function ProfilePage() {
       }}
     >
       <main className="profile-shell">
-        <header className="profile-header">
-          <div>
-            <p className="eyebrow">Profilo</p>
-            <h1 className="page-title">I tuoi dati personali</h1>
-            <p className="subtitle">Pagina dedicata semplice per informazioni, documenti e recapiti.</p>
-          </div>
-        </header>
-
         <PersonalOverview
           user={{
             firstName: currentUser.firstName,
             lastName: currentUser.lastName,
             email: currentUser.email,
             phoneNumber: currentUser.phoneNumber,
+            address: currentUser.address,
             role: currentUser.role,
             documents: currentUser.documents,
             subscription: currentUser.subscription

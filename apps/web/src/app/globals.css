@@ -2397,6 +2397,255 @@ tbody tr:hover td:first-child {
   font-style: italic;
 }
 
+/* ─── PAGINA PROFILO ─────────────────────────────────────────────────────── */
+
+/* Layout 2 colonne — desktop: identity card fissa a sinistra + dati a destra */
+.profilo-layout {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+/* ── Identity card (colonna sinistra) ─────────────────────────────────────── */
+
+.profilo-identity-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 28px 20px 24px;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(223, 37, 49, 0.22) 0%, transparent 58%),
+    rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(223, 37, 49, 0.2);
+  border-radius: var(--radius-lg);
+  position: sticky;
+  top: 24px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 200ms ease;
+}
+
+.profilo-identity-card:hover {
+  border-color: rgba(223, 37, 49, 0.32);
+}
+
+.profilo-identity-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: linear-gradient(145deg, rgba(223, 37, 49, 0.5), rgba(60, 8, 16, 0.9));
+  border: 2px solid rgba(223, 37, 49, 0.45);
+  color: #ffd4d8;
+  box-shadow:
+    0 0 0 5px rgba(223, 37, 49, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+/* Wrapper testo — name + email + badges */
+.profilo-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+}
+
+.profilo-identity-name {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.profilo-identity-email {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.profilo-identity-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 3px;
+}
+
+.profilo-identity-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 4px 0;
+}
+
+/* Stat box sotto il divider */
+.profilo-identity-stats {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.profilo-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profilo-stat-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profilo-stat-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(173, 173, 184, 0.55);
+  white-space: nowrap;
+}
+
+.profilo-stat-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ── Colonna destra ───────────────────────────────────────────────────────── */
+
+.profilo-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Schede info + modifica ───────────────────────────────────────────────── */
+
+.profilo-info-card,
+.profilo-edit-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  transition: border-color 200ms ease;
+}
+
+.profilo-info-card:hover,
+.profilo-edit-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.profilo-section-header {
+  margin-bottom: 16px;
+}
+
+/* Info list */
+.profilo-info-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.profilo-info-row {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  align-items: start;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profilo-info-row:first-child {
+  padding-top: 2px;
+}
+
+.profilo-info-row:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+.profilo-info-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(173, 173, 184, 0.55);
+  padding-top: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.profilo-info-label-icon {
+  color: rgba(173, 173, 184, 0.4);
+  flex-shrink: 0;
+}
+
+.profilo-info-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.profilo-info-empty {
+  color: rgba(173, 173, 184, 0.35);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+.profilo-info-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.profilo-info-missing-list {
+  color: rgba(252, 165, 165, 0.7);
+}
+
+/* Edit form */
+.profilo-edit-form {
+  display: grid;
+  gap: 16px;
+}
+
+.profilo-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profilo-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ─── PAGINA UTENTI ──────────────────────────────────────────────────────── */
 
 .utenti-page {
@@ -2711,6 +2960,75 @@ tbody tr:hover td:first-child {
     padding: 24px 16px 96px;
   }
 
+  /* Profilo page mobile — layout a singola colonna, identity card orizzontale */
+  .profilo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profilo-identity-card {
+    position: static;
+    /* Diventa orizzontale: avatar a sinistra, testo a destra */
+    flex-direction: row;
+    text-align: left;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding: 20px;
+  }
+
+  .profilo-identity-avatar {
+    margin-bottom: 0;
+    width: 60px;
+    height: 60px;
+    font-size: 22px;
+    box-shadow:
+      0 0 0 4px rgba(223, 37, 49, 0.1),
+      0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .profilo-identity-text {
+    flex: 1;
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .profilo-identity-badges {
+    justify-content: flex-start;
+  }
+
+  /* Divider e stats prendono tutta la larghezza (nuova riga) */
+  .profilo-identity-divider {
+    flex-basis: 100%;
+    margin: 2px 0;
+  }
+
+  .profilo-identity-stats {
+    flex-basis: 100%;
+    /* Stats in riga orizzontale su tablet */
+    display: flex;
+    flex-direction: row;
+    gap: 0 8px;
+  }
+
+  .profilo-stat-row {
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 8px 8px 0;
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    min-width: 80px;
+  }
+
+  .profilo-stat-row:last-child {
+    border-right: none;
+  }
+
+  .profilo-stat-value {
+    text-align: left;
+  }
+
   /* Utenti page mobile */
   .utenti-page {
     padding: 20px 16px 96px;
@@ -2953,6 +3271,85 @@ tbody tr:hover td:first-child {
   /* Documents grid */
   .documents-slots-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ─── RESPONSIVE — 640px — Mobile puro profilo ───────────────────────────── */
+
+@media (max-width: 640px) {
+  /* Torna a layout verticale centrato su mobile piccolo */
+  .profilo-identity-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profilo-identity-text {
+    align-items: center;
+  }
+
+  .profilo-identity-badges {
+    justify-content: center;
+  }
+
+  /* Stats tornano a stack verticale con label+value affiancati */
+  .profilo-identity-stats {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .profilo-stat-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .profilo-stat-row:last-child {
+    border-bottom: none;
+  }
+
+  .profilo-stat-value {
+    text-align: right;
+  }
+
+  /* Cards più compatte */
+  .profilo-info-card,
+  .profilo-edit-card {
+    padding: 18px 16px;
+  }
+
+  /* Info rows: label sopra, valore sotto */
+  .profilo-info-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+    padding: 11px 0;
+  }
+
+  .profilo-info-label {
+    font-size: 0.625rem;
+    padding-top: 0;
+  }
+
+  .profilo-info-value {
+    font-size: 0.875rem;
+  }
+
+  /* Edit form: colonna singola */
+  .profilo-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tasto salva full width su mobile */
+  .profilo-edit-actions {
+    justify-content: stretch;
+  }
+
+  .profilo-edit-actions .button {
+    width: 100%;
+    justify-content: center;
   }
 }
 

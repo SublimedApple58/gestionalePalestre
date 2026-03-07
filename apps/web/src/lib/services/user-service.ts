@@ -45,6 +45,7 @@ type AssignInstructorInput = {
 type UpdatePersonalInfoInput = {
   userId: string;
   phoneNumber: string | null;
+  address?: string | null;
 };
 
 function assertAdminRole(actorRole: UserRole): void {
@@ -254,7 +255,8 @@ export async function updatePersonalInfo(
   await prisma.user.update({
     where: { id: input.userId },
     data: {
-      phoneNumber: input.phoneNumber
+      phoneNumber: input.phoneNumber,
+      ...(input.address !== undefined && { address: input.address })
     }
   });
 }

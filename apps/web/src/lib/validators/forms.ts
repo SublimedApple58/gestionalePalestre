@@ -86,5 +86,11 @@ export const updatePersonalInfoSchema = z.object({
     .string()
     .trim()
     .max(30)
+    .transform((value) => (value.length ? value : null)),
+  address: z
+    .string()
+    .trim()
+    .max(200)
     .transform((value) => (value.length ? value : null))
+    .optional()
 });

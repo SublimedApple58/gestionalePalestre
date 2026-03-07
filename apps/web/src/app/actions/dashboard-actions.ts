@@ -210,18 +210,21 @@ export async function updatePersonalInfoAction(formData: FormData): Promise<void
   const user = await requireSessionUser();
 
   const parsed = updatePersonalInfoSchema.safeParse({
-    phoneNumber: formData.get("phoneNumber")
+    phoneNumber: formData.get("phoneNumber"),
+    address: formData.get("address") ?? undefined
   });
 
   if (!parsed.success) {
-    redirect("/dashboard?error=profilo-non-valido");
+    redirect("/profilo?error=profilo-non-valido");
   }
 
   await updatePersonalInfo(db, {
     userId: user.id,
-    phoneNumber: parsed.data.phoneNumber
+    phoneNumber: parsed.data.phoneNumber,
+    address: parsed.data.address
   });
 
+  revalidatePath("/profilo");
   revalidatePath("/dashboard");
 }
 

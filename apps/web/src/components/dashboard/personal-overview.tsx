@@ -1,3 +1,4 @@
+import { CreditCard, FileText, Mail, MapPin, Phone, ShieldCheck, User } from "lucide-react";
 import { DocumentSide, DocumentType, SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
 import { updatePersonalInfoAction } from "@/app/actions/dashboard-actions";
@@ -22,6 +23,7 @@ type PersonalOverviewProps = {
     lastName: string;
     email: string;
     phoneNumber: string | null;
+    address: string | null;
     role: UserRole;
     documents: UserDocument[];
     subscription: {
@@ -45,91 +47,231 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
 
   return (
     <>
-      {/* ── Info personali ──────────────────────────────────────── */}
-      <section className="panel panel-full">
-        <div>
-          <p className="panel-kicker">Profilo personale</p>
-          <h3 className="panel-title">Le tue informazioni</h3>
+      {/* ── Layout principale: identity card + informazioni ─────── */}
+      <div className="profilo-layout">
+
+        {/* ── Colonna sinistra: identity card ─────────────────────── */}
+        <div className="profilo-identity-card">
+          <div className="profilo-identity-avatar">
+            {user.firstName.charAt(0).toUpperCase()}
+          </div>
+
+          <div className="profilo-identity-text">
+            <div className="profilo-identity-name">
+              {`${user.firstName} ${user.lastName}`}
+            </div>
+            <div className="profilo-identity-email">{user.email}</div>
+            <div className="profilo-identity-badges">
+              <span className="td-role-badge" data-role={user.role}>
+                {roleLabel(user.role)}
+              </span>
+              {user.subscription && (
+                <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
+                  {subscriptionActive ? "Attivo" : "Scaduto"}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="profilo-identity-divider" />
+
+          <div className="profilo-identity-stats">
+            <div className="profilo-stat-row">
+              <span className="profilo-stat-label">Abbonamento</span>
+              <span className="profilo-stat-value">
+                {user.subscription ? tierLabel(user.subscription.tier) : "—"}
+              </span>
+            </div>
+
+            {user.subscription && (
+              <div className="profilo-stat-row">
+                <span className="profilo-stat-label">Scadenza</span>
+                <span className="profilo-stat-value">
+                  {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                </span>
+              </div>
+            )}
+
+            <div className="profilo-stat-row">
+              <span className="profilo-stat-label">Documenti</span>
+              {user.role === UserRole.SUBSCRIBER ? (
+                <span className={`status-badge ${documentsReady ? "ok" : "missing"}`}>
+                  {documentsReady ? "Completi" : `${missingSlots.length} mancanti`}
+                </span>
+              ) : (
+                <span className="profilo-stat-value">—</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="overview-grid">
-          <div className="overview-item">
-            <small>Nome e cognome</small>
-            <strong>{`${user.firstName} ${user.lastName}`}</strong>
+        {/* ── Colonna destra: info + form ──────────────────────────── */}
+        <div className="profilo-right-col">
+
+          {/* Scheda informazioni */}
+          <div className="profilo-info-card">
+            <div className="profilo-section-header">
+              <p className="panel-kicker">Profilo personale</p>
+              <h3 className="panel-title">Le tue informazioni</h3>
+            </div>
+
+            <ul className="profilo-info-list">
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <User size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Nome e cognome
+                </span>
+                <span className="profilo-info-value">
+                  {`${user.firstName} ${user.lastName}`}
+                </span>
+              </li>
+
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <Mail size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Email
+                </span>
+                <span className="profilo-info-value">{user.email}</span>
+              </li>
+
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <Phone size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Cellulare
+                </span>
+                <span className="profilo-info-value">
+                  {user.phoneNumber
+                    ? user.phoneNumber
+                    : <span className="profilo-info-empty">Non impostato</span>}
+                </span>
+              </li>
+
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <MapPin size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Indirizzo
+                </span>
+                <span className="profilo-info-value">
+                  {user.address
+                    ? user.address
+                    : <span className="profilo-info-empty">Non impostato</span>}
+                </span>
+              </li>
+
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <CreditCard size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Abbonamento
+                </span>
+                <span className="profilo-info-value">
+                  {user.subscription ? (
+                    <>
+                      <span>{tierLabel(user.subscription.tier)}</span>
+                      <span className="profilo-info-sub">
+                        Scade il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="profilo-info-empty">Non assegnato</span>
+                  )}
+                </span>
+              </li>
+
+              {user.role === UserRole.SUBSCRIBER && (
+                <li className="profilo-info-row">
+                  <span className="profilo-info-label">
+                    <FileText size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                    Documenti
+                  </span>
+                  <span className="profilo-info-value">
+                    {documentsReady ? (
+                      <span className="status-badge ok">Completi</span>
+                    ) : (
+                      <>
+                        <span className="status-badge missing">
+                          {missingSlots.length} slot mancanti
+                        </span>
+                        {missingSlots.length > 0 && (
+                          <span className="profilo-info-sub profilo-info-missing-list">
+                            {missingSlots
+                              .slice(0, 3)
+                              .map((s) => `${documentTypeLabel(s.type)} (${documentSideLabel(s.side)})`)
+                              .join(", ")}
+                            {missingSlots.length > 3 ? ` +${missingSlots.length - 3}` : ""}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </span>
+                </li>
+              )}
+
+              <li className="profilo-info-row">
+                <span className="profilo-info-label">
+                  <ShieldCheck size={12} className="profilo-info-label-icon" aria-hidden="true" />
+                  Ruolo
+                </span>
+                <span className="profilo-info-value">
+                  <span className="td-role-badge" data-role={user.role}>
+                    {roleLabel(user.role)}
+                  </span>
+                </span>
+              </li>
+            </ul>
           </div>
 
-          <div className="overview-item">
-            <small>Email</small>
-            <strong>{user.email}</strong>
+          {/* Scheda modifica */}
+          <div className="profilo-edit-card">
+            <div className="profilo-section-header">
+              <p className="panel-kicker">Aggiorna</p>
+              <h3 className="panel-title">Modifica dati personali</h3>
+            </div>
+
+            <form action={updatePersonalInfoAction} className="profilo-edit-form">
+              <div className="profilo-edit-grid">
+                <label className="input-group">
+                  <span>Cellulare</span>
+                  <input
+                    type="tel"
+                    name="phoneNumber"
+                    placeholder="Es. +39 333 123 4567"
+                    defaultValue={user.phoneNumber ?? ""}
+                    autoComplete="tel"
+                  />
+                </label>
+
+                <label className="input-group">
+                  <span>Indirizzo di residenza</span>
+                  <input
+                    type="text"
+                    name="address"
+                    placeholder="Es. Via Roma 1, 20100 Milano"
+                    defaultValue={user.address ?? ""}
+                    autoComplete="street-address"
+                  />
+                </label>
+              </div>
+
+              <div className="profilo-edit-actions">
+                <button type="submit" className="button button-primary">
+                  Salva modifiche
+                </button>
+              </div>
+            </form>
           </div>
 
-          <div className="overview-item">
-            <small>Ruolo</small>
-            <strong>{roleLabel(user.role)}</strong>
-          </div>
-
-          <div className="overview-item">
-            <small>Cellulare</small>
-            <strong>{user.phoneNumber || "Non impostato"}</strong>
-          </div>
-
-          <div className="overview-item">
-            <small>Abbonamento</small>
-            <strong>
-              {user.subscription
-                ? `${tierLabel(user.subscription.tier)} — scade ${new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}`
-                : "Non assegnato"}
-            </strong>
-            {user.subscription ? (
-              <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
-                {subscriptionActive ? "Attivo" : "Non attivo"}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="overview-item">
-            <small>Documenti obbligatori</small>
-            <strong>
-              {user.role === UserRole.SUBSCRIBER
-                ? documentsReady
-                  ? "Completati"
-                  : `Mancano ${missingSlots.length} slot`
-                : "Non vincolanti per il tuo ruolo"}
-            </strong>
-            {missingSlots.length > 0 ? (
-              <span className="status-badge missing">
-                {missingSlots.map((slot) => `${documentTypeLabel(slot.type)} (${documentSideLabel(slot.side)})`).join(", ")}
-              </span>
-            ) : null}
-          </div>
         </div>
+      </div>
 
-        <form action={updatePersonalInfoAction} className="grid-form compact">
-          <label className="input-group">
-            <span>Aggiorna cellulare</span>
-            <input
-              type="text"
-              name="phoneNumber"
-              placeholder="Es. +39 333 123 4567"
-              defaultValue={user.phoneNumber ?? ""}
-            />
-          </label>
-
-          <button type="submit" className="button button-ghost">
-            Salva dati personali
-          </button>
-        </form>
-      </section>
-
-      {/* ── Documenti personali ─────────────────────────────────── */}
+      {/* ── Documenti personali ──────────────────────────────────── */}
       <section className="panel panel-full">
         <div>
           <p className="panel-kicker">Documenti personali</p>
           <h3 className="panel-title">Upload documenti</h3>
           {user.role === UserRole.SUBSCRIBER ? (
             <p className="subtitle">
-              Per sbloccare l&apos;ingresso serve abbonamento attivo + approvazione di codice fiscale
-              fronte/retro, documento identità fronte/retro e certificato medico valido.
+              Per sbloccare l&apos;ingresso servono abbonamento attivo + approvazione di codice
+              fiscale fronte/retro, documento identità fronte/retro e certificato medico valido.
             </p>
           ) : null}
         </div>
@@ -147,7 +289,7 @@ export function PersonalOverview({ user }: PersonalOverviewProps) {
         ) : null}
       </section>
 
-      {/* ── Foto profilo ────────────────────────────────────────── */}
+      {/* ── Foto profilo ─────────────────────────────────────────── */}
       <ProfilePhotoUploader document={profilePhoto} />
     </>
   );
