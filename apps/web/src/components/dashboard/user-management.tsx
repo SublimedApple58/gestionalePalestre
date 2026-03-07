@@ -1,21 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, UserPlus, X } from "lucide-react";
+import { Pencil, Search, UserPlus, X } from "lucide-react";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
 import {
   assignInstructorAction,
   assignSubscriptionAction,
-  changeUserRoleAction,
-  createUserByAdminAction,
-  deleteUserAction
+  createUserByAdminAction
 } from "@/app/actions/dashboard-actions";
 import { documentTypeLabel, getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
 
 type UserRow = {
   id: string;
@@ -24,6 +23,7 @@ type UserRow = {
   email: string;
   role: UserRole;
   accessCode: string;
+  assignedInstructorId: string | null;
   documents: UserDocument[];
   assignedInstructor: { firstName: string; lastName: string } | null;
   subscription: { tier: SubscriptionTier; startsAt: Date; endsAt: Date } | null;
@@ -32,12 +32,6 @@ type UserRow = {
 type UserManagementProps = {
   users: UserRow[];
 };
-
-const ROLE_OPTIONS = [
-  { value: UserRole.ADMIN, label: "Admin" },
-  { value: UserRole.INSTRUCTOR, label: "Istruttore" },
-  { value: UserRole.SUBSCRIBER, label: "Iscritto" }
-];
 
 const SUBSCRIPTION_OPTIONS = [
   { value: SubscriptionTier.MONTHLY, label: "Mensile" },
@@ -48,6 +42,7 @@ const SUBSCRIPTION_OPTIONS = [
 export function UserManagement({ users }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
   const instructors = users.filter((u) => u.role === UserRole.INSTRUCTOR);
   const subscribers = users.filter((u) => u.role === UserRole.SUBSCRIBER);
@@ -179,30 +174,15 @@ export function UserManagement({ users }: UserManagementProps) {
                       </td>
 
                       <td data-label="Azioni" className="td-actions">
-                        <div className="row-actions">
-                          <form action={changeUserRoleAction} className="inline-form">
-                            <input type="hidden" name="targetUserId" value={user.id} />
-                            <CustomSelect
-                              name="role"
-                              label={`Ruolo per ${user.firstName} ${user.lastName}`}
-                              options={ROLE_OPTIONS}
-                              defaultValue={user.role}
-                              compact
-                              hideLabel
-                              required
-                            />
-                            <button type="submit" className="button button-ghost small">
-                              Salva
-                            </button>
-                          </form>
-
-                          <form action={deleteUserAction}>
-                            <input type="hidden" name="targetUserId" value={user.id} />
-                            <button type="submit" className="button button-danger small">
-                              Rimuovi
-                            </button>
-                          </form>
-                        </div>
+                        <button
+                          type="button"
+                          className="button button-ghost small"
+                          onClick={() => setSelectedUser(user)}
+                          aria-label={`Modifica ${user.firstName} ${user.lastName}`}
+                        >
+                          <Pencil size={13} aria-hidden="true" />
+                          Modifica
+                        </button>
                       </td>
                     </tr>
                   );
@@ -277,6 +257,18 @@ export function UserManagement({ users }: UserManagementProps) {
           </button>
         </form>
       </section>
+
+      {/* ── Drawer modifica utente ───────────────────────────────── */}
+      <UserEditDrawer
+        user={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        instructors={instructors.map((i) => ({
+          id: i.id,
+          firstName: i.firstName,
+          lastName: i.lastName,
+          email: i.email
+        }))}
+      />
 
       {/* ── Modale aggiungi utente ───────────────────────────────── */}
       {showAddModal && (
