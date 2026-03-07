@@ -269,6 +269,24 @@ export async function rejectDocumentAction(formData: FormData): Promise<void> {
   revalidatePath("/profilo");
 }
 
+export async function updateUserAddressAction(formData: FormData): Promise<void> {
+  await requireRole([UserRole.ADMIN]);
+
+  const targetUserId = formData.get("targetUserId");
+  const address = formData.get("address");
+
+  if (typeof targetUserId !== "string" || !targetUserId) {
+    redirect("/utenti?error=utente-non-valido");
+  }
+
+  await db.user.update({
+    where: { id: targetUserId },
+    data: { address: typeof address === "string" ? address.trim() || null : null }
+  });
+
+  revalidatePath("/utenti");
+}
+
 export async function requestReuploadAction(formData: FormData): Promise<void> {
   const user = await requireRole([UserRole.ADMIN]);
 

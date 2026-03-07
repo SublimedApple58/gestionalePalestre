@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalLink, Loader2, X } from "lucide-react";
 import {
   DocumentSide,
   DocumentStatus,
@@ -15,7 +15,8 @@ import {
   assignInstructorAction,
   assignSubscriptionAction,
   changeUserRoleAction,
-  deleteUserAction
+  deleteUserAction,
+  updateUserAddressAction
 } from "@/app/actions/dashboard-actions";
 import { tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
@@ -27,6 +28,7 @@ export type DrawerUserRow = {
   lastName: string;
   email: string;
   role: UserRole;
+  address: string | null;
   assignedInstructorId: string | null;
   assignedInstructor: { firstName: string; lastName: string } | null;
   documents: UserDocument[];
@@ -34,7 +36,7 @@ export type DrawerUserRow = {
 };
 
 type UserEditDrawerProps = {
-  user: DrawerUserRow | null;
+  user: DrawerUserRow;
   onClose: () => void;
   instructors: { id: string; firstName: string; lastName: string; email: string }[];
 };
@@ -79,17 +81,45 @@ function DocStatusBadge({ status }: { status: DocumentStatus | undefined }) {
   }
 }
 
+function OpenDocButton({ documentId }: { documentId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleOpen() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/documents/view?documentId=${documentId}`);
+      if (!res.ok) return;
+      const { url } = await res.json() as { url: string };
+      window.open(url, "_blank", "noreferrer");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="button button-ghost small"
+      onClick={handleOpen}
+      disabled={loading}
+      aria-label="Apri documento"
+    >
+      {loading
+        ? <Loader2 size={12} className="spin" aria-hidden="true" />
+        : <ExternalLink size={12} aria-hidden="true" />}
+      Apri
+    </button>
+  );
+}
+
 export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerProps) {
   useEffect(() => {
-    if (!user) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [user, onClose]);
-
-  if (!user) return null;
+  }, [onClose]);
 
   const instructorOptions = instructors.map((i) => ({
     value: i.id,
@@ -211,6 +241,27 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
             </section>
           )}
 
+          {/* ── Indirizzo ─────────────────────────────────────────── */}
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Indirizzo</h4>
+            <form action={updateUserAddressAction} className="user-drawer-form">
+              <input type="hidden" name="targetUserId" value={user.id} />
+              <label className="input-group">
+                <span className="sr-only">Indirizzo</span>
+                <input
+                  type="text"
+                  name="address"
+                  defaultValue={user.address ?? ""}
+                  placeholder="Via Roma 1, 20100 Milano"
+                  autoComplete="off"
+                />
+              </label>
+              <button type="submit" className="button button-primary small">
+                Salva indirizzo
+              </button>
+            </form>
+          </section>
+
           {/* ── Documenti ─────────────────────────────────────────── */}
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Documenti</h4>
@@ -222,7 +273,12 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                 return (
                   <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
                     <span className="user-drawer-doc-label">{slot.label}</span>
-                    <DocStatusBadge status={doc?.status} />
+                    <div className="user-drawer-doc-actions">
+                      <DocStatusBadge status={doc?.status} />
+                      {doc && doc.storageKey && (
+                        <OpenDocButton documentId={doc.id} />
+                      )}
+                    </div>
                   </li>
                 );
               })}

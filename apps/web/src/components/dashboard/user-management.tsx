@@ -4,15 +4,10 @@ import { useMemo, useState } from "react";
 import { Pencil, Search, UserPlus, X } from "lucide-react";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
-import {
-  assignInstructorAction,
-  assignSubscriptionAction,
-  createUserByAdminAction
-} from "@/app/actions/dashboard-actions";
+import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
 import { documentTypeLabel, getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
-import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
 
@@ -23,6 +18,7 @@ type UserRow = {
   email: string;
   role: UserRole;
   accessCode: string;
+  address: string | null;
   assignedInstructorId: string | null;
   documents: UserDocument[];
   assignedInstructor: { firstName: string; lastName: string } | null;
@@ -39,19 +35,12 @@ const ROLE_OPTIONS = [
   { value: UserRole.SUBSCRIBER, label: "Iscritto" }
 ];
 
-const SUBSCRIPTION_OPTIONS = [
-  { value: SubscriptionTier.MONTHLY, label: "Mensile" },
-  { value: SubscriptionTier.QUARTERLY, label: "Trimestrale" },
-  { value: SubscriptionTier.YEARLY, label: "Annuale" }
-];
-
 export function UserManagement({ users }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
   const instructors = users.filter((u) => u.role === UserRole.INSTRUCTOR);
-  const subscribers = users.filter((u) => u.role === UserRole.SUBSCRIBER);
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -63,18 +52,6 @@ export function UserManagement({ users }: UserManagementProps) {
         roleLabel(u.role).toLowerCase().includes(q)
     );
   }, [users, search]);
-
-  const subscriberOptions = subscribers.map((s) => ({
-    value: s.id,
-    label: `${s.firstName} ${s.lastName}`,
-    details: s.email
-  }));
-
-  const instructorOptions = instructors.map((i) => ({
-    value: i.id,
-    label: `${i.firstName} ${i.lastName}`,
-    details: i.email
-  }));
 
   return (
     <div className="dashboard-grid">
@@ -111,6 +88,7 @@ export function UserManagement({ users }: UserManagementProps) {
               <tr>
                 <th>Nome</th>
                 <th>Email</th>
+                <th>Indirizzo</th>
                 <th>Ruolo</th>
                 <th>Istruttore</th>
                 <th>Abbonamento</th>
@@ -121,7 +99,7 @@ export function UserManagement({ users }: UserManagementProps) {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="empty-state">Nessun utente trovato.</div>
                   </td>
                 </tr>
@@ -142,6 +120,10 @@ export function UserManagement({ users }: UserManagementProps) {
                       </td>
 
                       <td data-label="Email">{user.email}</td>
+
+                      <td data-label="Indirizzo">
+                        {user.address ?? "—"}
+                      </td>
 
                       <td data-label="Ruolo">{roleLabel(user.role)}</td>
 
@@ -199,82 +181,20 @@ export function UserManagement({ users }: UserManagementProps) {
         </div>
       </section>
 
-      {/* ── Assegna abbonamento ──────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Abbonamenti</p>
-          <h3 className="panel-title">Assegna piano</h3>
-        </div>
-
-        <form action={assignSubscriptionAction} className="grid-form compact">
-          <CustomSelect
-            name="targetUserId"
-            label="Iscritto"
-            options={subscriberOptions}
-            placeholder="Cerca iscritto"
-            searchable
-            required
-          />
-
-          <CustomSelect
-            name="tier"
-            label="Piano"
-            options={SUBSCRIPTION_OPTIONS}
-            defaultValue={SubscriptionTier.MONTHLY}
-            required
-          />
-
-          <CustomCalendar name="startsAt" label="Data inizio" />
-
-          <button type="submit" className="button button-primary">
-            Assegna abbonamento
-          </button>
-        </form>
-      </section>
-
-      {/* ── Assegna istruttore ───────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Istruttori</p>
-          <h3 className="panel-title">Assegna istruttore</h3>
-        </div>
-
-        <form action={assignInstructorAction} className="grid-form compact">
-          <CustomSelect
-            name="subscriberId"
-            label="Iscritto"
-            options={subscriberOptions}
-            placeholder="Cerca iscritto"
-            searchable
-            required
-          />
-
-          <CustomSelect
-            name="instructorId"
-            label="Istruttore"
-            options={instructorOptions}
-            placeholder="Cerca istruttore"
-            searchable
-            required
-          />
-
-          <button type="submit" className="button button-primary">
-            Assegna istruttore
-          </button>
-        </form>
-      </section>
-
       {/* ── Drawer modifica utente ───────────────────────────────── */}
-      <UserEditDrawer
-        user={selectedUser}
-        onClose={() => setSelectedUser(null)}
-        instructors={instructors.map((i) => ({
-          id: i.id,
-          firstName: i.firstName,
-          lastName: i.lastName,
-          email: i.email
-        }))}
-      />
+      {selectedUser && (
+        <UserEditDrawer
+          key={selectedUser.id}
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          instructors={instructors.map((i) => ({
+            id: i.id,
+            firstName: i.firstName,
+            lastName: i.lastName,
+            email: i.email
+          }))}
+        />
+      )}
 
       {/* ── Modale aggiungi utente ───────────────────────────────── */}
       {showAddModal && (

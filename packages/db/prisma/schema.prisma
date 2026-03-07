@@ -61,6 +61,7 @@ model User {
   lastName              String
   email                 String             @unique
   phoneNumber           String?
+  address               String?
   passwordHash          String
   role                  UserRole           @default(SUBSCRIBER)
   accessCode            String             @db.VarChar(6)
