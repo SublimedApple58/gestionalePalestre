@@ -64,8 +64,12 @@ function DocStatusBadge({ status }: { status: DocumentStatus | undefined }) {
   switch (status) {
     case DocumentStatus.APPROVED:
       return <span className="status-badge ok">Approvato</span>;
-    case DocumentStatus.PENDING:
+    case DocumentStatus.PENDING_ADMIN_REVIEW:
       return <span className="status-badge warning">In revisione</span>;
+    case DocumentStatus.AI_PROCESSING:
+      return <span className="status-badge warning">In elaborazione</span>;
+    case DocumentStatus.UPLOADED:
+      return <span className="status-badge warning">Caricato</span>;
     case DocumentStatus.REJECTED:
       return <span className="status-badge missing">Rifiutato</span>;
     case DocumentStatus.NEEDS_REUPLOAD:
