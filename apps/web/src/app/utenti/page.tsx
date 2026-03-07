@@ -49,26 +49,16 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
     redirect("/login");
   }
 
+  const errorMessage = params.error && ERROR_MAP[params.error]
+    ? ERROR_MAP[params.error]
+    : null;
+
   return (
     <AuthenticatedShell
       currentPath="/utenti"
       user={{ firstName: currentUser.firstName, role: currentUser.role }}
     >
-      <main className="dashboard-shell">
-        <header className="dashboard-header">
-          <div>
-            <p className="eyebrow">Gestionale Palestre</p>
-            <h1 className="page-title">Gestione utenti</h1>
-            <p className="subtitle">{`${users.length} account registrati`}</p>
-          </div>
-        </header>
-
-        {params.error && ERROR_MAP[params.error] ? (
-          <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
-        ) : null}
-
-        <UserManagement users={users} />
-      </main>
+      <UserManagement users={users} errorMessage={errorMessage} />
     </AuthenticatedShell>
   );
 }

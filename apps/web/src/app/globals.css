@@ -2104,8 +2104,8 @@ tbody tr:hover td:first-child {
     -1px 0 0 rgba(255, 255, 255, 0.05),
     -20px 0 60px rgba(0, 0, 0, 0.6),
     -4px 0 16px rgba(0, 0, 0, 0.4);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  /* overflow gestito dal drawer-tab-content, non dal drawer stesso */
+  overflow: hidden;
   /* stato iniziale — fuori schermo */
   transform: translateX(100%);
   opacity: 0;
@@ -2294,6 +2294,281 @@ tbody tr:hover td:first-child {
   background: rgba(120, 10, 20, 0.07);
 }
 
+/* ─── DRAWER TABS ────────────────────────────────────────────────────────── */
+
+.drawer-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.drawer-tab {
+  flex: 1;
+  padding: 13px 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 200ms ease, background 150ms ease;
+  letter-spacing: 0.02em;
+  position: relative;
+  outline: none;
+}
+
+.drawer-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.drawer-tab:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--brand-65);
+}
+
+.drawer-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--brand);
+}
+
+.drawer-tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.drawer-tab-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ─── DRAWER FOOTER ──────────────────────────────────────────────────────── */
+
+.user-drawer-footer {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(223, 37, 49, 0.18);
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(80, 5, 12, 0.3), transparent 70%),
+    rgba(10, 10, 16, 0.97);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.user-drawer-footer-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.user-drawer-footer-confirm-text {
+  font-size: 0.8125rem;
+  color: rgba(252, 165, 165, 0.85);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.user-drawer-footer-confirm-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ─── DRAWER — user-avatar-lg ────────────────────────────────────────────── */
+
+.user-avatar-lg {
+  width: 52px !important;
+  height: 52px !important;
+  font-size: 20px !important;
+  flex-shrink: 0;
+}
+
+/* Drawer sub notice */
+.drawer-sub-notice {
+  color: rgba(173, 173, 184, 0.55) !important;
+  font-style: italic;
+}
+
+/* ─── PAGINA UTENTI ──────────────────────────────────────────────────────── */
+
+.utenti-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 32px 32px 24px;
+}
+
+.utenti-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.utenti-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.utenti-title {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.utenti-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Search */
+.user-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.user-search-input {
+  padding: 0 12px 0 34px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-quiet);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.875rem;
+  width: 240px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  outline: none;
+  font-family: inherit;
+}
+
+.user-search-input:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.user-search-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-65);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Meta row */
+.utenti-meta {
+  margin-bottom: 10px;
+}
+
+.utenti-meta-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Table wrap */
+.utenti-table-wrap {
+  flex: 1;
+}
+
+/* Pagination */
+.utenti-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 4px;
+}
+
+.utenti-pagination-info {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Error banner inside utenti page */
+.utenti-error-banner {
+  margin-bottom: 16px;
+}
+
+/* ─── TABLE CELL STYLES — utenti ─────────────────────────────────────────── */
+
+.td-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.td-role-badge[data-role="ADMIN"] {
+  background: rgba(223, 37, 49, 0.15);
+  color: #ff8a91;
+  border: 1px solid rgba(223, 37, 49, 0.3);
+}
+
+.td-role-badge[data-role="INSTRUCTOR"] {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.td-role-badge[data-role="SUBSCRIBER"] {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.td-subscription {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.td-subscription-tier {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.td-subscription-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.td-empty {
+  color: rgba(173, 173, 184, 0.3);
+  font-size: 0.9rem;
+}
+
 /* ─── MOBILE HEADER ──────────────────────────────────────────────────────── */
 
 .mobile-header {
@@ -2434,6 +2709,30 @@ tbody tr:hover td:first-child {
   .dashboard-shell,
   .profile-shell {
     padding: 24px 16px 96px;
+  }
+
+  /* Utenti page mobile */
+  .utenti-page {
+    padding: 20px 16px 96px;
+  }
+
+  .utenti-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .utenti-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .user-search-input {
+    width: 100%;
+  }
+
+  .user-search-wrap {
+    flex: 1;
   }
 }
 
