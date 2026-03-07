@@ -7,8 +7,10 @@ import {
   UserRole,
   type UserDocument
 } from "@gestionale/db";
-import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
+import { logoutAction } from "@/app/actions/auth-actions";
 
 import {
   documentTypeLabel,
@@ -124,8 +126,16 @@ export function SubscriberDocumentOnboarding({
 
         {/* ── Header ────────────────────────────────────────────── */}
         <header className="onboarding-header">
-          <p className="panel-kicker">Documenti obbligatori</p>
-          <h2 className="onboarding-title">Attiva il tuo account</h2>
+          <div className="onboarding-header-copy">
+            <p className="panel-kicker">Documenti obbligatori</p>
+            <h2 className="onboarding-title">Attiva il tuo account</h2>
+          </div>
+          <form action={logoutAction}>
+            <button type="submit" className="button button-ghost onboarding-logout-btn" aria-label="Esci dall'account">
+              <LogOut size={14} aria-hidden="true" />
+              Esci
+            </button>
+          </form>
         </header>
 
         {/* ── Stepper — desktop only ─────────────────────────────── */}

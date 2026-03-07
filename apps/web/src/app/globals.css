@@ -1532,8 +1532,26 @@ tbody tr:hover {
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
 .onboarding-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.onboarding-header-copy {
   display: grid;
   gap: 4px;
+}
+
+.onboarding-logout-btn {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  gap: 5px;
+}
+
+.onboarding-logout-btn:hover {
+  opacity: 1;
 }
 
 .onboarding-title {
