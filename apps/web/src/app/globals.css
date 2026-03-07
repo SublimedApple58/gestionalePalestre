@@ -1880,6 +1880,7 @@ tbody tr:hover {
   z-index: 2000;
   background: rgba(3, 3, 7, 0.55);
   backdrop-filter: blur(3px);
+  animation: drawer-overlay-in 0.3s ease both;
 }
 
 .user-drawer {
@@ -1896,16 +1897,28 @@ tbody tr:hover {
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.45);
   overflow-y: auto;
   overscroll-behavior: contain;
-  animation: drawer-slide-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: drawer-slide-in 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes drawer-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes drawer-slide-in {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .user-drawer { animation: none; }
+  .user-drawer,
+  .user-drawer-overlay { animation: none; }
 }
 
 .user-drawer-header {
