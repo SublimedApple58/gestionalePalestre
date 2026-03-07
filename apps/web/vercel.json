@@ -1,5 +1,5 @@
 {
-  "buildCommand": "export DIRECT_URL=${DIRECT_URL:-$(echo $DATABASE_URL | sed 's/-pooler//')} && (pnpm --filter @gestionale/db db:deploy || (echo 'Migration failed, waiting for Neon cold start...' && sleep 25 && pnpm --filter @gestionale/db db:deploy)) && pnpm --filter @gestionale/db db:generate && next build",
+  "buildCommand": "export DIRECT_URL=${DIRECT_URL:-$(echo $DATABASE_URL | sed 's/-pooler//')} && (pnpm --filter @gestionale/db db:deploy || (sleep 25 && pnpm --filter @gestionale/db db:deploy)) && pnpm --filter @gestionale/db db:generate && next build",
   "crons": [
     {
       "path": "/api/internal/document-jobs/run",
