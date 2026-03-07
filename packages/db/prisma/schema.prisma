@@ -64,6 +64,7 @@ model User {
   passwordHash          String
   role                  UserRole           @default(SUBSCRIBER)
   accessCode            String             @db.VarChar(6)
+  dateOfBirth           DateTime?
   assignedInstructorId  String?
   assignedInstructor    User?              @relation("InstructorAssignments", fields: [assignedInstructorId], references: [id], onDelete: SetNull)
   assignedSubscribers   User[]             @relation("InstructorAssignments")
@@ -103,6 +104,7 @@ model UserDocument {
   aiLastError                 String?
   extractedTaxCode            String?        @db.VarChar(16)
   extractedIdentityNumber     String?        @db.VarChar(20)
+  extractedDateOfBirth        DateTime?
   medicalCertificateExpiresAt DateTime?
   reviewedById                String?
   reviewedAt                  DateTime?

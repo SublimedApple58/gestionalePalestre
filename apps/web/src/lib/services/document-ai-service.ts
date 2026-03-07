@@ -15,6 +15,7 @@ type ExtractInput = {
 export type ExtractedDocumentData = {
   taxCode: string | null;
   identityNumber: string | null;
+  dateOfBirth: Date | null;
   confidence: number;
   frontMatchesBack: boolean;
 };
@@ -41,6 +42,16 @@ function toBoolean(value: unknown): boolean {
   }
 
   return false;
+}
+
+function toDateOfBirth(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Date.UTC(parseInt(match[1]!), parseInt(match[2]!) - 1, parseInt(match[3]!)));
+  if (Number.isNaN(date.valueOf())) return null;
+  if (date >= new Date()) return null;
+  return date;
 }
 
 function toConfidence(value: unknown): number {
@@ -109,17 +120,17 @@ function extractJsonFromCompletion(payload: unknown): Record<string, unknown> {
 function buildPromptForType(type: DocumentType): string {
   if (type === DocumentType.TAX_CODE) {
     return [
-      "Leggi il codice fiscale italiano dal fronte e dal retro della tessera sanitaria.",
+      "Leggi il codice fiscale italiano e la data di nascita dal fronte e dal retro della tessera sanitaria.",
       "Rispondi SOLO in JSON con queste chiavi:",
-      "taxCode (string|null), identityNumber (null), confidence (number 0-1), frontMatchesBack (boolean).",
+      "taxCode (string|null), identityNumber (null), dateOfBirth (string|null in formato YYYY-MM-DD), confidence (number 0-1), frontMatchesBack (boolean).",
       "Nessun testo extra."
     ].join(" ");
   }
 
   return [
-    "Leggi il numero del documento di identita' dal fronte e dal retro.",
+    "Leggi il numero del documento di identita' e la data di nascita dal fronte e dal retro.",
     "Rispondi SOLO in JSON con queste chiavi:",
-    "taxCode (null), identityNumber (string|null), confidence (number 0-1), frontMatchesBack (boolean).",
+    "taxCode (null), identityNumber (string|null), dateOfBirth (string|null in formato YYYY-MM-DD), confidence (number 0-1), frontMatchesBack (boolean).",
     "Nessun testo extra."
   ].join(" ");
 }
@@ -193,6 +204,7 @@ export async function extractDocumentDataWithAi(input: ExtractInput): Promise<Ex
   const extracted: ExtractedDocumentData = {
     taxCode: normalizeUpper(json.taxCode),
     identityNumber: normalizeUpper(json.identityNumber),
+    dateOfBirth: toDateOfBirth(json.dateOfBirth),
     confidence: toConfidence(json.confidence),
     frontMatchesBack: toBoolean(json.frontMatchesBack)
   };

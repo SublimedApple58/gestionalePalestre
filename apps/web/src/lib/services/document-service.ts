@@ -630,9 +630,17 @@ async function processDocumentJob(prisma: PrismaClient, jobId: string): Promise<
         reviewedById: null,
         reviewedAt: null,
         extractedTaxCode: extraction.taxCode,
-        extractedIdentityNumber: extraction.identityNumber
+        extractedIdentityNumber: extraction.identityNumber,
+        extractedDateOfBirth: extraction.dateOfBirth
       }
     });
+
+    if (extraction.dateOfBirth) {
+      await prisma.user.update({
+        where: { id: job.userId },
+        data: { dateOfBirth: extraction.dateOfBirth }
+      });
+    }
 
     await markJobStatus(prisma, job.id, DocumentJobStatus.SUCCEEDED);
     return "succeeded";
