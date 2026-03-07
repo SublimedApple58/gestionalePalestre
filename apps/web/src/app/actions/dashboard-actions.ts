@@ -308,3 +308,110 @@ export async function requestReuploadAction(formData: FormData): Promise<void> {
   revalidatePath("/dashboard");
   revalidatePath("/profilo");
 }
+
+// ── State-returning variants per useActionState (drawer toast) ──────────────
+
+export type ActionResult = { ok: boolean; message: string } | null;
+
+export async function changeUserRoleActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = adminRoleChangeSchema.safeParse({
+      targetUserId: formData.get("targetUserId"),
+      role: formData.get("role")
+    });
+    if (!parsed.success) return { ok: false, message: "Dati del ruolo non validi." };
+    await updateUserRoleByAdmin(db, user.role, parsed.data);
+    revalidatePath("/utenti");
+    return { ok: true, message: "Ruolo aggiornato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function assignInstructorActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = assignInstructorSchema.safeParse({
+      subscriberId: formData.get("subscriberId"),
+      instructorId: formData.get("instructorId")
+    });
+    if (!parsed.success) return { ok: false, message: "Dati istruttore non validi." };
+    await assignInstructorByAdmin(db, user.role, parsed.data);
+    revalidatePath("/utenti");
+    return { ok: true, message: "Istruttore assegnato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function assignSubscriptionActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = assignSubscriptionSchema.safeParse({
+      targetUserId: formData.get("targetUserId"),
+      tier: formData.get("tier"),
+      startsAt: parseDateInput(formData.get("startsAt")?.toString() ?? null)
+    });
+    if (!parsed.success) return { ok: false, message: "Dati abbonamento non validi." };
+    await assignSubscriptionByAdmin(db, user.role, user.id, parsed.data);
+    revalidatePath("/utenti");
+    return { ok: true, message: "Abbonamento aggiornato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function updateUserAddressActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await requireRole([UserRole.ADMIN]);
+    const targetUserId = formData.get("targetUserId");
+    const address = formData.get("address");
+    if (typeof targetUserId !== "string" || !targetUserId) {
+      return { ok: false, message: "Utente non trovato." };
+    }
+    await db.user.update({
+      where: { id: targetUserId },
+      data: { address: typeof address === "string" ? address.trim() || null : null }
+    });
+    revalidatePath("/utenti");
+    return { ok: true, message: "Indirizzo salvato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function deleteUserActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = adminDeleteUserSchema.safeParse({
+      targetUserId: formData.get("targetUserId")
+    });
+    if (!parsed.success) return { ok: false, message: "Utente non trovato." };
+    await deleteUserByAdmin(db, user.role, parsed.data);
+    revalidatePath("/utenti");
+    return { ok: true, message: "Utente eliminato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}

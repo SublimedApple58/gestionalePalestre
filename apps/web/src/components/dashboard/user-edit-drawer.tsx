@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useActionState, useEffect } from "react";
+import { useState } from "react";
 import { ExternalLink, Loader2, X } from "lucide-react";
 import {
   DocumentSide,
@@ -12,12 +13,14 @@ import {
 } from "@gestionale/db";
 
 import {
-  assignInstructorAction,
-  assignSubscriptionAction,
-  changeUserRoleAction,
-  deleteUserAction,
-  updateUserAddressAction
+  type ActionResult,
+  assignInstructorActionState,
+  assignSubscriptionActionState,
+  changeUserRoleActionState,
+  deleteUserActionState,
+  updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
+import { useToast } from "@/components/ui/toast-provider";
 import { tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -112,7 +115,19 @@ function OpenDocButton({ documentId }: { documentId: string }) {
   );
 }
 
+/** Mostra il risultato dell'action come toast e resetta lo state */
+function useActionToast(result: ActionResult) {
+  const { addToast } = useToast();
+  useEffect(() => {
+    if (!result) return;
+    addToast(result.message, result.ok ? "success" : "error");
+  }, [result, addToast]);
+}
+
 export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerProps) {
+  const { addToast } = useToast();
+
+  // ── Keyboard close ──────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -120,6 +135,28 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  // ── Action states ───────────────────────────────────────────
+  const [roleResult, roleAction, rolePending] = useActionState(changeUserRoleActionState, null);
+  const [instrResult, instrAction, instrPending] = useActionState(assignInstructorActionState, null);
+  const [subResult, subAction, subPending] = useActionState(assignSubscriptionActionState, null);
+  const [addrResult, addrAction, addrPending] = useActionState(updateUserAddressActionState, null);
+  const [deleteResult, deleteAction, deletePending] = useActionState(deleteUserActionState, null);
+
+  // ── Toast on result ─────────────────────────────────────────
+  useActionToast(roleResult);
+  useActionToast(instrResult);
+  useActionToast(subResult);
+  useActionToast(addrResult);
+  useEffect(() => {
+    if (!deleteResult) return;
+    if (deleteResult.ok) {
+      addToast(deleteResult.message, "success");
+      onClose();
+    } else {
+      addToast(deleteResult.message, "error");
+    }
+  }, [deleteResult, addToast, onClose]);
 
   const instructorOptions = instructors.map((i) => ({
     value: i.id,
@@ -163,7 +200,7 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
           {/* ── Ruolo ─────────────────────────────────────────────── */}
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Ruolo</h4>
-            <form action={changeUserRoleAction} className="user-drawer-form">
+            <form action={roleAction} className="user-drawer-form">
               <input type="hidden" name="targetUserId" value={user.id} />
               <CustomSelect
                 name="role"
@@ -173,7 +210,8 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                 defaultValue={user.role}
                 required
               />
-              <button type="submit" className="button button-primary small">
+              <button type="submit" className="button button-primary small" disabled={rolePending}>
+                {rolePending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
                 Salva ruolo
               </button>
             </form>
@@ -188,7 +226,7 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                   Attuale: {user.assignedInstructor.firstName} {user.assignedInstructor.lastName}
                 </p>
               )}
-              <form action={assignInstructorAction} className="user-drawer-form">
+              <form action={instrAction} className="user-drawer-form">
                 <input type="hidden" name="subscriberId" value={user.id} />
                 <CustomSelect
                   name="instructorId"
@@ -200,7 +238,8 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                   searchable
                   required
                 />
-                <button type="submit" className="button button-primary small">
+                <button type="submit" className="button button-primary small" disabled={instrPending}>
+                  {instrPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
                   Assegna
                 </button>
               </form>
@@ -223,7 +262,7 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
               ) : (
                 <p className="user-drawer-meta">Nessun abbonamento attivo.</p>
               )}
-              <form action={assignSubscriptionAction} className="user-drawer-form">
+              <form action={subAction} className="user-drawer-form">
                 <input type="hidden" name="targetUserId" value={user.id} />
                 <CustomSelect
                   name="tier"
@@ -234,7 +273,8 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                   required
                 />
                 <CustomCalendar name="startsAt" label="Data inizio" />
-                <button type="submit" className="button button-primary small">
+                <button type="submit" className="button button-primary small" disabled={subPending}>
+                  {subPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
                   Aggiorna abbonamento
                 </button>
               </form>
@@ -244,7 +284,7 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
           {/* ── Indirizzo ─────────────────────────────────────────── */}
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Indirizzo</h4>
-            <form action={updateUserAddressAction} className="user-drawer-form">
+            <form action={addrAction} className="user-drawer-form">
               <input type="hidden" name="targetUserId" value={user.id} />
               <label className="input-group">
                 <span className="sr-only">Indirizzo</span>
@@ -256,7 +296,8 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
                   autoComplete="off"
                 />
               </label>
-              <button type="submit" className="button button-primary small">
+              <button type="submit" className="button button-primary small" disabled={addrPending}>
+                {addrPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
                 Salva indirizzo
               </button>
             </form>
@@ -288,9 +329,14 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
           {/* ── Zona pericolosa ───────────────────────────────────── */}
           <section className="user-drawer-section user-drawer-section-danger">
             <h4 className="user-drawer-section-title">Zona pericolosa</h4>
-            <form action={deleteUserAction}>
+            <form action={deleteAction}>
               <input type="hidden" name="targetUserId" value={user.id} />
-              <button type="submit" className="button button-danger small">
+              <button
+                type="submit"
+                className="button button-danger small"
+                disabled={deletePending}
+              >
+                {deletePending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
                 Elimina utente
               </button>
             </form>

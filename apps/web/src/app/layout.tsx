@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Open_Sans } from "next/font/google";
 
+import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
 
 const openSans = Open_Sans({
@@ -20,7 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body className={openSans.className}>{children}</body>
+      <body className={openSans.className}>
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }
