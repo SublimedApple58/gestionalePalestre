@@ -1,4 +1,5 @@
 {
+  "buildCommand": "pnpm --filter @gestionale/db db:deploy && pnpm --filter @gestionale/db db:generate && next build",
   "crons": [
     {
       "path": "/api/internal/document-jobs/run",

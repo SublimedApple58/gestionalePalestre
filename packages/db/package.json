@@ -8,6 +8,7 @@
   },
   "scripts": {
     "db:generate": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 prisma generate --schema prisma/schema.prisma",
+    "db:deploy": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 prisma migrate deploy --schema prisma/schema.prisma",
     "db:push": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 prisma db push --schema prisma/schema.prisma",
     "db:migrate": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 prisma migrate dev --schema prisma/schema.prisma",
     "db:seed": "CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 prisma db seed --schema prisma/schema.prisma",
