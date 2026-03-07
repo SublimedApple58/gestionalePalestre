@@ -33,6 +33,12 @@ type UserManagementProps = {
   users: UserRow[];
 };
 
+const ROLE_OPTIONS = [
+  { value: UserRole.ADMIN, label: "Admin" },
+  { value: UserRole.INSTRUCTOR, label: "Istruttore" },
+  { value: UserRole.SUBSCRIBER, label: "Iscritto" }
+];
+
 const SUBSCRIPTION_OPTIONS = [
   { value: SubscriptionTier.MONTHLY, label: "Mensile" },
   { value: SubscriptionTier.QUARTERLY, label: "Trimestrale" },
