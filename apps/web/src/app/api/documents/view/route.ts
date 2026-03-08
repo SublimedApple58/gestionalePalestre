@@ -12,15 +12,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  const actor = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true }
-  });
-
-  if (actor?.role !== UserRole.ADMIN) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
-
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get("documentId");
 
@@ -30,11 +21,25 @@ export async function GET(request: Request) {
 
   const document = await db.userDocument.findUnique({
     where: { id: documentId },
-    select: { storageKey: true }
+    select: { storageKey: true, userId: true }
   });
 
   if (!document?.storageKey) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // Allow: ADMIN (any doc) or the document's own owner
+  const isOwner = document.userId === session.user.id;
+
+  if (!isOwner) {
+    const actor = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (actor?.role !== UserRole.ADMIN) {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
   }
 
   try {

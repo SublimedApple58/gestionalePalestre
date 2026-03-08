@@ -8,6 +8,7 @@ import {
 } from "@gestionale/db";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
 import {
   countRemainingAiAttempts,
@@ -74,7 +75,10 @@ export function DocumentUploadSlot({
   const [medicalExpiry, setMedicalExpiry] = useState<string>(
     current?.medicalCertificateExpiresAt ? new Date(current.medicalCertificateExpiresAt).toISOString().slice(0, 10) : ""
   );
+  const [viewLoading, setViewLoading] = useState(false);
   const todayYmd = new Date().toISOString().slice(0, 10);
+
+  const isApproved = current?.status === DocumentStatus.APPROVED;
 
   const remainingAttempts = useMemo(() => {
     if (!current) {
@@ -98,6 +102,23 @@ export function DocumentUploadSlot({
     }
 
     return "warning";
+  }
+
+  async function handleViewDocument() {
+    if (!current?.id) return;
+    setViewLoading(true);
+    try {
+      const res = await fetch(`/api/documents/view?documentId=${current.id}`);
+      const json = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !json.url) {
+        throw new Error(json.error ?? "Impossibile aprire il documento.");
+      }
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch (viewError) {
+      setError(viewError instanceof Error ? viewError.message : "Errore apertura documento.");
+    } finally {
+      setViewLoading(false);
+    }
   }
 
   async function handleUpload(file: File) {
@@ -212,35 +233,51 @@ export function DocumentUploadSlot({
         <p className="upload-slot-meta">Nessun file caricato.</p>
       )}
 
-      {type === DocumentType.TAX_CODE || type === DocumentType.IDENTITY_DOCUMENT ? (
+      {(type === DocumentType.TAX_CODE || type === DocumentType.IDENTITY_DOCUMENT) && !isApproved ? (
         <p className="upload-slot-meta">{`Tentativi AI residui: ${remainingAttempts}`}</p>
       ) : null}
 
       {current?.rejectionReason ? <p className="status-badge missing">{current.rejectionReason}</p> : null}
 
-      {medicalCertificateRequired ? (
-        <CustomCalendar
-          label="Scadenza certificato medico"
-          value={medicalExpiry}
-          onChange={setMedicalExpiry}
-          min={todayYmd}
-          required
-        />
-      ) : null}
+      {isApproved ? (
+        /* Documento approvato — solo visualizzazione, nessun upload */
+        <button
+          type="button"
+          className="doc-view-btn"
+          onClick={() => void handleViewDocument()}
+          disabled={viewLoading}
+        >
+          <ExternalLink size={15} />
+          {viewLoading ? "Apertura..." : "Visualizza documento"}
+        </button>
+      ) : (
+        /* Documento non approvato — permetti upload */
+        <>
+          {medicalCertificateRequired ? (
+            <CustomCalendar
+              label="Scadenza certificato medico"
+              value={medicalExpiry}
+              onChange={setMedicalExpiry}
+              min={todayYmd}
+              required
+            />
+          ) : null}
 
-      <CustomFilePicker
-        label="Carica documento"
-        accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
-        enableCamera
-        cameraFacingMode="environment"
-        disabled={uploading}
-        selectedFileName={selectedFileName}
-        hint="Dimensione massima consigliata: 12 MB"
-        onPickFile={(file) => {
-          setSelectedFileName(file.name);
-          void handleUpload(file);
-        }}
-      />
+          <CustomFilePicker
+            label="Carica documento"
+            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
+            enableCamera
+            cameraFacingMode="environment"
+            disabled={uploading}
+            selectedFileName={selectedFileName}
+            hint="Dimensione massima consigliata: 12 MB"
+            onPickFile={(file) => {
+              setSelectedFileName(file.name);
+              void handleUpload(file);
+            }}
+          />
+        </>
+      )}
 
       {error ? <p className="error-banner">{error}</p> : null}
       {success ? <p className="status-badge ok">{success}</p> : null}

@@ -1839,6 +1839,34 @@ tbody tr:hover td:first-child {
   color: var(--text-muted);
 }
 
+/* View button — shown instead of file picker when document is APPROVED */
+.doc-view-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #86efac;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.08);
+  transition: background 0.15s ease, color 0.15s ease;
+  width: fit-content;
+}
+
+.doc-view-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: #bbf7d0;
+}
+
+.doc-view-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ─── FILE PICKER ────────────────────────────────────────────────────────── */
 
 .file-picker {
