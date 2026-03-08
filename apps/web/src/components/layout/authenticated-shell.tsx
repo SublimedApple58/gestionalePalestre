@@ -89,8 +89,6 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
       <Sider
         width={288}
         className="app-sider"
-        breakpoint="lg"
-        collapsedWidth={0}
         trigger={null}
         style={{
           position: "fixed",
