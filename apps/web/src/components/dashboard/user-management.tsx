@@ -212,11 +212,12 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
 
       </div>
 
-      {/* ── Drawer modifica utente ─────────────────────────────────── */}
+      {/* ── Drawer modifica utente (Mantine gestisce open/close e animazione) ── */}
       {selectedUser && (
         <UserEditDrawer
           key={selectedUser.id}
           user={selectedUser}
+          opened={!!selectedUser}
           onClose={() => setSelectedUser(null)}
           instructors={instructors.map((i) => ({
             id: i.id,

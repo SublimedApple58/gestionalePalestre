@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { ExternalLink, Loader2, X } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
+import { Drawer, Tabs, Badge, Button, TextInput, Text, Stack, Group } from "@mantine/core";
 import {
   DocumentSide,
   DocumentStatus,
@@ -40,11 +41,10 @@ export type DrawerUserRow = {
 
 type UserEditDrawerProps = {
   user: DrawerUserRow;
+  opened: boolean;
   onClose: () => void;
   instructors: { id: string; firstName: string; lastName: string; email: string }[];
 };
-
-type Tab = "dettagli" | "abbonamento" | "documenti";
 
 const ROLE_OPTIONS = [
   { value: UserRole.ADMIN, label: "Admin" },
@@ -66,23 +66,29 @@ const DOC_SLOTS: { type: DocumentType; side: DocumentSide; label: string }[] = [
   { type: DocumentType.MEDICAL_CERTIFICATE, side: DocumentSide.SINGLE, label: "Certificato medico" }
 ];
 
+const ROLE_BADGE_COLOR: Record<UserRole, string> = {
+  [UserRole.ADMIN]: "brand",
+  [UserRole.INSTRUCTOR]: "blue",
+  [UserRole.SUBSCRIBER]: "gray"
+};
+
 function DocStatusBadge({ status }: { status: DocumentStatus | undefined }) {
-  if (!status) return <span className="status-badge missing">Non caricato</span>;
+  if (!status) return <Badge color="gray" variant="light">Non caricato</Badge>;
   switch (status) {
     case DocumentStatus.APPROVED:
-      return <span className="status-badge ok">Approvato</span>;
+      return <Badge color="green" variant="light">Approvato</Badge>;
     case DocumentStatus.PENDING_ADMIN_REVIEW:
-      return <span className="status-badge warning">In revisione</span>;
+      return <Badge color="yellow" variant="light">In revisione</Badge>;
     case DocumentStatus.AI_PROCESSING:
-      return <span className="status-badge warning">In elaborazione</span>;
+      return <Badge color="yellow" variant="light">In elaborazione</Badge>;
     case DocumentStatus.UPLOADED:
-      return <span className="status-badge warning">Caricato</span>;
+      return <Badge color="blue" variant="light">Caricato</Badge>;
     case DocumentStatus.REJECTED:
-      return <span className="status-badge missing">Rifiutato</span>;
+      return <Badge color="red" variant="light">Rifiutato</Badge>;
     case DocumentStatus.NEEDS_REUPLOAD:
-      return <span className="status-badge missing">Da ricaricare</span>;
+      return <Badge color="orange" variant="light">Da ricaricare</Badge>;
     default:
-      return <span className="status-badge warning">{status}</span>;
+      return <Badge color="gray" variant="light">{status}</Badge>;
   }
 }
 
@@ -102,22 +108,20 @@ function OpenDocButton({ documentId }: { documentId: string }) {
   }
 
   return (
-    <button
-      type="button"
-      className="button button-ghost small"
+    <Button
+      size="xs"
+      variant="subtle"
+      color="gray"
+      leftSection={loading ? <Loader2 size={11} className="spin" /> : <ExternalLink size={11} />}
       onClick={handleOpen}
-      disabled={loading}
+      loading={loading}
       aria-label="Apri documento"
     >
-      {loading
-        ? <Loader2 size={12} className="spin" aria-hidden="true" />
-        : <ExternalLink size={12} aria-hidden="true" />}
       Apri
-    </button>
+    </Button>
   );
 }
 
-/** Mostra il risultato dell'action come toast */
 function useActionToast(result: ActionResult) {
   const { addToast } = useToast();
   useEffect(() => {
@@ -126,32 +130,35 @@ function useActionToast(result: ActionResult) {
   }, [result, addToast]);
 }
 
-export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerProps) {
+const tabStyle: React.CSSProperties = {
+  padding: "11px 14px",
+  fontSize: "13px",
+  fontWeight: 500,
+  borderRadius: 0,
+  color: "rgba(255,255,255,0.5)"
+};
+
+const panelStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  padding: 0
+};
+
+export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditDrawerProps) {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<Tab>("dettagli");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  // ── Keyboard close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  // ── Action states
   const [roleResult, roleAction, rolePending] = useActionState(changeUserRoleActionState, null);
   const [instrResult, instrAction, instrPending] = useActionState(assignInstructorActionState, null);
   const [subResult, subAction, subPending] = useActionState(assignSubscriptionActionState, null);
   const [addrResult, addrAction, addrPending] = useActionState(updateUserAddressActionState, null);
   const [deleteResult, deleteAction, deletePending] = useActionState(deleteUserActionState, null);
 
-  // ── Toast on result
   useActionToast(roleResult);
   useActionToast(instrResult);
   useActionToast(subResult);
   useActionToast(addrResult);
+
   useEffect(() => {
     if (!deleteResult) return;
     if (deleteResult.ok) {
@@ -162,278 +169,256 @@ export function UserEditDrawer({ user, onClose, instructors }: UserEditDrawerPro
     }
   }, [deleteResult, addToast, onClose]);
 
+  useEffect(() => {
+    if (!opened) setDeleteConfirm(false);
+  }, [opened]);
+
   const instructorOptions = instructors.map((i) => ({
     value: i.id,
     label: `${i.firstName} ${i.lastName}`,
     details: i.email
   }));
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "dettagli", label: "Dettagli" },
-    { id: "abbonamento", label: "Abbonamento" },
-    { id: "documenti", label: "Documenti" }
-  ];
+  const drawerTitle = (
+    <Group gap={10} align="center" wrap="nowrap" style={{ minWidth: 0, overflow: "hidden" }}>
+      <span className="user-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
+        {user.firstName.charAt(0).toUpperCase()}
+      </span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <Text fw={600} size="sm" style={{ lineHeight: 1.3, color: "white" }} truncate>
+          {user.firstName} {user.lastName}
+        </Text>
+        <Text size="xs" c="dimmed" truncate>{user.email}</Text>
+      </div>
+      <Badge color={ROLE_BADGE_COLOR[user.role]} variant="light" size="xs" style={{ flexShrink: 0 }}>
+        {roleLabel(user.role)}
+      </Badge>
+    </Group>
+  );
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className="user-drawer-overlay"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Drawer */}
-      <aside
-        className="user-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Modifica ${user.firstName} ${user.lastName}`}
+    <Drawer
+      opened={opened}
+      onClose={onClose}
+      position="right"
+      title={drawerTitle}
+      aria-label={`Modifica ${user.firstName} ${user.lastName}`}
+      styles={{
+        content: {
+          background:
+            "radial-gradient(ellipse at 100% 0%, rgba(223,37,49,0.1), transparent 50%), linear-gradient(180deg,rgba(18,18,26,0.99) 0%,rgba(10,10,16,1) 100%)",
+          borderLeft: "1px solid rgba(223,37,49,0.22)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden"
+        },
+        header: {
+          background: "transparent",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          padding: "16px 20px"
+        },
+        body: {
+          padding: 0,
+          flex: 1,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column"
+        },
+        close: {
+          color: "rgba(255,255,255,0.5)"
+        }
+      }}
+      transitionProps={{
+        transition: "slide-left",
+        duration: 320,
+        timingFunction: "cubic-bezier(0.16, 1, 0.3, 1)"
+      }}
+      overlayProps={{ backgroundOpacity: 0.55, blur: 5 }}
+    >
+      <Tabs
+        defaultValue="dettagli"
+        style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
+        <Tabs.List
+          style={{
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            padding: "0 20px",
+            flexShrink: 0,
+            gap: 0,
+            background: "transparent"
+          }}
+        >
+          <Tabs.Tab value="dettagli" style={tabStyle}>Dettagli</Tabs.Tab>
+          <Tabs.Tab value="abbonamento" style={tabStyle}>Abbonamento</Tabs.Tab>
+          <Tabs.Tab value="documenti" style={tabStyle}>Documenti</Tabs.Tab>
+        </Tabs.List>
 
-        {/* ── Header ────────────────────────────────────────────── */}
-        <header className="user-drawer-header">
-          <div className="user-drawer-user-info">
-            <span className="user-avatar user-avatar-lg">
-              {user.firstName.charAt(0).toUpperCase()}
-            </span>
-            <div className="user-drawer-user-text">
-              <strong className="user-drawer-name">{`${user.firstName} ${user.lastName}`}</strong>
-              <span className="user-drawer-email">{user.email}</span>
-              <span className="td-role-badge" data-role={user.role}>
-                {roleLabel(user.role)}
-              </span>
+        {/* ── DETTAGLI ─────────────────────────────────────────── */}
+        <Tabs.Panel value="dettagli" style={panelStyle}>
+          <Stack gap={0}>
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Ruolo</h4>
+              <form action={roleAction} className="user-drawer-form">
+                <input type="hidden" name="targetUserId" value={user.id} />
+                <CustomSelect
+                  name="role"
+                  label="Ruolo"
+                  hideLabel
+                  options={ROLE_OPTIONS}
+                  defaultValue={user.role}
+                  required
+                />
+                <Button type="submit" color="brand" size="sm" loading={rolePending} loaderProps={{ type: "dots" }}>
+                  Salva ruolo
+                </Button>
+              </form>
+            </section>
+
+            {user.role === UserRole.SUBSCRIBER && instructors.length > 0 && (
+              <section className="user-drawer-section">
+                <h4 className="user-drawer-section-title">Istruttore assegnato</h4>
+                {user.assignedInstructor && (
+                  <Text size="xs" c="dimmed" mb={8}>
+                    Attuale: {user.assignedInstructor.firstName} {user.assignedInstructor.lastName}
+                  </Text>
+                )}
+                <form action={instrAction} className="user-drawer-form">
+                  <input type="hidden" name="subscriberId" value={user.id} />
+                  <CustomSelect
+                    name="instructorId"
+                    label="Istruttore"
+                    hideLabel
+                    options={instructorOptions}
+                    defaultValue={user.assignedInstructorId ?? undefined}
+                    placeholder="Cerca istruttore"
+                    searchable
+                    required
+                  />
+                  <Button type="submit" color="brand" size="sm" loading={instrPending} loaderProps={{ type: "dots" }}>
+                    Assegna
+                  </Button>
+                </form>
+              </section>
+            )}
+
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Indirizzo</h4>
+              <form action={addrAction} className="user-drawer-form">
+                <input type="hidden" name="targetUserId" value={user.id} />
+                <TextInput
+                  name="address"
+                  defaultValue={user.address ?? ""}
+                  placeholder="Via Roma 1, 20100 Milano"
+                  autoComplete="off"
+                  classNames={{ input: "mantine-drawer-input" }}
+                />
+                <Button type="submit" color="brand" size="sm" loading={addrPending} loaderProps={{ type: "dots" }}>
+                  Salva indirizzo
+                </Button>
+              </form>
+            </section>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* ── ABBONAMENTO ──────────────────────────────────────── */}
+        <Tabs.Panel value="abbonamento" style={panelStyle}>
+          <Stack gap={0}>
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Stato attuale</h4>
+              {user.subscription ? (
+                <div className="user-drawer-sub-current">
+                  <Badge color="green" variant="light">{tierLabel(user.subscription.tier)}</Badge>
+                  <Text size="xs" c="dimmed">
+                    {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
+                    {" → "}
+                    {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                  </Text>
+                </div>
+              ) : (
+                <Text size="xs" c="dimmed">Nessun abbonamento attivo.</Text>
+              )}
+            </section>
+
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Assegna abbonamento</h4>
+              {user.role !== UserRole.SUBSCRIBER && (
+                <Text size="xs" c="dimmed" mb={8}>Solo gli iscritti possono avere un abbonamento.</Text>
+              )}
+              <form action={subAction} className="user-drawer-form">
+                <input type="hidden" name="targetUserId" value={user.id} />
+                <CustomSelect
+                  name="tier"
+                  label="Piano"
+                  hideLabel
+                  options={SUBSCRIPTION_OPTIONS}
+                  defaultValue={user.subscription?.tier ?? SubscriptionTier.MONTHLY}
+                  required
+                />
+                <CustomCalendar name="startsAt" label="Data inizio" />
+                <Button
+                  type="submit"
+                  color="brand"
+                  size="sm"
+                  loading={subPending}
+                  loaderProps={{ type: "dots" }}
+                  disabled={user.role !== UserRole.SUBSCRIBER}
+                >
+                  Aggiorna abbonamento
+                </Button>
+              </form>
+            </section>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* ── DOCUMENTI ────────────────────────────────────────── */}
+        <Tabs.Panel value="documenti" style={panelStyle}>
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Documenti caricati</h4>
+            <ul className="user-drawer-doc-list">
+              {DOC_SLOTS.map((slot) => {
+                const doc = user.documents.find(
+                  (d) => d.type === slot.type && d.side === slot.side
+                );
+                return (
+                  <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
+                    <span className="user-drawer-doc-label">{slot.label}</span>
+                    <div className="user-drawer-doc-actions">
+                      <DocStatusBadge status={doc?.status} />
+                      {doc?.storageKey && <OpenDocButton documentId={doc.id} />}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </Tabs.Panel>
+      </Tabs>
+
+      {/* ── Footer ──────────────────────────────────────────────── */}
+      <div className="user-drawer-footer">
+        {deleteConfirm ? (
+          <div className="user-drawer-footer-confirm">
+            <Text size="xs" c="dimmed" className="user-drawer-footer-confirm-text">
+              Eliminare definitivamente questo utente?
+            </Text>
+            <div className="user-drawer-footer-confirm-actions">
+              <form action={deleteAction}>
+                <input type="hidden" name="targetUserId" value={user.id} />
+                <Button type="submit" color="red" size="xs" loading={deletePending} loaderProps={{ type: "dots" }}>
+                  Sì, elimina
+                </Button>
+              </form>
+              <Button variant="subtle" color="gray" size="xs" onClick={() => setDeleteConfirm(false)}>
+                Annulla
+              </Button>
             </div>
           </div>
-          <button
-            type="button"
-            className="button button-ghost user-drawer-close"
-            onClick={onClose}
-            aria-label="Chiudi"
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-        </header>
-
-        {/* ── Tab bar ───────────────────────────────────────────── */}
-        <nav className="drawer-tabs" aria-label="Sezioni utente">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`drawer-tab${activeTab === tab.id ? " active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={activeTab === tab.id ? "page" : undefined}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* ── Tab content ───────────────────────────────────────── */}
-        <div className="drawer-tab-content">
-
-          {/* ── DETTAGLI ──────────────────────────────────────────── */}
-          {activeTab === "dettagli" && (
-            <div className="drawer-tab-pane">
-
-              {/* Ruolo */}
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Ruolo</h4>
-                <form action={roleAction} className="user-drawer-form">
-                  <input type="hidden" name="targetUserId" value={user.id} />
-                  <CustomSelect
-                    name="role"
-                    label="Ruolo"
-                    hideLabel
-                    options={ROLE_OPTIONS}
-                    defaultValue={user.role}
-                    required
-                  />
-                  <button type="submit" className="button button-primary small" disabled={rolePending}>
-                    {rolePending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
-                    Salva ruolo
-                  </button>
-                </form>
-              </section>
-
-              {/* Istruttore (solo subscriber) */}
-              {user.role === UserRole.SUBSCRIBER && instructors.length > 0 && (
-                <section className="user-drawer-section">
-                  <h4 className="user-drawer-section-title">Istruttore assegnato</h4>
-                  {user.assignedInstructor && (
-                    <p className="user-drawer-meta">
-                      Attuale: {user.assignedInstructor.firstName} {user.assignedInstructor.lastName}
-                    </p>
-                  )}
-                  <form action={instrAction} className="user-drawer-form">
-                    <input type="hidden" name="subscriberId" value={user.id} />
-                    <CustomSelect
-                      name="instructorId"
-                      label="Istruttore"
-                      hideLabel
-                      options={instructorOptions}
-                      defaultValue={user.assignedInstructorId ?? undefined}
-                      placeholder="Cerca istruttore"
-                      searchable
-                      required
-                    />
-                    <button type="submit" className="button button-primary small" disabled={instrPending}>
-                      {instrPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
-                      Assegna
-                    </button>
-                  </form>
-                </section>
-              )}
-
-              {/* Indirizzo */}
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Indirizzo</h4>
-                <form action={addrAction} className="user-drawer-form">
-                  <input type="hidden" name="targetUserId" value={user.id} />
-                  <label className="input-group">
-                    <span className="sr-only">Indirizzo</span>
-                    <input
-                      type="text"
-                      name="address"
-                      defaultValue={user.address ?? ""}
-                      placeholder="Via Roma 1, 20100 Milano"
-                      autoComplete="off"
-                    />
-                  </label>
-                  <button type="submit" className="button button-primary small" disabled={addrPending}>
-                    {addrPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
-                    Salva indirizzo
-                  </button>
-                </form>
-              </section>
-
-            </div>
-          )}
-
-          {/* ── ABBONAMENTO ───────────────────────────────────────── */}
-          {activeTab === "abbonamento" && (
-            <div className="drawer-tab-pane">
-
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Stato attuale</h4>
-                {user.subscription ? (
-                  <div className="user-drawer-sub-current">
-                    <span className="status-badge ok">{tierLabel(user.subscription.tier)}</span>
-                    <span className="user-drawer-meta">
-                      {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
-                      {" → "}
-                      {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="user-drawer-meta">Nessun abbonamento attivo.</p>
-                )}
-              </section>
-
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Assegna abbonamento</h4>
-                {user.role !== UserRole.SUBSCRIBER && (
-                  <p className="user-drawer-meta drawer-sub-notice">
-                    Solo gli iscritti possono avere un abbonamento.
-                  </p>
-                )}
-                <form action={subAction} className="user-drawer-form">
-                  <input type="hidden" name="targetUserId" value={user.id} />
-                  <CustomSelect
-                    name="tier"
-                    label="Piano"
-                    hideLabel
-                    options={SUBSCRIPTION_OPTIONS}
-                    defaultValue={user.subscription?.tier ?? SubscriptionTier.MONTHLY}
-                    required
-                  />
-                  <CustomCalendar name="startsAt" label="Data inizio" />
-                  <button
-                    type="submit"
-                    className="button button-primary small"
-                    disabled={subPending || user.role !== UserRole.SUBSCRIBER}
-                  >
-                    {subPending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
-                    Aggiorna abbonamento
-                  </button>
-                </form>
-              </section>
-
-            </div>
-          )}
-
-          {/* ── DOCUMENTI ─────────────────────────────────────────── */}
-          {activeTab === "documenti" && (
-            <div className="drawer-tab-pane">
-
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Documenti caricati</h4>
-                <ul className="user-drawer-doc-list">
-                  {DOC_SLOTS.map((slot) => {
-                    const doc = user.documents.find(
-                      (d) => d.type === slot.type && d.side === slot.side
-                    );
-                    return (
-                      <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
-                        <span className="user-drawer-doc-label">{slot.label}</span>
-                        <div className="user-drawer-doc-actions">
-                          <DocStatusBadge status={doc?.status} />
-                          {doc && doc.storageKey && (
-                            <OpenDocButton documentId={doc.id} />
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-
-            </div>
-          )}
-
-        </div>
-
-        {/* ── Footer — Zona pericolosa ───────────────────────────── */}
-        <footer className="user-drawer-footer">
-          {deleteConfirm ? (
-            <div className="user-drawer-footer-confirm">
-              <span className="user-drawer-footer-confirm-text">
-                Eliminare definitivamente questo utente?
-              </span>
-              <div className="user-drawer-footer-confirm-actions">
-                <form action={deleteAction}>
-                  <input type="hidden" name="targetUserId" value={user.id} />
-                  <button
-                    type="submit"
-                    className="button button-danger small"
-                    disabled={deletePending}
-                  >
-                    {deletePending ? <Loader2 size={13} className="spin" aria-hidden="true" /> : null}
-                    Sì, elimina
-                  </button>
-                </form>
-                <button
-                  type="button"
-                  className="button button-ghost small"
-                  onClick={() => setDeleteConfirm(false)}
-                >
-                  Annulla
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="button button-danger small"
-              onClick={() => setDeleteConfirm(true)}
-            >
-              Elimina utente
-            </button>
-          )}
-        </footer>
-
-      </aside>
-    </>
+        ) : (
+          <Button variant="subtle" color="red" size="xs" onClick={() => setDeleteConfirm(true)}>
+            Elimina utente
+          </Button>
+        )}
+      </div>
+    </Drawer>
   );
 }

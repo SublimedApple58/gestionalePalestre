@@ -12,10 +12,12 @@
     "test:e2e:fe": "playwright test"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
     "@aws-sdk/client-s3": "^3.924.0",
     "@aws-sdk/s3-request-presigner": "^3.924.0",
-    "@auth/prisma-adapter": "^2.11.1",
     "@gestionale/db": "workspace:*",
+    "@mantine/core": "^8.3.16",
+    "@mantine/hooks": "^8.3.16",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^0.575.0",
     "next": "latest",
