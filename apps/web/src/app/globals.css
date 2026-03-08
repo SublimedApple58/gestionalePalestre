@@ -2067,21 +2067,13 @@ tbody tr:hover td:first-child {
 
 /* ─── USER EDIT DRAWER ───────────────────────────────────────────────────── */
 /*
- * Usiamo @keyframes animation: scatta automaticamente al mount React,
- * senza dipendere da rAF o state. Risolve il problema del "from state mai
- * paintato" tipico delle CSS transition con React 18 concurrent mode.
+ * @starting-style: CSS nativo per "enter transition" al mount del componente.
+ * Definisce gli stili PRIMA che l'elemento appaia nel DOM — il browser
+ * esegue la transition da quei valori a quelli normali automaticamente.
+ * Nessun JS, nessun timing issue. Chrome 117+, Firefox 129+, Safari 17.5+.
+ *
+ * Timing hardcoded (no CSS var) per eliminare ogni possibile parsing issue.
  */
-
-@keyframes drawer-overlay-in {
-  from { opacity: 0; }
-}
-
-@keyframes drawer-slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
 
 .user-drawer-overlay {
   position: fixed;
@@ -2090,7 +2082,14 @@ tbody tr:hover td:first-child {
   background: rgba(3, 3, 7, 0.62);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  animation: drawer-overlay-in 280ms var(--ease-smooth) both;
+  opacity: 1;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@starting-style {
+  .user-drawer-overlay {
+    opacity: 0;
+  }
 }
 
 .user-drawer {
@@ -2111,12 +2110,23 @@ tbody tr:hover td:first-child {
     -20px 0 60px rgba(0, 0, 0, 0.6),
     -4px 0 16px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  animation: drawer-slide-in var(--dur-enter) var(--ease-expo-out) both;
+  transform: translateX(0);
+  opacity: 1;
+  transition:
+    transform 400ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease;
+}
+
+@starting-style {
+  .user-drawer {
+    transform: translateX(100%);
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .user-drawer,
-  .user-drawer-overlay { animation: none; }
+  .user-drawer-overlay { transition: none; }
 }
 
 .user-drawer-header {
