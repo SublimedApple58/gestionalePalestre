@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
-import { Drawer, Tabs, Badge, Button, TextInput, Text, Stack, Group } from "@mantine/core";
+import { Drawer, Tabs, Tag, Button, Input, Typography, Space, Flex } from "antd";
 import {
   DocumentSide,
   DocumentStatus,
@@ -25,6 +25,8 @@ import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
+
+const { Text } = Typography;
 
 export type DrawerUserRow = {
   id: string;
@@ -66,29 +68,29 @@ const DOC_SLOTS: { type: DocumentType; side: DocumentSide; label: string }[] = [
   { type: DocumentType.MEDICAL_CERTIFICATE, side: DocumentSide.SINGLE, label: "Certificato medico" }
 ];
 
-const ROLE_BADGE_COLOR: Record<UserRole, string> = {
-  [UserRole.ADMIN]: "brand",
+const ROLE_TAG_COLOR: Record<UserRole, string> = {
+  [UserRole.ADMIN]: "red",
   [UserRole.INSTRUCTOR]: "blue",
-  [UserRole.SUBSCRIBER]: "gray"
+  [UserRole.SUBSCRIBER]: "default"
 };
 
-function DocStatusBadge({ status }: { status: DocumentStatus | undefined }) {
-  if (!status) return <Badge color="gray" variant="light">Non caricato</Badge>;
+function DocStatusTag({ status }: { status: DocumentStatus | undefined }) {
+  if (!status) return <Tag color="default">Non caricato</Tag>;
   switch (status) {
     case DocumentStatus.APPROVED:
-      return <Badge color="green" variant="light">Approvato</Badge>;
+      return <Tag color="success">Approvato</Tag>;
     case DocumentStatus.PENDING_ADMIN_REVIEW:
-      return <Badge color="yellow" variant="light">In revisione</Badge>;
+      return <Tag color="warning">In revisione</Tag>;
     case DocumentStatus.AI_PROCESSING:
-      return <Badge color="yellow" variant="light">In elaborazione</Badge>;
+      return <Tag color="warning">In elaborazione</Tag>;
     case DocumentStatus.UPLOADED:
-      return <Badge color="blue" variant="light">Caricato</Badge>;
+      return <Tag color="processing">Caricato</Tag>;
     case DocumentStatus.REJECTED:
-      return <Badge color="red" variant="light">Rifiutato</Badge>;
+      return <Tag color="error">Rifiutato</Tag>;
     case DocumentStatus.NEEDS_REUPLOAD:
-      return <Badge color="orange" variant="light">Da ricaricare</Badge>;
+      return <Tag color="orange">Da ricaricare</Tag>;
     default:
-      return <Badge color="gray" variant="light">{status}</Badge>;
+      return <Tag>{status}</Tag>;
   }
 }
 
@@ -109,10 +111,9 @@ function OpenDocButton({ documentId }: { documentId: string }) {
 
   return (
     <Button
-      size="xs"
-      variant="subtle"
-      color="gray"
-      leftSection={loading ? <Loader2 size={11} className="spin" /> : <ExternalLink size={11} />}
+      size="small"
+      type="text"
+      icon={loading ? <Loader2 size={11} className="spin" /> : <ExternalLink size={11} />}
       onClick={handleOpen}
       loading={loading}
       aria-label="Apri documento"
@@ -129,20 +130,6 @@ function useActionToast(result: ActionResult) {
     addToast(result.message, result.ok ? "success" : "error");
   }, [result, addToast]);
 }
-
-const tabStyle: React.CSSProperties = {
-  padding: "11px 14px",
-  fontSize: "13px",
-  fontWeight: 500,
-  borderRadius: 0,
-  color: "rgba(255,255,255,0.5)"
-};
-
-const panelStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  padding: 0
-};
 
 export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditDrawerProps) {
   const { addToast } = useToast();
@@ -180,30 +167,186 @@ export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditD
   }));
 
   const drawerTitle = (
-    <Group gap={10} align="center" wrap="nowrap" style={{ minWidth: 0, overflow: "hidden" }}>
+    <Flex gap={10} align="center" style={{ minWidth: 0, overflow: "hidden" }}>
       <span className="user-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
         {user.firstName.charAt(0).toUpperCase()}
       </span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <Text fw={600} size="sm" style={{ lineHeight: 1.3, color: "white" }} truncate>
+        <Text strong style={{ lineHeight: 1.3, color: "white", display: "block", fontSize: 14 }} ellipsis>
           {user.firstName} {user.lastName}
         </Text>
-        <Text size="xs" c="dimmed" truncate>{user.email}</Text>
+        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, display: "block" }} ellipsis>{user.email}</Text>
       </div>
-      <Badge color={ROLE_BADGE_COLOR[user.role]} variant="light" size="xs" style={{ flexShrink: 0 }}>
+      <Tag color={ROLE_TAG_COLOR[user.role]} style={{ flexShrink: 0 }}>
         {roleLabel(user.role)}
-      </Badge>
-    </Group>
+      </Tag>
+    </Flex>
   );
+
+  const tabItems = [
+    {
+      key: "dettagli",
+      label: "Dettagli",
+      children: (
+        <div className="drawer-tab-content">
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Ruolo</h4>
+            <form action={roleAction} className="user-drawer-form">
+              <input type="hidden" name="targetUserId" value={user.id} />
+              <CustomSelect
+                name="role"
+                label="Ruolo"
+                hideLabel
+                options={ROLE_OPTIONS}
+                defaultValue={user.role}
+                required
+              />
+              <Button type="primary" htmlType="submit" loading={rolePending} size="small">
+                Salva ruolo
+              </Button>
+            </form>
+          </section>
+
+          {user.role === UserRole.SUBSCRIBER && instructors.length > 0 && (
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Istruttore assegnato</h4>
+              {user.assignedInstructor && (
+                <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "block", marginBottom: 8 }}>
+                  Attuale: {user.assignedInstructor.firstName} {user.assignedInstructor.lastName}
+                </Text>
+              )}
+              <form action={instrAction} className="user-drawer-form">
+                <input type="hidden" name="subscriberId" value={user.id} />
+                <CustomSelect
+                  name="instructorId"
+                  label="Istruttore"
+                  hideLabel
+                  options={instructorOptions}
+                  defaultValue={user.assignedInstructorId ?? undefined}
+                  placeholder="Cerca istruttore"
+                  searchable
+                  required
+                />
+                <Button type="primary" htmlType="submit" loading={instrPending} size="small">
+                  Assegna
+                </Button>
+              </form>
+            </section>
+          )}
+
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Indirizzo</h4>
+            <form action={addrAction} className="user-drawer-form">
+              <input type="hidden" name="targetUserId" value={user.id} />
+              <Input
+                name="address"
+                defaultValue={user.address ?? ""}
+                placeholder="Via Roma 1, 20100 Milano"
+                autoComplete="off"
+                className="dark-input"
+              />
+              <Button type="primary" htmlType="submit" loading={addrPending} size="small">
+                Salva indirizzo
+              </Button>
+            </form>
+          </section>
+        </div>
+      )
+    },
+    {
+      key: "abbonamento",
+      label: "Abbonamento",
+      children: (
+        <div className="drawer-tab-content">
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Stato attuale</h4>
+            {user.subscription ? (
+              <div className="user-drawer-sub-current">
+                <Tag color="success">{tierLabel(user.subscription.tier)}</Tag>
+                <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                  {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
+                  {" → "}
+                  {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                </Text>
+              </div>
+            ) : (
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Nessun abbonamento attivo.</Text>
+            )}
+          </section>
+
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Assegna abbonamento</h4>
+            {user.role !== UserRole.SUBSCRIBER && (
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "block", marginBottom: 8 }}>
+                Solo gli iscritti possono avere un abbonamento.
+              </Text>
+            )}
+            <form action={subAction} className="user-drawer-form">
+              <input type="hidden" name="targetUserId" value={user.id} />
+              <CustomSelect
+                name="tier"
+                label="Piano"
+                hideLabel
+                options={SUBSCRIPTION_OPTIONS}
+                defaultValue={user.subscription?.tier ?? SubscriptionTier.MONTHLY}
+                required
+              />
+              <CustomCalendar name="startsAt" label="Data inizio" />
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={subPending}
+                disabled={user.role !== UserRole.SUBSCRIBER}
+                size="small"
+              >
+                Aggiorna abbonamento
+              </Button>
+            </form>
+          </section>
+        </div>
+      )
+    },
+    {
+      key: "documenti",
+      label: "Documenti",
+      children: (
+        <div className="drawer-tab-content">
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Documenti caricati</h4>
+            <ul className="user-drawer-doc-list">
+              {DOC_SLOTS.map((slot) => {
+                const doc = user.documents.find(
+                  (d) => d.type === slot.type && d.side === slot.side
+                );
+                return (
+                  <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
+                    <span className="user-drawer-doc-label">{slot.label}</span>
+                    <div className="user-drawer-doc-actions">
+                      <DocStatusTag status={doc?.status} />
+                      {doc?.storageKey && <OpenDocButton documentId={doc.id} />}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+      )
+    }
+  ];
 
   return (
     <Drawer
-      opened={opened}
+      open={opened}
       onClose={onClose}
-      position="right"
+      placement="right"
       title={drawerTitle}
-      aria-label={`Modifica ${user.firstName} ${user.lastName}`}
+      width={420}
+      className="dark-drawer"
       styles={{
+        wrapper: {
+          boxShadow: "-4px 0 24px rgba(0,0,0,0.5)"
+        },
         content: {
           background:
             "radial-gradient(ellipse at 100% 0%, rgba(223,37,49,0.1), transparent 50%), linear-gradient(180deg,rgba(18,18,26,0.99) 0%,rgba(10,10,16,1) 100%)",
@@ -223,198 +366,37 @@ export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditD
           overflow: "hidden",
           display: "flex",
           flexDirection: "column"
-        },
-        close: {
-          color: "rgba(255,255,255,0.5)"
         }
       }}
-      transitionProps={{
-        transition: "slide-left",
-        duration: 320,
-        timingFunction: "cubic-bezier(0.16, 1, 0.3, 1)"
-      }}
-      overlayProps={{ backgroundOpacity: 0.55, blur: 5 }}
     >
       <Tabs
-        defaultValue="dettagli"
+        defaultActiveKey="dettagli"
+        items={tabItems}
+        className="drawer-tabs"
         style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
-      >
-        <Tabs.List
-          style={{
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
-            padding: "0 20px",
-            flexShrink: 0,
-            gap: 0,
-            background: "transparent"
-          }}
-        >
-          <Tabs.Tab value="dettagli" style={tabStyle}>Dettagli</Tabs.Tab>
-          <Tabs.Tab value="abbonamento" style={tabStyle}>Abbonamento</Tabs.Tab>
-          <Tabs.Tab value="documenti" style={tabStyle}>Documenti</Tabs.Tab>
-        </Tabs.List>
-
-        {/* ── DETTAGLI ─────────────────────────────────────────── */}
-        <Tabs.Panel value="dettagli" style={panelStyle}>
-          <Stack gap={0}>
-            <section className="user-drawer-section">
-              <h4 className="user-drawer-section-title">Ruolo</h4>
-              <form action={roleAction} className="user-drawer-form">
-                <input type="hidden" name="targetUserId" value={user.id} />
-                <CustomSelect
-                  name="role"
-                  label="Ruolo"
-                  hideLabel
-                  options={ROLE_OPTIONS}
-                  defaultValue={user.role}
-                  required
-                />
-                <Button type="submit" color="brand" size="sm" loading={rolePending} loaderProps={{ type: "dots" }}>
-                  Salva ruolo
-                </Button>
-              </form>
-            </section>
-
-            {user.role === UserRole.SUBSCRIBER && instructors.length > 0 && (
-              <section className="user-drawer-section">
-                <h4 className="user-drawer-section-title">Istruttore assegnato</h4>
-                {user.assignedInstructor && (
-                  <Text size="xs" c="dimmed" mb={8}>
-                    Attuale: {user.assignedInstructor.firstName} {user.assignedInstructor.lastName}
-                  </Text>
-                )}
-                <form action={instrAction} className="user-drawer-form">
-                  <input type="hidden" name="subscriberId" value={user.id} />
-                  <CustomSelect
-                    name="instructorId"
-                    label="Istruttore"
-                    hideLabel
-                    options={instructorOptions}
-                    defaultValue={user.assignedInstructorId ?? undefined}
-                    placeholder="Cerca istruttore"
-                    searchable
-                    required
-                  />
-                  <Button type="submit" color="brand" size="sm" loading={instrPending} loaderProps={{ type: "dots" }}>
-                    Assegna
-                  </Button>
-                </form>
-              </section>
-            )}
-
-            <section className="user-drawer-section">
-              <h4 className="user-drawer-section-title">Indirizzo</h4>
-              <form action={addrAction} className="user-drawer-form">
-                <input type="hidden" name="targetUserId" value={user.id} />
-                <TextInput
-                  name="address"
-                  defaultValue={user.address ?? ""}
-                  placeholder="Via Roma 1, 20100 Milano"
-                  autoComplete="off"
-                  classNames={{ input: "mantine-drawer-input" }}
-                />
-                <Button type="submit" color="brand" size="sm" loading={addrPending} loaderProps={{ type: "dots" }}>
-                  Salva indirizzo
-                </Button>
-              </form>
-            </section>
-          </Stack>
-        </Tabs.Panel>
-
-        {/* ── ABBONAMENTO ──────────────────────────────────────── */}
-        <Tabs.Panel value="abbonamento" style={panelStyle}>
-          <Stack gap={0}>
-            <section className="user-drawer-section">
-              <h4 className="user-drawer-section-title">Stato attuale</h4>
-              {user.subscription ? (
-                <div className="user-drawer-sub-current">
-                  <Badge color="green" variant="light">{tierLabel(user.subscription.tier)}</Badge>
-                  <Text size="xs" c="dimmed">
-                    {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
-                    {" → "}
-                    {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
-                  </Text>
-                </div>
-              ) : (
-                <Text size="xs" c="dimmed">Nessun abbonamento attivo.</Text>
-              )}
-            </section>
-
-            <section className="user-drawer-section">
-              <h4 className="user-drawer-section-title">Assegna abbonamento</h4>
-              {user.role !== UserRole.SUBSCRIBER && (
-                <Text size="xs" c="dimmed" mb={8}>Solo gli iscritti possono avere un abbonamento.</Text>
-              )}
-              <form action={subAction} className="user-drawer-form">
-                <input type="hidden" name="targetUserId" value={user.id} />
-                <CustomSelect
-                  name="tier"
-                  label="Piano"
-                  hideLabel
-                  options={SUBSCRIPTION_OPTIONS}
-                  defaultValue={user.subscription?.tier ?? SubscriptionTier.MONTHLY}
-                  required
-                />
-                <CustomCalendar name="startsAt" label="Data inizio" />
-                <Button
-                  type="submit"
-                  color="brand"
-                  size="sm"
-                  loading={subPending}
-                  loaderProps={{ type: "dots" }}
-                  disabled={user.role !== UserRole.SUBSCRIBER}
-                >
-                  Aggiorna abbonamento
-                </Button>
-              </form>
-            </section>
-          </Stack>
-        </Tabs.Panel>
-
-        {/* ── DOCUMENTI ────────────────────────────────────────── */}
-        <Tabs.Panel value="documenti" style={panelStyle}>
-          <section className="user-drawer-section">
-            <h4 className="user-drawer-section-title">Documenti caricati</h4>
-            <ul className="user-drawer-doc-list">
-              {DOC_SLOTS.map((slot) => {
-                const doc = user.documents.find(
-                  (d) => d.type === slot.type && d.side === slot.side
-                );
-                return (
-                  <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
-                    <span className="user-drawer-doc-label">{slot.label}</span>
-                    <div className="user-drawer-doc-actions">
-                      <DocStatusBadge status={doc?.status} />
-                      {doc?.storageKey && <OpenDocButton documentId={doc.id} />}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        </Tabs.Panel>
-      </Tabs>
+      />
 
       {/* ── Footer ──────────────────────────────────────────────── */}
       <div className="user-drawer-footer">
         {deleteConfirm ? (
           <div className="user-drawer-footer-confirm">
-            <Text size="xs" c="dimmed" className="user-drawer-footer-confirm-text">
+            <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }} className="user-drawer-footer-confirm-text">
               Eliminare definitivamente questo utente?
             </Text>
             <div className="user-drawer-footer-confirm-actions">
               <form action={deleteAction}>
                 <input type="hidden" name="targetUserId" value={user.id} />
-                <Button type="submit" color="red" size="xs" loading={deletePending} loaderProps={{ type: "dots" }}>
+                <Button type="primary" danger htmlType="submit" size="small" loading={deletePending}>
                   Sì, elimina
                 </Button>
               </form>
-              <Button variant="subtle" color="gray" size="xs" onClick={() => setDeleteConfirm(false)}>
+              <Button size="small" onClick={() => setDeleteConfirm(false)}>
                 Annulla
               </Button>
             </div>
           </div>
         ) : (
-          <Button variant="subtle" color="red" size="xs" onClick={() => setDeleteConfirm(true)}>
+          <Button type="text" danger size="small" onClick={() => setDeleteConfirm(true)}>
             Elimina utente
           </Button>
         )}

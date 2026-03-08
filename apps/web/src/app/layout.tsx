@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { Open_Sans } from "next/font/google";
-import { ColorSchemeScript } from "@mantine/core";
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
 
-import { AppMantineProvider } from "@/components/providers/mantine-provider";
+import { AntdProvider } from "@/components/providers/antd-provider";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
 
@@ -25,13 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <head>
-        <ColorSchemeScript defaultColorScheme="dark" />
-      </head>
       <body className={openSans.className}>
-        <AppMantineProvider>
+        <AntdProvider>
           <ToastProvider>{children}</ToastProvider>
-        </AppMantineProvider>
+        </AntdProvider>
       </body>
     </html>
   );

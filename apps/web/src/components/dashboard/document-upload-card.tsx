@@ -7,7 +7,7 @@ import {
   type UserDocument
 } from "@gestionale/db";
 import { useMemo, useState } from "react";
-import { Modal, Text } from "@mantine/core";
+import { Modal, Typography } from "antd";
 
 import {
   countRemainingAiAttempts,
@@ -18,6 +18,8 @@ import {
 } from "@/lib/documents";
 
 import { DocumentUploadSlot } from "./document-upload-slot";
+
+const { Text } = Typography;
 
 type UploadDocument = Pick<
   UserDocument,
@@ -177,28 +179,24 @@ export function DocumentUploadCard({
         <p className="document-type-card-action">Apri gestione documento</p>
       </button>
 
-      {/* Mantine Modal — sempre montata, animata da opened */}
+      {/* Antd Modal */}
       <Modal
-        opened={open}
-        onClose={() => setOpen(false)}
+        open={open}
+        onCancel={() => setOpen(false)}
+        footer={null}
         title={
           <div>
-            <Text size="xs" tt="uppercase" lts="0.1em" fw={700} c="#f09ca3">
+            <Text style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, color: "#f09ca3", display: "block" }}>
               Gestione documento
             </Text>
-            <Text size="lg" fw={700} c="white">
+            <Text style={{ fontSize: 18, fontWeight: 700, color: "white" }}>
               {documentTypeLabel(type)}
             </Text>
           </div>
         }
         centered
-        size="xl"
-        overlayProps={{ backgroundOpacity: 0.65, blur: 6 }}
-        transitionProps={{
-          transition: "pop",
-          duration: 300,
-          timingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)"
-        }}
+        width={720}
+        className="dark-modal"
         styles={{
           content: {
             background:
@@ -211,8 +209,8 @@ export function DocumentUploadCard({
             borderBottom: "1px solid rgba(255,255,255,0.07)",
             paddingBottom: 16
           },
-          close: {
-            color: "rgba(255,255,255,0.5)"
+          body: {
+            padding: "16px 24px 24px"
           }
         }}
       >

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Pencil, Search, UserPlus } from "lucide-react";
-import { Modal, Button, TextInput, Text, Stack, Group } from "@mantine/core";
+import { Modal, Button, Input, Typography, Space, Flex } from "antd";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
@@ -11,6 +11,8 @@ import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
+
+const { Text } = Typography;
 
 type UserRow = {
   id: string;
@@ -42,9 +44,6 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
-  // Ref stabile per mantenere i dati dell'utente durante l'animazione di chiusura.
-  // Mantine Drawer anima aperto→chiuso solo se il componente resta montato;
-  // se React lo smonta, l'animazione non parte.
   const drawerUserRef = useRef<DrawerUserRow | null>(null);
   if (selectedUser) drawerUserRef.current = selectedUser;
 
@@ -214,14 +213,11 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
           <span className="utenti-pagination-info">
             {filteredUsers.length} {filteredUsers.length === 1 ? "risultato" : "risultati"}
           </span>
-          {/* <Pagination totalPages={...} currentPage={...} /> */}
         </nav>
 
       </div>
 
       {/* ── Drawer modifica utente ────────────────────────────────────── */}
-      {/* Sempre montato: Mantine anima solo se vede opened false→true.
-          drawerUserRef mantiene i dati durante l'exit animation. */}
       {drawerUserRef.current && (
         <UserEditDrawer
           user={drawerUserRef.current}
@@ -236,28 +232,24 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
         />
       )}
 
-      {/* ── Modale aggiungi utente (Mantine Modal — sempre montata) ─── */}
+      {/* ── Modale aggiungi utente ─── */}
       <Modal
-        opened={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        open={showAddModal}
+        onCancel={() => setShowAddModal(false)}
+        footer={null}
         title={
           <div>
-            <Text size="xs" tt="uppercase" lts="0.1em" fw={700} c="#f09ca3">
+            <Text style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, color: "#f09ca3", display: "block" }}>
               Nuovo account
             </Text>
-            <Text size="lg" fw={700} c="white">
+            <Text style={{ fontSize: 18, fontWeight: 700, color: "white" }}>
               Aggiungi utente
             </Text>
           </div>
         }
         centered
-        size="md"
-        overlayProps={{ backgroundOpacity: 0.65, blur: 6 }}
-        transitionProps={{
-          transition: "pop",
-          duration: 300,
-          timingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)"
-        }}
+        width={480}
+        className="dark-modal"
         styles={{
           content: {
             background:
@@ -270,45 +262,52 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
             borderBottom: "1px solid rgba(255,255,255,0.07)",
             paddingBottom: 16
           },
-          close: {
-            color: "rgba(255,255,255,0.5)"
+          body: {
+            padding: "16px 24px 24px"
           }
         }}
       >
         <form action={createUserByAdminAction}>
-          <Stack gap="sm" mt="md">
-            <Group grow>
-              <TextInput
-                name="firstName"
-                label="Nome"
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Flex gap={12}>
+              <div style={{ flex: 1 }}>
+                <label className="antd-form-label">Nome</label>
+                <Input
+                  name="firstName"
+                  required
+                  autoComplete="off"
+                  className="dark-input"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="antd-form-label">Cognome</label>
+                <Input
+                  name="lastName"
+                  required
+                  autoComplete="off"
+                  className="dark-input"
+                />
+              </div>
+            </Flex>
+            <div>
+              <label className="antd-form-label">Email</label>
+              <Input
+                name="email"
+                type="email"
                 required
                 autoComplete="off"
-                classNames={{ input: "mantine-drawer-input" }}
+                className="dark-input"
               />
-              <TextInput
-                name="lastName"
-                label="Cognome"
+            </div>
+            <div>
+              <label className="antd-form-label">Password</label>
+              <Input.Password
+                name="password"
                 required
-                autoComplete="off"
-                classNames={{ input: "mantine-drawer-input" }}
+                minLength={8}
+                className="dark-input"
               />
-            </Group>
-            <TextInput
-              name="email"
-              type="email"
-              label="Email"
-              required
-              autoComplete="off"
-              classNames={{ input: "mantine-drawer-input" }}
-            />
-            <TextInput
-              name="password"
-              type="password"
-              label="Password"
-              required
-              minLength={8}
-              classNames={{ input: "mantine-drawer-input" }}
-            />
+            </div>
             <CustomSelect
               name="role"
               label="Ruolo"
@@ -316,20 +315,18 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
               defaultValue={UserRole.SUBSCRIBER}
               required
             />
-            <Group mt="sm" gap="sm">
-              <Button type="submit" color="brand" flex={1}>
+            <Flex gap={12} style={{ marginTop: 8 }}>
+              <Button type="primary" htmlType="submit" style={{ flex: 1 }}>
                 Crea account
               </Button>
               <Button
-                variant="subtle"
-                color="gray"
-                flex={1}
                 onClick={() => setShowAddModal(false)}
+                style={{ flex: 1 }}
               >
                 Annulla
               </Button>
-            </Group>
-          </Stack>
+            </Flex>
+          </Space>
         </form>
       </Modal>
     </>

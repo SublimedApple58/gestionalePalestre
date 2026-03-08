@@ -3,18 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LayoutDashboard, LogOut, User, Users } from "lucide-react";
-import {
-  AppShell,
-  Burger,
-  Group,
-  NavLink,
-  Text,
-  UnstyledButton
-} from "@mantine/core";
+import { Layout, Menu, Button, Drawer, Typography } from "antd";
+import { MenuOutlined } from "@ant-design/icons";
 import { type UserRole } from "@gestionale/db";
 
 import { logoutAction } from "@/app/actions/auth-actions";
 import { getAppNavigationItems } from "@/lib/navigation";
+
+const { Sider, Header, Content, Footer } = Layout;
+const { Text } = Typography;
 
 type AuthenticatedShellProps = {
   children: React.ReactNode;
@@ -26,9 +23,9 @@ type AuthenticatedShellProps = {
 };
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  "/dashboard": <LayoutDashboard size={20} />,
-  "/utenti": <Users size={20} />,
-  "/profilo": <User size={20} />
+  "/dashboard": <LayoutDashboard size={18} />,
+  "/utenti": <Users size={18} />,
+  "/profilo": <User size={18} />
 };
 
 const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
@@ -38,160 +35,143 @@ const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
 };
 
 export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
-  const [mobileOpened, setMobileOpened] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const navItems = getAppNavigationItems(currentPath, user.role);
 
+  const menuItems = navItems.map((item) => ({
+    key: item.href,
+    icon: NAV_ICONS[item.href],
+    label: <Link href={item.href} onClick={() => setMobileDrawerOpen(false)}>{item.label}</Link>
+  }));
+
+  const sidebarContent = (
+    <>
+      {/* Brand */}
+      <div className="sidebar-brand">
+        <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
+        <div>
+          <Text className="sidebar-brand-kicker">Gestionale Palestre</Text>
+          <Text className="sidebar-brand-title">HOUSE OF MUSCLE</Text>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <Menu
+        mode="inline"
+        theme="dark"
+        selectedKeys={[currentPath]}
+        items={menuItems}
+        className="sidebar-menu"
+        style={{ background: "transparent", border: "none", flex: 1 }}
+      />
+
+      {/* Footer */}
+      <div className="sidebar-footer">
+        <Text className="sidebar-session-text">
+          Sessione attiva · {user.firstName}
+        </Text>
+        <form action={logoutAction} style={{ width: "100%" }}>
+          <button
+            type="submit"
+            className="button button-ghost"
+            style={{ width: "100%", justifyContent: "center" }}
+          >
+            Esci
+          </button>
+        </form>
+      </div>
+    </>
+  );
+
   return (
-    <AppShell
-      header={{ height: 56, collapsed: false }}
-      navbar={{
-        width: 288,
-        breakpoint: "md",
-        collapsed: { mobile: !mobileOpened, desktop: false }
-      }}
-      footer={{ height: 64 }}
-      padding={0}
-    >
-      {/* ── Mobile header ────────────────────────────────── */}
-      <AppShell.Header hiddenFrom="md" className="app-mobile-header">
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap={10}>
-            <Burger
-              opened={mobileOpened}
-              onClick={() => setMobileOpened((o) => !o)}
-              size="sm"
-              color="white"
-              aria-label="Toggle navigazione"
-            />
-            <Group gap={10}>
-              <span className="sidebar-brand-mark" aria-hidden="true" style={{ width: 32, height: 32, fontSize: 11 }}>
-                GP
-              </span>
-              <Text fw={800} size="sm" lts="0.06em" c="white">
-                HOUSE OF MUSCLE
-              </Text>
-            </Group>
-          </Group>
-          <form action={logoutAction}>
-            <UnstyledButton
-              type="submit"
-              aria-label="Esci"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 6,
-                borderRadius: 8,
-                color: "var(--text-muted)",
-                transition: "color 0.15s, background 0.15s"
-              }}
-            >
-              <LogOut size={20} />
-            </UnstyledButton>
-          </form>
-        </Group>
-      </AppShell.Header>
-
+    <Layout style={{ minHeight: "100vh" }}>
       {/* ── Desktop sidebar ──────────────────────────────── */}
-      <AppShell.Navbar className="app-mantine-sidebar">
-        {/* Brand */}
-        <AppShell.Section p="md" pt="lg">
-          <Group gap={10} align="center">
-            <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
-            <div>
-              <Text
-                size="xs"
-                tt="uppercase"
-                lts="0.12em"
-                fw={700}
-                c="#f0939a"
-              >
-                Gestionale Palestre
-              </Text>
-              <Text fw={800} size="lg" lts="0.035em" lh={1.2} c="white">
-                HOUSE OF MUSCLE
-              </Text>
-            </div>
-          </Group>
-        </AppShell.Section>
+      <Sider
+        width={288}
+        className="app-sider"
+        breakpoint="lg"
+        collapsedWidth={0}
+        trigger={null}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+          display: "flex",
+          flexDirection: "column",
+          borderRight: "1px solid rgba(223,37,49,0.28)",
+          background:
+            "radial-gradient(circle at 10% -4%, rgba(223,37,49,0.28), transparent 35%), linear-gradient(180deg, rgba(15,15,22,0.98), rgba(8,8,12,0.98))",
+          backdropFilter: "blur(6px)",
+          boxShadow: "inset -1px 0 0 rgba(255,255,255,0.05)",
+          overflow: "auto"
+        }}
+      >
+        {sidebarContent}
+      </Sider>
 
-        {/* Navigation */}
-        <AppShell.Section grow p="sm" component="nav" aria-label="Navigazione principale">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              component={Link}
-              href={item.href}
-              label={item.label}
-              leftSection={NAV_ICONS[item.href]}
-              active={item.active}
-              onClick={() => setMobileOpened(false)}
-              className="sidebar-navlink"
-              styles={{
-                root: {
-                  borderRadius: "var(--radius-md)",
-                  marginBottom: 6,
-                  padding: "11px 13px",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: "var(--text-soft)",
-                  border: "1px solid var(--border-quiet)",
-                  background: "rgba(255,255,255,0.035)",
-                  transition: "all 150ms ease",
-                  "&:hover": {
-                    borderColor: "rgba(223,37,49,0.55)",
-                    background: "rgba(223,37,49,0.12)",
-                    color: "white",
-                    transform: "translateX(2px)"
-                  },
-                  "&[data-active]": {
-                    borderColor: "rgba(223,37,49,0.7)",
-                    background: "rgba(223,37,49,0.22)",
-                    color: "white",
-                    boxShadow: "inset 3px 0 0 rgba(255,255,255,0.25)",
-                    "&:hover": {
-                      background: "rgba(223,37,49,0.28)"
-                    }
-                  }
-                },
-                label: {
-                  fontWeight: 600
-                },
-                section: {
-                  opacity: 0.7,
-                  "&[data-position='left']": {
-                    marginRight: 10
-                  }
-                }
-              }}
-            />
-          ))}
-        </AppShell.Section>
+      {/* ── Mobile header ────────────────────────────────── */}
+      <Header className="app-mobile-header">
+        <div className="mobile-header-left">
+          <Button
+            type="text"
+            icon={<MenuOutlined style={{ color: "white", fontSize: 18 }} />}
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-label="Toggle navigazione"
+            className="mobile-burger"
+          />
+          <div className="mobile-header-brand">
+            <span className="sidebar-brand-mark sidebar-brand-mark-small" aria-hidden="true">GP</span>
+            <Text strong style={{ color: "white", fontSize: 13, letterSpacing: "0.06em" }}>
+              HOUSE OF MUSCLE
+            </Text>
+          </div>
+        </div>
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="mobile-logout-btn"
+            aria-label="Esci"
+          >
+            <LogOut size={20} />
+          </button>
+        </form>
+      </Header>
 
-        {/* Footer */}
-        <AppShell.Section p="md" style={{ borderTop: "1px solid rgba(255,255,255,0.09)" }}>
-          <Text size="xs" tt="uppercase" lts="0.08em" c="dimmed" mb={8}>
-            Sessione attiva · {user.firstName}
-          </Text>
-          <form action={logoutAction} style={{ width: "100%" }}>
-            <UnstyledButton
-              type="submit"
-              className="button button-ghost"
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              Esci
-            </UnstyledButton>
-          </form>
-        </AppShell.Section>
-      </AppShell.Navbar>
+      {/* ── Mobile drawer ────────────────────────────────── */}
+      <Drawer
+        placement="left"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        width={288}
+        closable={false}
+        className="mobile-sidebar-drawer"
+        styles={{
+          body: {
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+            background:
+              "radial-gradient(circle at 10% -4%, rgba(223,37,49,0.28), transparent 35%), linear-gradient(180deg, rgba(15,15,22,0.98), rgba(8,8,12,0.98))"
+          },
+          wrapper: {
+            boxShadow: "4px 0 24px rgba(0,0,0,0.5)"
+          }
+        }}
+      >
+        {sidebarContent}
+      </Drawer>
 
       {/* ── Main content ─────────────────────────────────── */}
-      <AppShell.Main>
-        {children}
-      </AppShell.Main>
+      <Layout className="app-content-layout">
+        <Content style={{ minHeight: "100vh" }}>
+          {children}
+        </Content>
+      </Layout>
 
       {/* ── Mobile bottom nav ────────────────────────────── */}
-      <AppShell.Footer hiddenFrom="md" className="app-bottom-nav">
+      <Footer className="app-bottom-nav">
         <nav
           style={{
             display: "flex",
@@ -213,7 +193,7 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
             </Link>
           ))}
         </nav>
-      </AppShell.Footer>
-    </AppShell>
+      </Footer>
+    </Layout>
   );
 }

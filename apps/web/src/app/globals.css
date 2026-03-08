@@ -1,75 +1,167 @@
-/* ─── MANTINE DARK THEME OVERRIDES ──────────────────────────────────────── */
-/*
- * Allinea i token Mantine alla palette del sito. Importato DOPO
- * @mantine/core/styles.css (che viene importato in layout.tsx prima di globals).
- */
+/* ─── ANT DESIGN DARK THEME OVERRIDES ───────────────────────────────────── */
 
-[data-mantine-color-scheme="dark"],
-:root {
-  --mantine-color-body:          #050507;
-  --mantine-color-dark-9:        #050507;
-  --mantine-color-dark-8:        #0d0d11;
-  --mantine-color-dark-7:        #17171d;
-  --mantine-color-dark-6:        rgba(255,255,255,0.07);
-  --mantine-color-dark-5:        rgba(255,255,255,0.10);
-  --mantine-color-dark-4:        rgba(255,255,255,0.18);
-  --mantine-color-dark-3:        rgba(255,255,255,0.35);
-  --mantine-color-dark-2:        rgba(255,255,255,0.55);
-  --mantine-color-dark-1:        rgba(255,255,255,0.75);
-  --mantine-color-dark-0:        rgba(255,255,255,0.92);
-
-  /* Brand rosso */
-  --mantine-color-brand-0:       #fff0f0;
-  --mantine-color-brand-1:       #ffdcdc;
-  --mantine-color-brand-2:       #ffb5b5;
-  --mantine-color-brand-3:       #ff8787;
-  --mantine-color-brand-4:       #f75557;
-  --mantine-color-brand-5:       #df2531;
-  --mantine-color-brand-6:       #c41f2a;
-  --mantine-color-brand-7:       #a81922;
-  --mantine-color-brand-8:       #8c141b;
-  --mantine-color-brand-9:       #700e14;
-  --mantine-color-brand-filled:  #df2531;
-  --mantine-color-brand-light:   rgba(223,37,49,0.12);
-  --mantine-color-brand-text:    #df2531;
-
-  /* Overlay e blur */
-  --mantine-color-overlay:       rgba(3,3,7,0.55);
-}
-
-/* Drawer backdrop blur */
-.mantine-Overlay-root {
+/* Overlay / mask backdrop blur */
+.ant-modal-mask,
+.ant-drawer-mask {
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
 
-/* Tab attivo nel drawer - indicatore brand */
-.mantine-Tabs-tab[data-active] {
-  color: #df2531 !important;
-  border-bottom-color: #df2531 !important;
+/* Modal close icon */
+.dark-modal .ant-modal-close {
+  color: rgba(255,255,255,0.5);
 }
-.mantine-Tabs-tab:hover:not([data-active]) {
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.8) !important;
+.dark-modal .ant-modal-close:hover {
+  color: rgba(255,255,255,0.8);
 }
 
-/* Input nel drawer */
-.mantine-drawer-input {
+/* Drawer close icon */
+.dark-drawer .ant-drawer-close {
+  color: rgba(255,255,255,0.5);
+}
+.dark-drawer .ant-drawer-close:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+/* Drawer tabs brand color */
+.drawer-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #df2531 !important;
+}
+.drawer-tabs .ant-tabs-ink-bar {
+  background: #df2531 !important;
+}
+.drawer-tabs .ant-tabs-tab:hover .ant-tabs-tab-btn {
+  color: rgba(255,255,255,0.8);
+}
+.drawer-tabs .ant-tabs-nav {
+  margin: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.drawer-tabs .ant-tabs-content-holder {
+  flex: 1;
+  overflow: auto;
+}
+.drawer-tabs .ant-tabs-content {
+  height: 100%;
+}
+
+/* Dark input */
+.dark-input,
+.dark-input .ant-input {
   background: rgba(255,255,255,0.05) !important;
   border-color: rgba(255,255,255,0.12) !important;
   color: white !important;
 }
-.mantine-drawer-input:focus {
+.dark-input:focus,
+.dark-input.ant-input-focused,
+.dark-input .ant-input:focus {
   border-color: #df2531 !important;
+  box-shadow: 0 0 0 2px rgba(223,37,49,0.15) !important;
 }
 
-/* Button brand filled */
-.mantine-Button-root[data-variant="filled"][data-color="brand"],
-[class*="mantine-Button"][data-color="brand"] {
-  background: #df2531;
+/* Form label in dark modals/drawers */
+.antd-form-label {
+  display: block;
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
 }
-.mantine-Button-root[data-variant="filled"][data-color="brand"]:hover {
-  background: #c41f2a;
+
+/* Drawer tab panel content */
+.drawer-tab-content {
+  padding: 0;
+}
+
+/* ── Sidebar — antd overrides ──────────────────────────────────────── */
+
+.app-sider {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.app-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Sidebar brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 16px;
+}
+.sidebar-brand-kicker {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #f0939a !important;
+}
+.sidebar-brand-title {
+  display: block;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.035em;
+  line-height: 1.2;
+  color: white !important;
+}
+
+/* Sidebar menu — override antd inline menu */
+.sidebar-menu.ant-menu-dark {
+  background: transparent !important;
+}
+.sidebar-menu .ant-menu-item {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.035);
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
+  padding-left: 14px !important;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-soft);
+  transition: all 150ms ease;
+  height: 42px;
+  line-height: 42px;
+}
+.sidebar-menu .ant-menu-item:hover {
+  border-color: rgba(223,37,49,0.55) !important;
+  background: rgba(223,37,49,0.12) !important;
+  color: white !important;
+  transform: translateX(2px);
+}
+.sidebar-menu .ant-menu-item-selected {
+  border-color: rgba(223,37,49,0.7) !important;
+  background: rgba(223,37,49,0.22) !important;
+  color: white !important;
+  box-shadow: inset 3px 0 0 rgba(255,255,255,0.25);
+}
+.sidebar-menu .ant-menu-item-selected:hover {
+  background: rgba(223,37,49,0.28) !important;
+}
+.sidebar-menu .ant-menu-item .ant-menu-item-icon {
+  opacity: 0.7;
+}
+.sidebar-menu .ant-menu-item-selected .ant-menu-item-icon {
+  opacity: 1;
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.09);
+  margin-top: auto;
+}
+.sidebar-session-text {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.4) !important;
+  margin-bottom: 8px;
 }
 
 /* ─── CSS VARIABLES ─────────────────────────────────────────────────────── */
@@ -240,26 +332,9 @@ p {
   line-height: 1.5;
 }
 
-/* ─── APP SHELL LAYOUT (ora gestito da Mantine AppShell) ─────────────────── */
-/* Mantine gestisce sidebar, header, footer, responsive toggle internamente. */
-
-/* Brand mark — usato ancora nel sidebar Mantine */
-.sidebar-brand-mark {
-  width: 38px;
-  height: 38px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--white);
-  border: 1px solid rgba(223, 37, 49, 0.6);
-  background:
-    radial-gradient(circle at 20% 14%, rgba(255, 255, 255, 0.25), transparent 38%),
-    linear-gradient(145deg, rgba(223, 37, 49, 0.55), rgba(95, 10, 20, 0.85));
-  flex-shrink: 0;
-}
+/* ─── APP SHELL LAYOUT (antd Layout + Sider + Menu) ──────────────────────── */
+/* Desktop sidebar: antd Sider with custom gradient + Menu.
+   Mobile: header + bottom nav + Drawer for sidebar. */
 
 /* ─── PAGE SHELLS ────────────────────────────────────────────────────────── */
 
@@ -2395,10 +2470,103 @@ tbody tr:hover td:first-child {
   font-size: 0.9rem;
 }
 
-/* ─── MOBILE HEADER & BOTTOM NAV (ora gestiti da Mantine AppShell) ────────── */
-/* Mantine AppShell.Header e AppShell.Footer con hiddenFrom/visibleFrom. */
+/* ─── SIDEBAR & LAYOUT (antd Layout + Sider) ────────────────────────────── */
 
-/* Bottom nav link — ancora usato nel footer Mantine */
+/* Desktop: sidebar fixed, content con margin-left */
+.app-content-layout {
+  margin-left: 288px;
+  background: transparent;
+}
+
+/* Mobile: header fixed top */
+.app-mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  height: 56px;
+  padding: 0 16px;
+  background: rgba(8,8,12,0.92) !important;
+  border-bottom: 1px solid rgba(223,37,49,0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  align-items: center;
+  justify-content: space-between;
+  line-height: normal;
+}
+.mobile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mobile-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mobile-burger {
+  border: none !important;
+  background: transparent !important;
+}
+.mobile-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.mobile-logout-btn:hover {
+  color: white;
+  background: rgba(255,255,255,0.08);
+}
+
+/* Bottom nav */
+.app-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  height: 64px;
+  padding: 0 !important;
+  background: rgba(8,8,12,0.94) !important;
+  border-top: 1px solid rgba(223,37,49,0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Sidebar brand mark */
+.sidebar-brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, #df2531, #a81922);
+  box-shadow: 0 2px 8px rgba(223, 37, 49, 0.3);
+  flex-shrink: 0;
+}
+.sidebar-brand-mark-small {
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+}
+
+/* Bottom nav link */
 .bottom-nav-link {
   flex: 1;
   display: flex;
@@ -2434,11 +2602,24 @@ tbody tr:hover td:first-child {
 /* ─── RESPONSIVE — 980px ─────────────────────────────────────────────────── */
 
 @media (max-width: 980px) {
-  /* Mantine AppShell gestisce il responsive (sidebar collapse, header/footer show/hide) */
+  /* Hide desktop sidebar, show mobile header + bottom nav */
+  .app-sider {
+    display: none !important;
+  }
+  .app-content-layout {
+    margin-left: 0;
+  }
+  .app-mobile-header {
+    display: flex !important;
+  }
+  .app-bottom-nav {
+    display: block !important;
+  }
 
   .dashboard-shell,
   .profile-shell {
     padding: 24px 16px 96px;
+    margin-top: 56px; /* mobile header height */
   }
 
   /* Profilo page mobile — layout a singola colonna, identity card orizzontale */
