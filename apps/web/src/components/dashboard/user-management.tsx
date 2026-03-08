@@ -250,13 +250,13 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
         centered
         width={480}
         className="dark-modal"
+        style={{
+          background:
+            "radial-gradient(ellipse at 20% -10%, rgba(223,37,49,0.18), transparent 45%), radial-gradient(ellipse at 80% 110%, rgba(80,10,20,0.15), transparent 40%), linear-gradient(180deg, rgba(22,22,30,0.99), rgba(10,10,16,0.99))",
+          border: "1px solid rgba(223,37,49,0.28)",
+          boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset, 0 24px 56px rgba(0,0,0,0.6)"
+        }}
         styles={{
-          content: {
-            background:
-              "radial-gradient(ellipse at 20% -10%, rgba(223,37,49,0.18), transparent 45%), radial-gradient(ellipse at 80% 110%, rgba(80,10,20,0.15), transparent 40%), linear-gradient(180deg, rgba(22,22,30,0.99), rgba(10,10,16,0.99))",
-            border: "1px solid rgba(223,37,49,0.28)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset, 0 24px 56px rgba(0,0,0,0.6)"
-          },
           header: {
             background: "transparent",
             borderBottom: "1px solid rgba(255,255,255,0.07)",

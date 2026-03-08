@@ -197,13 +197,13 @@ export function DocumentUploadCard({
         centered
         width={720}
         className="dark-modal"
+        style={{
+          background:
+            "radial-gradient(circle at 18% -26%, rgba(223,37,49,0.24), transparent 40%), linear-gradient(180deg, rgba(20,20,28,0.98), rgba(11,11,16,0.98))",
+          border: "1px solid rgba(223,37,49,0.34)",
+          boxShadow: "0 24px 52px rgba(0,0,0,0.55)"
+        }}
         styles={{
-          content: {
-            background:
-              "radial-gradient(circle at 18% -26%, rgba(223,37,49,0.24), transparent 40%), linear-gradient(180deg, rgba(20,20,28,0.98), rgba(11,11,16,0.98))",
-            border: "1px solid rgba(223,37,49,0.34)",
-            boxShadow: "0 24px 52px rgba(0,0,0,0.55)"
-          },
           header: {
             background: "transparent",
             borderBottom: "1px solid rgba(255,255,255,0.07)",
