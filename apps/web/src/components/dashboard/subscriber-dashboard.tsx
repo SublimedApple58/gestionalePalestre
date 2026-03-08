@@ -18,6 +18,7 @@ import {
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
 import { MaskedAccessCode } from "../ui/masked-access-code";
+import { UserAvatar } from "../ui/user-avatar";
 import { WeeklyPlanForm } from "../ui/weekly-plan-form";
 
 type SubscriberDashboardProps = {
@@ -33,6 +34,7 @@ type SubscriberDashboardProps = {
     lastName: string;
     email: string;
   } | null;
+  instructorPhotoUrl?: string | null;
   documents: UserDocument[];
 };
 
@@ -41,6 +43,7 @@ export function SubscriberDashboard({
   workoutPlan,
   subscription,
   assignedInstructor,
+  instructorPhotoUrl,
   documents
 }: SubscriberDashboardProps) {
   const subscriptionActive = isSubscriptionActive(subscription);
@@ -70,9 +73,6 @@ export function SubscriberDashboard({
     missingDocuments.length > 0 &&
     missingDocuments.every((type) => pendingTypes.includes(type));
 
-  const instructorInitial = assignedInstructor
-    ? assignedInstructor.firstName.charAt(0).toUpperCase()
-    : null;
 
   return (
     <div className="dashboard-grid">
@@ -121,7 +121,10 @@ export function SubscriberDashboard({
 
         {assignedInstructor ? (
           <div className="user-card">
-            <span className="user-avatar">{instructorInitial}</span>
+            <UserAvatar
+              firstName={assignedInstructor.firstName}
+              profilePhotoUrl={instructorPhotoUrl}
+            />
             <div className="user-card-info">
               <span className="user-card-name">
                 {`${assignedInstructor.firstName} ${assignedInstructor.lastName}`}

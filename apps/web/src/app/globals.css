@@ -497,6 +497,28 @@ p {
   background: linear-gradient(145deg, rgba(223, 37, 49, 0.3), rgba(80, 10, 20, 0.6));
   color: #ffd4d8;
   text-transform: uppercase;
+  overflow: hidden;
+  position: relative;
+}
+
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+  display: block;
+}
+
+.user-avatar-lg {
+  width: 76px;
+  height: 76px;
+  font-size: 26px;
+  border-width: 2px;
+  border-color: rgba(223, 37, 49, 0.45);
+  background: linear-gradient(145deg, rgba(223, 37, 49, 0.5), rgba(60, 8, 16, 0.9));
+  box-shadow:
+    0 0 0 5px rgba(223, 37, 49, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .user-card-info {
@@ -2052,76 +2074,80 @@ tbody tr:hover td:first-child {
 /* ─── PAGINA PROFILO ─────────────────────────────────────────────────────── */
 
 /* Layout 2 colonne — desktop: identity card fissa a sinistra + dati a destra */
-.profilo-layout {
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  gap: 20px;
-  align-items: start;
-  margin-bottom: 20px;
-}
+/* ── Profile header card (avatar + name + stats) ──────────────────────────── */
 
-/* ── Identity card (colonna sinistra) ─────────────────────────────────────── */
-
-.profilo-identity-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
-  padding: 28px 20px 24px;
+.profilo-header-card {
   background:
-    radial-gradient(ellipse at 50% -10%, rgba(223, 37, 49, 0.22) 0%, transparent 58%),
+    radial-gradient(ellipse at 30% -20%, rgba(223, 37, 49, 0.22) 0%, transparent 55%),
     rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(223, 37, 49, 0.2);
   border-radius: var(--radius-lg);
-  position: sticky;
-  top: 24px;
+  padding: 28px;
+  margin-bottom: 20px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: border-color 200ms ease;
 }
 
-.profilo-identity-card:hover {
+.profilo-header-card:hover {
   border-color: rgba(223, 37, 49, 0.32);
 }
 
-.profilo-identity-avatar {
-  width: 76px;
-  height: 76px;
+.profilo-header-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profilo-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.profilo-avatar-upload-btn {
+  all: unset;
+  cursor: pointer;
+  display: block;
+}
+
+.profilo-avatar-upload-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: linear-gradient(145deg, rgba(223, 37, 49, 0.5), rgba(60, 8, 16, 0.9));
-  border: 2px solid rgba(223, 37, 49, 0.45);
-  color: #ffd4d8;
-  box-shadow:
-    0 0 0 5px rgba(223, 37, 49, 0.1),
-    0 8px 24px rgba(0, 0, 0, 0.4);
-  flex-shrink: 0;
-  margin-bottom: 4px;
+  background: rgba(223, 37, 49, 0.85);
+  border: 2px solid rgba(10, 10, 16, 0.9);
+  color: white;
+  cursor: pointer;
+  transition: background 200ms ease, transform 150ms ease;
 }
 
-/* Wrapper testo — name + email + badges */
-.profilo-identity-text {
+.profilo-avatar-upload-overlay:hover {
+  background: rgba(223, 37, 49, 1);
+  transform: scale(1.08);
+}
+
+.profilo-header-info {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  align-items: center;
-  width: 100%;
+  min-width: 0;
+  flex: 1;
 }
 
 .profilo-identity-name {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 800;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
 .profilo-identity-email {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   word-break: break-all;
   line-height: 1.4;
@@ -2131,37 +2157,34 @@ tbody tr:hover td:first-child {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  justify-content: center;
   margin-top: 3px;
 }
 
-.profilo-identity-divider {
-  width: 100%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.07);
-  margin: 4px 0;
-}
-
-/* Stat box sotto il divider */
-.profilo-identity-stats {
-  display: grid;
-  gap: 0;
-  width: 100%;
-  text-align: left;
-}
-
-.profilo-stat-row {
+/* Stats row inside header card */
+.profilo-header-stats {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.profilo-stat-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.profilo-header-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.profilo-header-stat:first-child {
+  padding-left: 0;
+}
+
+.profilo-header-stat:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 
 .profilo-stat-label {
@@ -2176,32 +2199,28 @@ tbody tr:hover td:first-child {
 .profilo-stat-value {
   font-size: 0.8125rem;
   font-weight: 600;
-  text-align: right;
 }
 
-/* ── Colonna destra ───────────────────────────────────────────────────────── */
+/* ── Info + edit card (unified) ────────────────────────────────────────────── */
 
-.profilo-right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-
-/* ── Schede info + modifica ───────────────────────────────────────────────── */
-
-.profilo-info-card,
-.profilo-edit-card {
+.profilo-info-card {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-lg);
   padding: 24px 28px;
+  margin-bottom: 20px;
   transition: border-color 200ms ease;
 }
 
-.profilo-info-card:hover,
-.profilo-edit-card:hover {
+.profilo-info-card:hover {
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.profilo-edit-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 20px 0;
 }
 
 .profilo-section-header {
@@ -2622,24 +2641,16 @@ tbody tr:hover td:first-child {
     margin-top: 56px; /* mobile header height */
   }
 
-  /* Profilo page mobile — layout a singola colonna, identity card orizzontale */
-  .profilo-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .profilo-identity-card {
-    position: static;
-    /* Diventa orizzontale: avatar a sinistra, testo a destra */
-    flex-direction: row;
-    text-align: left;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 12px 16px;
+  /* Profilo page mobile — header card + info card */
+  .profilo-header-card {
     padding: 20px;
   }
 
-  .profilo-identity-avatar {
-    margin-bottom: 0;
+  .profilo-header-top {
+    gap: 14px;
+  }
+
+  .user-avatar-lg {
     width: 60px;
     height: 60px;
     font-size: 22px;
@@ -2648,47 +2659,14 @@ tbody tr:hover td:first-child {
       0 6px 16px rgba(0, 0, 0, 0.4);
   }
 
-  .profilo-identity-text {
-    flex: 1;
-    min-width: 0;
-    align-items: flex-start;
+  .profilo-avatar-upload-overlay {
+    width: 24px;
+    height: 24px;
   }
 
-  .profilo-identity-badges {
-    justify-content: flex-start;
-  }
-
-  /* Divider e stats prendono tutta la larghezza (nuova riga) */
-  .profilo-identity-divider {
-    flex-basis: 100%;
-    margin: 2px 0;
-  }
-
-  .profilo-identity-stats {
-    flex-basis: 100%;
-    /* Stats in riga orizzontale su tablet */
-    display: flex;
-    flex-direction: row;
-    gap: 0 8px;
-  }
-
-  .profilo-stat-row {
-    flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 8px 8px 8px 0;
-    border-bottom: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-    min-width: 80px;
-  }
-
-  .profilo-stat-row:last-child {
-    border-right: none;
-  }
-
-  .profilo-stat-value {
-    text-align: left;
+  .profilo-header-stats {
+    margin-top: 16px;
+    padding-top: 12px;
   }
 
   /* Utenti page mobile */
@@ -2920,14 +2898,14 @@ tbody tr:hover td:first-child {
 /* ─── RESPONSIVE — 640px — Mobile puro profilo ───────────────────────────── */
 
 @media (max-width: 640px) {
-  /* Torna a layout verticale centrato su mobile piccolo */
-  .profilo-identity-card {
+  /* Header card: stack vertically on small mobile */
+  .profilo-header-top {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .profilo-identity-text {
+  .profilo-header-info {
     align-items: center;
   }
 
@@ -2935,13 +2913,13 @@ tbody tr:hover td:first-child {
     justify-content: center;
   }
 
-  /* Stats tornano a stack verticale con label+value affiancati */
-  .profilo-identity-stats {
+  /* Stats stack vertically */
+  .profilo-header-stats {
     flex-direction: column;
     gap: 0;
   }
 
-  .profilo-stat-row {
+  .profilo-header-stat {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
@@ -2950,17 +2928,12 @@ tbody tr:hover td:first-child {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
 
-  .profilo-stat-row:last-child {
+  .profilo-header-stat:last-child {
     border-bottom: none;
   }
 
-  .profilo-stat-value {
-    text-align: right;
-  }
-
   /* Cards più compatte */
-  .profilo-info-card,
-  .profilo-edit-card {
+  .profilo-info-card {
     padding: 18px 16px;
   }
 

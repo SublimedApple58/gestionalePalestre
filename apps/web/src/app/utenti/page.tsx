@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { UserManagement } from "@/components/dashboard/user-management";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
+import { getProfilePhotoUrls } from "@/lib/profile-photo";
 import { requireRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,9 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
     redirect("/login");
   }
 
+  // Batch fetch profile photos for all users
+  const photoUrlMap = await getProfilePhotoUrls(users.map((u) => u.id));
+
   const errorMessage = params.error && ERROR_MAP[params.error]
     ? ERROR_MAP[params.error]
     : null;
@@ -58,7 +62,11 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
       currentPath="/utenti"
       user={{ firstName: currentUser.firstName, role: currentUser.role }}
     >
-      <UserManagement users={users} errorMessage={errorMessage} />
+      <UserManagement
+        users={users}
+        errorMessage={errorMessage}
+        profilePhotoUrls={Object.fromEntries(photoUrlMap)}
+      />
     </AuthenticatedShell>
   );
 }

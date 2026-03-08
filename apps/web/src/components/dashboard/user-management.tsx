@@ -10,6 +10,7 @@ import { getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/d
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
 
 const { Text } = Typography;
@@ -31,6 +32,7 @@ type UserRow = {
 type UserManagementProps = {
   users: UserRow[];
   errorMessage?: string | null;
+  profilePhotoUrls?: Record<string, string>;
 };
 
 const ROLE_OPTIONS = [
@@ -39,7 +41,7 @@ const ROLE_OPTIONS = [
   { value: UserRole.SUBSCRIBER, label: "Iscritto" }
 ];
 
-export function UserManagement({ users, errorMessage }: UserManagementProps) {
+export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
@@ -140,9 +142,11 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
                       <tr key={user.id}>
                         <td data-label="Nome">
                           <div className="user-cell">
-                            <span className="user-avatar user-avatar-sm">
-                              {user.firstName.charAt(0).toUpperCase()}
-                            </span>
+                            <UserAvatar
+                              firstName={user.firstName}
+                              profilePhotoUrl={profilePhotoUrls[user.id]}
+                              size="sm"
+                            />
                             <span>{`${user.firstName} ${user.lastName}`}</span>
                           </div>
                         </td>
@@ -229,6 +233,7 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
             lastName: i.lastName,
             email: i.email
           }))}
+          profilePhotoUrl={drawerUserRef.current ? profilePhotoUrls[drawerUserRef.current.id] : undefined}
         />
       )}
 

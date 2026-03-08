@@ -6,6 +6,7 @@ import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
 import { SubscriberDocumentOnboarding } from "@/components/dashboard/subscriber-document-onboarding";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
+import { getProfilePhotoUrl, getProfilePhotoUrls } from "@/lib/profile-photo";
 import { roleLabel } from "@/lib/roles";
 import { createDocumentDownloadUrl, isDocumentStorageConfigured } from "@/lib/services/document-storage-service";
 import { requireSessionUser } from "@/lib/session";
@@ -56,6 +57,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       documents: true,
       assignedInstructor: {
         select: {
+          id: true,
           firstName: true,
           lastName: true,
           email: true
@@ -103,7 +105,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
 
         {currentUser.role === UserRole.INSTRUCTOR ? (
-          <InstructorDashboard
+          <InstructorView
             accessCode={currentUser.accessCode}
             assignedSubscribers={currentUser.assignedSubscribers}
             workoutPlan={currentUser.workoutPlan}
@@ -111,22 +113,93 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
 
         {currentUser.role === UserRole.SUBSCRIBER ? (
-          <>
-            <SubscriberDashboard
-              accessCode={currentUser.accessCode}
-              assignedInstructor={currentUser.assignedInstructor}
-              documents={currentUser.documents}
-              subscription={currentUser.subscription}
-              workoutPlan={currentUser.workoutPlan}
-            />
-
-            <SubscriberDocumentOnboarding documents={currentUser.documents} />
-          </>
+          <SubscriberView
+            accessCode={currentUser.accessCode}
+            assignedInstructor={currentUser.assignedInstructor}
+            documents={currentUser.documents}
+            subscription={currentUser.subscription}
+            workoutPlan={currentUser.workoutPlan}
+          />
         ) : null}
       </main>
     </AuthenticatedShell>
   );
 }
+
+/* ── Subscriber view wrapper — fetches instructor photo ────────────────── */
+
+type SubscriberViewProps = {
+  accessCode: string;
+  assignedInstructor: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
+  documents: Parameters<typeof SubscriberDashboard>[0]["documents"];
+  subscription: Parameters<typeof SubscriberDashboard>[0]["subscription"];
+  workoutPlan: Parameters<typeof SubscriberDashboard>[0]["workoutPlan"];
+};
+
+async function SubscriberView({
+  accessCode,
+  assignedInstructor,
+  documents,
+  subscription,
+  workoutPlan
+}: SubscriberViewProps) {
+  const instructorPhotoUrl = assignedInstructor
+    ? await getProfilePhotoUrl(assignedInstructor.id)
+    : null;
+
+  return (
+    <>
+      <SubscriberDashboard
+        accessCode={accessCode}
+        assignedInstructor={assignedInstructor}
+        instructorPhotoUrl={instructorPhotoUrl}
+        documents={documents}
+        subscription={subscription}
+        workoutPlan={workoutPlan}
+      />
+      <SubscriberDocumentOnboarding documents={documents} />
+    </>
+  );
+}
+
+/* ── Instructor view wrapper — fetches subscriber photos ───────────────── */
+
+type InstructorViewProps = {
+  accessCode: string;
+  assignedSubscribers: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }>;
+  workoutPlan: Parameters<typeof InstructorDashboard>[0]["workoutPlan"];
+};
+
+async function InstructorView({
+  accessCode,
+  assignedSubscribers,
+  workoutPlan
+}: InstructorViewProps) {
+  const photoUrlMap = await getProfilePhotoUrls(
+    assignedSubscribers.map((s) => s.id)
+  );
+
+  return (
+    <InstructorDashboard
+      accessCode={accessCode}
+      assignedSubscribers={assignedSubscribers}
+      subscriberPhotoUrls={Object.fromEntries(photoUrlMap)}
+      workoutPlan={workoutPlan}
+    />
+  );
+}
+
+/* ── Admin view wrapper — fetches pending review data + photos ─────────── */
 
 type AdminViewProps = {
   currentUserId: string;
@@ -139,6 +212,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       include: {
         user: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             role: true
@@ -200,12 +274,19 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     });
   }
 
+  // Fetch profile photos for users in access logs and pending medical
+  const allUserIds = new Set<string>();
+  for (const log of accessLogs) allUserIds.add(log.user.id);
+  for (const sub of pendingMedicalSubscribers) allUserIds.add(sub.id);
+  const photoUrlMap = await getProfilePhotoUrls(Array.from(allUserIds));
+
   return (
     <AdminDashboard
       currentUser={{ id: currentUserId, accessCode }}
       accessLogs={accessLogs}
       reviewDocuments={reviewDocuments}
       pendingMedicalSubscribers={pendingMedicalSubscribers}
+      profilePhotoUrls={Object.fromEntries(photoUrlMap)}
     />
   );
 }

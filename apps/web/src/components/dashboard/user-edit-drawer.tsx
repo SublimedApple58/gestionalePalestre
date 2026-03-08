@@ -21,6 +21,7 @@ import {
   updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { roleLabel } from "@/lib/roles";
 import { tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
@@ -46,6 +47,7 @@ type UserEditDrawerProps = {
   opened: boolean;
   onClose: () => void;
   instructors: { id: string; firstName: string; lastName: string; email: string }[];
+  profilePhotoUrl?: string;
 };
 
 const ROLE_OPTIONS = [
@@ -131,7 +133,7 @@ function useActionToast(result: ActionResult) {
   }, [result, addToast]);
 }
 
-export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditDrawerProps) {
+export function UserEditDrawer({ user, opened, onClose, instructors, profilePhotoUrl }: UserEditDrawerProps) {
   const { addToast } = useToast();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -168,9 +170,12 @@ export function UserEditDrawer({ user, opened, onClose, instructors }: UserEditD
 
   const drawerTitle = (
     <Flex gap={10} align="center" style={{ minWidth: 0, overflow: "hidden" }}>
-      <span className="user-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
-        {user.firstName.charAt(0).toUpperCase()}
-      </span>
+      <UserAvatar
+        firstName={user.firstName}
+        profilePhotoUrl={profilePhotoUrl}
+        size="md"
+        style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}
+      />
       <div style={{ minWidth: 0, flex: 1 }}>
         <Text strong style={{ lineHeight: 1.3, color: "white", display: "block", fontSize: 14 }} ellipsis>
           {user.firstName} {user.lastName}

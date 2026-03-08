@@ -3,6 +3,7 @@ import type { WorkoutPlan } from "@gestionale/db";
 import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
 
 import { MaskedAccessCode } from "../ui/masked-access-code";
+import { UserAvatar } from "../ui/user-avatar";
 import { WeeklyPlanForm } from "../ui/weekly-plan-form";
 
 type InstructorDashboardProps = {
@@ -14,12 +15,14 @@ type InstructorDashboardProps = {
     lastName: string;
     email: string;
   }>;
+  subscriberPhotoUrls?: Record<string, string>;
 };
 
 export function InstructorDashboard({
   accessCode,
   workoutPlan,
-  assignedSubscribers
+  assignedSubscribers,
+  subscriberPhotoUrls = {}
 }: InstructorDashboardProps) {
   return (
     <div className="dashboard-grid">
@@ -54,9 +57,10 @@ export function InstructorDashboard({
           <div className="user-list">
             {assignedSubscribers.map((subscriber) => (
               <div key={subscriber.id} className="user-card">
-                <span className="user-avatar">
-                  {subscriber.firstName.charAt(0).toUpperCase()}
-                </span>
+                <UserAvatar
+                  firstName={subscriber.firstName}
+                  profilePhotoUrl={subscriberPhotoUrls[subscriber.id]}
+                />
                 <div className="user-card-info">
                   <span className="user-card-name">
                     {`${subscriber.firstName} ${subscriber.lastName}`}

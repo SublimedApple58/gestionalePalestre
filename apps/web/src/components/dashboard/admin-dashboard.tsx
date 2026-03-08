@@ -9,6 +9,7 @@ import { roleLabel } from "@/lib/roles";
 
 import { DocumentReviewTable } from "./document-review-table";
 import { MaskedAccessCode } from "../ui/masked-access-code";
+import { UserAvatar } from "../ui/user-avatar";
 
 type AccessLogRow = {
   id: string;
@@ -16,6 +17,7 @@ type AccessLogRow = {
   note: string | null;
   occurredAt: Date;
   user: {
+    id: string;
     firstName: string;
     lastName: string;
     role: UserRole;
@@ -46,13 +48,15 @@ type AdminDashboardProps = {
     email: string;
     uploadedAt: Date;
   }>;
+  profilePhotoUrls?: Record<string, string>;
 };
 
 export function AdminDashboard({
   currentUser,
   accessLogs,
   reviewDocuments,
-  pendingMedicalSubscribers
+  pendingMedicalSubscribers,
+  profilePhotoUrls = {}
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length + pendingMedicalSubscribers.length;
 
@@ -96,9 +100,10 @@ export function AdminDashboard({
             <ul className="pending-medical-list">
               {pendingMedicalSubscribers.map((subscriber) => (
                 <li key={subscriber.id}>
-                  <span className="user-avatar">
-                    {subscriber.firstName.charAt(0).toUpperCase()}
-                  </span>
+                  <UserAvatar
+                    firstName={subscriber.firstName}
+                    profilePhotoUrl={profilePhotoUrls[subscriber.id]}
+                  />
                   <div className="pending-medical-info">
                     <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
                     <p>{subscriber.email}</p>

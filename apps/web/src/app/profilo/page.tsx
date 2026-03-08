@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
 import { SubscriberDocumentOnboarding } from "@/components/dashboard/subscriber-document-onboarding";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
+import { getProfilePhotoUrl } from "@/lib/profile-photo";
 import { requireSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +18,13 @@ export default async function ProfilePage() {
       subscription: true,
       documents: true
     },
-    // address è un campo scalare incluso di default
   });
 
   if (!currentUser) {
     redirect("/login");
   }
+
+  const profilePhotoUrl = await getProfilePhotoUrl(currentUser.id);
 
   return (
     <AuthenticatedShell
@@ -44,6 +46,7 @@ export default async function ProfilePage() {
             documents: currentUser.documents,
             subscription: currentUser.subscription
           }}
+          profilePhotoUrl={profilePhotoUrl}
         />
 
         {currentUser.role === UserRole.SUBSCRIBER ? (
