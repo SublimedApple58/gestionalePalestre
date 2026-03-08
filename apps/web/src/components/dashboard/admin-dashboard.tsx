@@ -1,5 +1,11 @@
 import {
-  UserRole,
+  ClipboardList,
+  DoorOpen,
+  FileCheck,
+  History
+} from "lucide-react";
+import {
+  type UserRole,
   type AccessEventType,
   type UserDocument
 } from "@gestionale/db";
@@ -61,30 +67,36 @@ export function AdminDashboard({
   const totalPending = reviewDocuments.length + pendingMedicalSubscribers.length;
 
   return (
-    <div className="dashboard-grid">
+    <div className="dash-content">
+      {/* ── Quick actions row ────────────────────────────────────── */}
+      <div className="dash-grid-2col">
+        {/* Codice admin */}
+        <MaskedAccessCode code={currentUser.accessCode} title="Codice personale admin" />
 
-      {/* ── Codice admin ─────────────────────────────────────────── */}
-      <MaskedAccessCode code={currentUser.accessCode} title="Codice personale admin" />
-
-      {/* ── Porta palestra ───────────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Ingresso</p>
-          <h3 className="panel-title">Controllo porta</h3>
+        {/* Porta palestra */}
+        <div className="dash-card dash-card-accent">
+          <div className="dash-card-header">
+            <DoorOpen size={14} className="dash-card-header-icon" />
+            <div>
+              <p className="dash-card-kicker">Ingresso</p>
+              <h3 className="dash-card-title">Controllo porta</h3>
+            </div>
+          </div>
+          <form action={openGymDoorAction}>
+            <button type="submit" className="button button-primary" style={{ width: "100%" }}>
+              Apri porta palestra
+            </button>
+          </form>
         </div>
-        <form action={openGymDoorAction}>
-          <button type="submit" className="button button-primary">
-            Apri porta palestra
-          </button>
-        </form>
-      </section>
+      </div>
 
-      {/* ── Approvazioni in sospeso ───────────────────────────────── */}
-      <section className="panel panel-full admin-approvals">
-        <div className="admin-approvals-header">
+      {/* ── Approvazioni in sospeso ─────────────────────────────── */}
+      <div className="dash-card-full">
+        <div className="dash-card-header">
+          <ClipboardList size={14} className="dash-card-header-icon" />
           <div>
-            <p className="panel-kicker">Richiede attenzione</p>
-            <h3 className="panel-title">
+            <p className="dash-card-kicker">Richiede attenzione</p>
+            <h3 className="dash-card-title">
               Approvazioni in sospeso
               {totalPending > 0 && (
                 <span className="approval-badge">{totalPending}</span>
@@ -95,8 +107,11 @@ export function AdminDashboard({
 
         {/* Certificati medici da validare */}
         {pendingMedicalSubscribers.length > 0 && (
-          <div className="approval-subsection">
-            <p className="approval-subsection-label">Certificati medici — revisione manuale</p>
+          <div className="dash-subsection">
+            <p className="dash-subsection-label">
+              <FileCheck size={12} className="dash-subsection-icon" />
+              Certificati medici — revisione manuale
+            </p>
             <ul className="pending-medical-list">
               {pendingMedicalSubscribers.map((subscriber) => (
                 <li key={subscriber.id}>
@@ -116,43 +131,60 @@ export function AdminDashboard({
         )}
 
         {/* Documenti in attesa di revisione */}
-        <div className="approval-subsection">
-          <p className="approval-subsection-label">Documenti — in attesa di validazione</p>
+        <div className="dash-subsection">
+          <p className="dash-subsection-label">
+            <FileCheck size={12} className="dash-subsection-icon" />
+            Documenti — in attesa di validazione
+          </p>
           {reviewDocuments.length === 0 ? (
             <div className="empty-state">Nessun documento in coda.</div>
           ) : (
             <DocumentReviewTable documents={reviewDocuments} embedded />
           )}
         </div>
-      </section>
+      </div>
 
       {/* ── Storico accessi ──────────────────────────────────────── */}
-      <section className="panel panel-full">
-        <div>
-          <p className="panel-kicker">Ingressi</p>
-          <h3 className="panel-title">Storico accessi recenti</h3>
+      <div className="dash-card-full">
+        <div className="dash-card-header">
+          <History size={14} className="dash-card-header-icon" />
+          <div>
+            <p className="dash-card-kicker">Ingressi</p>
+            <h3 className="dash-card-title">Storico accessi recenti</h3>
+          </div>
         </div>
 
         {accessLogs.length === 0 ? (
           <div className="empty-state">Nessun ingresso registrato.</div>
         ) : (
-          <ul className="event-list">
+          <ul className="dash-event-list">
             {accessLogs.map((log) => (
-              <li key={log.id}>
-                <strong>{`${log.user.firstName} ${log.user.lastName}`}</strong>
-                <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                  {` · ${roleLabel(log.user.role)}`}
-                </span>
-                <p>{`${log.eventType === "DOOR_OPEN" ? "Apri porta" : "Simula ingresso"} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}</p>
-                {log.note ? (
-                  <small style={{ color: "var(--text-muted)", fontSize: "12px" }}>{log.note}</small>
-                ) : null}
+              <li key={log.id} className="dash-event-item">
+                <div className="dash-event-avatar">
+                  <UserAvatar
+                    firstName={log.user.firstName}
+                    profilePhotoUrl={profilePhotoUrls[log.user.id]}
+                  />
+                </div>
+                <div className="dash-event-info">
+                  <div className="dash-event-name">
+                    {`${log.user.firstName} ${log.user.lastName}`}
+                    <span className="td-role-badge" data-role={log.user.role} style={{ marginLeft: 6 }}>
+                      {roleLabel(log.user.role)}
+                    </span>
+                  </div>
+                  <p className="dash-event-meta">
+                    {`${log.eventType === "DOOR_OPEN" ? "Apri porta" : "Simula ingresso"} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}
+                  </p>
+                  {log.note && (
+                    <p className="dash-event-note">{log.note}</p>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
-
+      </div>
     </div>
   );
 }

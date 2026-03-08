@@ -1,4 +1,12 @@
 import {
+  Calendar,
+  DoorOpen,
+  ShieldCheck,
+  Star,
+  UserCheck,
+  type LucideIcon
+} from "lucide-react";
+import {
   DocumentStatus,
   SubscriptionTier,
   type UserDocument,
@@ -73,107 +81,136 @@ export function SubscriberDashboard({
     missingDocuments.length > 0 &&
     missingDocuments.every((type) => pendingTypes.includes(type));
 
-
   return (
-    <div className="dashboard-grid">
-      {/* ── Abbonamento ─────────────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Abbonamento</p>
-          <h3 className="panel-title">Stato abbonamento</h3>
-        </div>
+    <div className="dash-content">
+      {/* ── Quick stats row ───────────────────────────────────────── */}
+      <div className="dash-stats-row">
+        <QuickStat
+          icon={Star}
+          label="Abbonamento"
+          value={subscription ? tierLabel(subscription.tier) : "—"}
+          badge={
+            subscription
+              ? { text: subscriptionActive ? "Attivo" : "Scaduto", variant: subscriptionActive ? "ok" : "missing" }
+              : undefined
+          }
+        />
+        <QuickStat
+          icon={Calendar}
+          label="Scadenza"
+          value={
+            subscription
+              ? new Date(subscription.endsAt).toLocaleDateString("it-IT")
+              : "—"
+          }
+        />
+        <QuickStat
+          icon={ShieldCheck}
+          label="Documenti"
+          badge={{ text: documentsReady ? "Completi" : `${missingDocuments.length} mancanti`, variant: documentsReady ? "ok" : "missing" }}
+        />
+      </div>
 
-        {subscription ? (
-          <>
-            <div className="stat-row">
-              <span className="stat-value-large">{tierLabel(subscription.tier)}</span>
-              <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
-                {subscriptionActive ? "Attivo" : "Scaduto"}
-              </span>
-            </div>
-
-            <div className="stat-meta-list">
-              <div className="stat-meta-row">
-                <span className="stat-meta-label">Inizio</span>
-                <span className="stat-meta-value">
-                  {new Date(subscription.startsAt).toLocaleDateString("it-IT")}
-                </span>
-              </div>
-              <div className="stat-meta-row">
-                <span className="stat-meta-label">Scadenza</span>
-                <span className="stat-meta-value">
-                  {new Date(subscription.endsAt).toLocaleDateString("it-IT")}
-                </span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <p className="subtitle">Nessun abbonamento assegnato.</p>
-        )}
-      </section>
-
-      {/* ── Istruttore ──────────────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Istruttore</p>
-          <h3 className="panel-title">Supporto assegnato</h3>
-        </div>
-
-        {assignedInstructor ? (
-          <div className="user-card">
-            <UserAvatar
-              firstName={assignedInstructor.firstName}
-              profilePhotoUrl={instructorPhotoUrl}
-            />
-            <div className="user-card-info">
-              <span className="user-card-name">
-                {`${assignedInstructor.firstName} ${assignedInstructor.lastName}`}
-              </span>
-              <span className="user-card-meta">{assignedInstructor.email}</span>
+      <div className="dash-grid-2col">
+        {/* ── Istruttore ──────────────────────────────────────────── */}
+        <div className="dash-card">
+          <div className="dash-card-header">
+            <UserCheck size={14} className="dash-card-header-icon" />
+            <div>
+              <p className="dash-card-kicker">Istruttore</p>
+              <h3 className="dash-card-title">Supporto assegnato</h3>
             </div>
           </div>
-        ) : (
-          <div className="empty-state">Nessun istruttore assegnato.</div>
-        )}
-      </section>
 
-      {/* ── Codice accesso o blocco ──────────────────────────────── */}
-      {canEnterGym ? (
-        <>
-          <MaskedAccessCode code={accessCode} title="Codice ingresso iscritto" />
+          {assignedInstructor ? (
+            <div className="user-card">
+              <UserAvatar
+                firstName={assignedInstructor.firstName}
+                profilePhotoUrl={instructorPhotoUrl}
+              />
+              <div className="user-card-info">
+                <span className="user-card-name">
+                  {`${assignedInstructor.firstName} ${assignedInstructor.lastName}`}
+                </span>
+                <span className="user-card-meta">{assignedInstructor.email}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">Nessun istruttore assegnato.</div>
+          )}
+        </div>
 
-          <section className="panel">
-            <div>
-              <p className="panel-kicker">Ingresso</p>
-              <h3 className="panel-title">Registra accesso</h3>
+        {/* ── Accesso ─────────────────────────────────────────────── */}
+        {canEnterGym ? (
+          <div className="dash-card dash-card-accent">
+            <div className="dash-card-header">
+              <DoorOpen size={14} className="dash-card-header-icon" />
+              <div>
+                <p className="dash-card-kicker">Ingresso</p>
+                <h3 className="dash-card-title">Registra accesso</h3>
+              </div>
             </div>
             <form action={simulateEntryAction}>
-              <button type="submit" className="button button-primary">
+              <button type="submit" className="button button-primary" style={{ width: "100%" }}>
                 Simula ingresso
               </button>
             </form>
-          </section>
-        </>
-      ) : (
-        <section className="panel panel-full">
-          <div>
-            <p className="panel-kicker">Ingresso palestra</p>
-            <h3 className="panel-title">Codice non disponibile</h3>
           </div>
-          <p className="subtitle">
-            {!subscriptionActive
-              ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
-              : blockedByPendingReview
-              ? `Documenti in verifica: ${pendingTypes.map((type) => documentTypeLabel(type)).join(", ")}.`
-              : `Accesso bloccato: mancano ${missingDocuments
-                  .map((type) => documentTypeLabel(type))
-                  .join(", ")}.`}
-          </p>
-        </section>
+        ) : (
+          <div className="dash-card dash-card-blocked">
+            <div className="dash-card-header">
+              <DoorOpen size={14} className="dash-card-header-icon" />
+              <div>
+                <p className="dash-card-kicker">Ingresso palestra</p>
+                <h3 className="dash-card-title">Codice non disponibile</h3>
+              </div>
+            </div>
+            <p className="dash-card-note">
+              {!subscriptionActive
+                ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
+                : blockedByPendingReview
+                ? `Documenti in verifica: ${pendingTypes.map((type) => documentTypeLabel(type)).join(", ")}.`
+                : `Accesso bloccato: mancano ${missingDocuments
+                    .map((type) => documentTypeLabel(type))
+                    .join(", ")}.`}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Codice accesso ────────────────────────────────────────── */}
+      {canEnterGym && (
+        <MaskedAccessCode code={accessCode} title="Codice ingresso iscritto" />
       )}
 
-      {/* ── Piano allenamento ───────────────────────────────────── */}
+      {/* ── Piano allenamento ────────────────────────────────────── */}
       <WeeklyPlanForm action={saveWorkoutPlanAction} plan={workoutPlan} />
+    </div>
+  );
+}
+
+/* ── Quick Stat mini card ──────────────────────────────────────────── */
+
+type QuickStatProps = {
+  icon: LucideIcon;
+  label: string;
+  value?: string;
+  badge?: { text: string; variant: string };
+};
+
+function QuickStat({ icon: Icon, label, value, badge }: QuickStatProps) {
+  return (
+    <div className="dash-quick-stat">
+      <div className="dash-quick-stat-icon-wrap">
+        <Icon size={16} />
+      </div>
+      <div className="dash-quick-stat-content">
+        <span className="dash-quick-stat-label">{label}</span>
+        {value && <span className="dash-quick-stat-value">{value}</span>}
+        {badge && (
+          <span className={`status-badge ${badge.variant}`}>{badge.text}</span>
+        )}
+      </div>
     </div>
   );
 }

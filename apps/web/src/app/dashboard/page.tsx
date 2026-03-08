@@ -2,6 +2,7 @@ import { db, DocumentStatus, DocumentType, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
+import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InstructorDashboard } from "@/components/dashboard/instructor-dashboard";
 import { SubscriberDashboard } from "@/components/dashboard/subscriber-dashboard";
 import { SubscriberDocumentOnboarding } from "@/components/dashboard/subscriber-document-onboarding";
@@ -79,6 +80,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     redirect("/login");
   }
 
+  const profilePhotoUrl = await getProfilePhotoUrl(currentUser.id);
+
   return (
     <AuthenticatedShell
       currentPath="/dashboard"
@@ -88,13 +91,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       }}
     >
       <main className="dashboard-shell">
-        <header className="dashboard-header">
-          <div>
-            <p className="eyebrow">Gestionale Palestre</p>
-            <h1 className="page-title">{`Ciao ${currentUser.firstName}`}</h1>
-            <p className="subtitle">{`Ruolo: ${roleLabel(currentUser.role)}`}</p>
-          </div>
-        </header>
+        <DashboardHero
+          firstName={currentUser.firstName}
+          lastName={currentUser.lastName}
+          role={currentUser.role}
+          profilePhotoUrl={profilePhotoUrl}
+          subscription={currentUser.subscription}
+        />
 
         {params.error && ERROR_MAP[params.error] ? (
           <p className="error-banner dashboard-error">{ERROR_MAP[params.error]}</p>
