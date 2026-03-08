@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Pencil, Search, UserPlus, X } from "lucide-react";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
@@ -40,6 +40,12 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
+
+  // Ref stabile per mantenere i dati dell'utente durante l'animazione di chiusura.
+  // Mantine Drawer anima aperto→chiuso solo se il componente resta montato;
+  // se React lo smonta, l'animazione non parte.
+  const drawerUserRef = useRef<DrawerUserRow | null>(null);
+  if (selectedUser) drawerUserRef.current = selectedUser;
 
   const instructors = users.filter((u) => u.role === UserRole.INSTRUCTOR);
 
@@ -212,11 +218,12 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
 
       </div>
 
-      {/* ── Drawer modifica utente (Mantine gestisce open/close e animazione) ── */}
-      {selectedUser && (
+      {/* ── Drawer modifica utente ────────────────────────────────────── */}
+      {/* Sempre montato: Mantine anima solo se vede opened false→true.
+          drawerUserRef mantiene i dati durante l'exit animation. */}
+      {drawerUserRef.current && (
         <UserEditDrawer
-          key={selectedUser.id}
-          user={selectedUser}
+          user={drawerUserRef.current}
           opened={!!selectedUser}
           onClose={() => setSelectedUser(null)}
           instructors={instructors.map((i) => ({
