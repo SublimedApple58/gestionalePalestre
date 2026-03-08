@@ -1,3 +1,4 @@
+import { DoorOpen, Users } from "lucide-react";
 import type { WorkoutPlan } from "@gestionale/db";
 
 import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
@@ -25,36 +26,43 @@ export function InstructorDashboard({
   subscriberPhotoUrls = {}
 }: InstructorDashboardProps) {
   return (
-    <div className="dashboard-grid">
-      {/* ── Codice istruttore ────────────────────────────────────── */}
-      <MaskedAccessCode code={accessCode} title="Codice personale istruttore" />
+    <div className="dash-content">
+      {/* ── Quick actions ─────────────────────────────────────────── */}
+      <div className="dash-grid-2col">
+        <MaskedAccessCode code={accessCode} title="Codice personale istruttore" />
 
-      {/* ── Ingresso ─────────────────────────────────────────────── */}
-      <section className="panel">
-        <div>
-          <p className="panel-kicker">Ingresso</p>
-          <h3 className="panel-title">Registra accesso</h3>
+        <div className="dash-card dash-card-accent">
+          <div className="dash-card-header">
+            <DoorOpen size={14} className="dash-card-header-icon" />
+            <div>
+              <p className="dash-card-kicker">Ingresso</p>
+              <h3 className="dash-card-title">Registra accesso</h3>
+            </div>
+          </div>
+          <form action={simulateEntryAction}>
+            <button type="submit" className="button button-primary" style={{ width: "100%" }}>
+              Simula ingresso
+            </button>
+          </form>
         </div>
-        <form action={simulateEntryAction}>
-          <button type="submit" className="button button-primary">
-            Simula ingresso
-          </button>
-        </form>
-      </section>
+      </div>
 
       {/* ── Allievi ──────────────────────────────────────────────── */}
-      <section className="panel panel-full">
-        <div>
-          <p className="panel-kicker">Allievi</p>
-          <h3 className="panel-title">
-            {`Iscritti assegnati${assignedSubscribers.length > 0 ? ` (${assignedSubscribers.length})` : ""}`}
-          </h3>
+      <div className="dash-card-full">
+        <div className="dash-card-header">
+          <Users size={14} className="dash-card-header-icon" />
+          <div>
+            <p className="dash-card-kicker">Allievi</p>
+            <h3 className="dash-card-title">
+              {`Iscritti assegnati${assignedSubscribers.length > 0 ? ` (${assignedSubscribers.length})` : ""}`}
+            </h3>
+          </div>
         </div>
 
         {assignedSubscribers.length === 0 ? (
           <div className="empty-state">Ancora nessun allievo assegnato.</div>
         ) : (
-          <div className="user-list">
+          <div className="dash-subscriber-grid">
             {assignedSubscribers.map((subscriber) => (
               <div key={subscriber.id} className="user-card">
                 <UserAvatar
@@ -71,7 +79,7 @@ export function InstructorDashboard({
             ))}
           </div>
         )}
-      </section>
+      </div>
 
       {/* ── Piano settimanale ────────────────────────────────────── */}
       <WeeklyPlanForm
