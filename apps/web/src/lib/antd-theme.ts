@@ -6,11 +6,6 @@ import type { ThemeConfig } from "antd";
  * Token reference: https://ant.design/docs/react/customize-theme
  */
 export const antdTheme: ThemeConfig = {
-  // Force dark algorithm
-  algorithm: undefined, // We use cssVar + custom dark tokens instead
-
-  cssVar: true,
-
   token: {
     // ── Brand colors ────────────────────────────────────────────────────
     colorPrimary: "#df2531",
