@@ -240,114 +240,10 @@ p {
   line-height: 1.5;
 }
 
-/* ─── APP SHELL LAYOUT ───────────────────────────────────────────────────── */
+/* ─── APP SHELL LAYOUT (ora gestito da Mantine AppShell) ─────────────────── */
+/* Mantine gestisce sidebar, header, footer, responsive toggle internamente. */
 
-.app-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 288px minmax(0, 1fr);
-}
-
-/* Mobile header — hidden on desktop */
-.mobile-header {
-  display: none;
-}
-
-/* Bottom nav — hidden on desktop */
-.bottom-nav {
-  display: none;
-}
-
-/* ─── SIDEBAR (DESKTOP) ──────────────────────────────────────────────────── */
-
-/* Checkbox toggle — purely for the hamburger drawer (desktop fallback) */
-.sidebar-toggle-input,
-.sidebar-open-button,
-.sidebar-overlay,
-.sidebar-mobile-head {
-  display: none;
-}
-
-.app-sidebar {
-  border-right: 1px solid rgba(223, 37, 49, 0.28);
-  background:
-    radial-gradient(circle at 10% -4%, rgba(223, 37, 49, 0.28), transparent 35%),
-    linear-gradient(180deg, rgba(15, 15, 22, 0.98), rgba(8, 8, 12, 0.98));
-  backdrop-filter: blur(6px);
-  padding: 24px 16px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 20px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
-}
-
-.sidebar-top {
-  display: grid;
-  gap: 10px;
-}
-
-.sidebar-mobile-head {
-  justify-content: flex-end;
-}
-
-.sidebar-close-button {
-  width: 36px;
-  height: 36px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 10px;
-  border: 1px solid var(--border-quiet);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.sidebar-open-button {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(223, 37, 49, 0.55);
-  background:
-    radial-gradient(circle at 24% 14%, rgba(255, 255, 255, 0.14), transparent 45%),
-    linear-gradient(150deg, rgba(223, 37, 49, 0.6), rgba(75, 8, 16, 0.95));
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 1260;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 10px;
-}
-
-.sidebar-open-button span {
-  display: block;
-  width: 20px;
-  height: 2px;
-  border-radius: 999px;
-  background: #fff4f6;
-}
-
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1240;
-  background: rgba(3, 3, 6, 0.62);
-}
-
-.sidebar-brand {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 10px;
-}
-
+/* Brand mark — usato ancora nel sidebar Mantine */
 .sidebar-brand-mark {
   width: 38px;
   height: 38px;
@@ -363,94 +259,6 @@ p {
     radial-gradient(circle at 20% 14%, rgba(255, 255, 255, 0.25), transparent 38%),
     linear-gradient(145deg, rgba(223, 37, 49, 0.55), rgba(95, 10, 20, 0.85));
   flex-shrink: 0;
-}
-
-.sidebar-title {
-  font-size: 1.35rem;
-  letter-spacing: 0.035em;
-  line-height: 1.2;
-}
-
-.sidebar-nav {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-
-.sidebar-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border-quiet);
-  border-radius: var(--radius-md);
-  padding: 11px 13px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text-soft);
-  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
-}
-
-.sidebar-link:hover {
-  border-color: rgba(223, 37, 49, 0.55);
-  background: rgba(223, 37, 49, 0.12);
-  color: var(--white);
-  transform: translateX(2px);
-}
-
-.sidebar-link.active {
-  border-color: rgba(223, 37, 49, 0.7);
-  background: rgba(223, 37, 49, 0.22);
-  color: var(--white);
-  box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.25);
-}
-
-.sidebar-link-icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.sidebar-link.active .sidebar-link-icon {
-  opacity: 1;
-  color: #ff9ea5;
-}
-
-.sidebar-link-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.sidebar-link.active .sidebar-link-dot {
-  background: #ff9ea5;
-  box-shadow: 0 0 0 4px rgba(223, 37, 49, 0.25);
-}
-
-.sidebar-footer {
-  display: grid;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-.sidebar-footnote {
-  margin: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.sidebar-footer form,
-.sidebar-footer .button {
-  width: 100%;
-}
-
-.app-content {
-  min-width: 0;
 }
 
 /* ─── PAGE SHELLS ────────────────────────────────────────────────────────── */
@@ -1542,67 +1350,14 @@ tbody tr:hover td:first-child {
   letter-spacing: 0.08em;
 }
 
-/* ─── DOCUMENT MODAL ─────────────────────────────────────────────────────── */
+/* ─── DOCUMENT MODAL (ora gestito da Mantine Modal) ──────────────────────── */
+/* Mantine gestisce overlay, animazione, backdrop e scroll lock. */
 
-.document-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1500;
-  background: rgba(3, 3, 7, 0.78);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-}
-
-.document-modal {
-  width: min(980px, 100%);
-  max-height: 90dvh;
-  overflow: auto;
-  border: 1px solid rgba(223, 37, 49, 0.34);
-  border-radius: var(--radius-xl);
-  padding: 20px;
-  background:
-    radial-gradient(circle at 18% -26%, rgba(223, 37, 49, 0.24), transparent 40%),
-    linear-gradient(180deg, rgba(20, 20, 28, 0.98), rgba(11, 11, 16, 0.98));
-  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.55);
-  display: grid;
-  gap: 16px;
-}
-
-.document-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.document-modal-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-}
-
-.document-modal-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--border-quiet);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-  cursor: pointer;
-  display: inline-grid;
-  place-items: center;
-  flex-shrink: 0;
-  transition: background var(--transition-fast);
-}
-
-.document-modal-close:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
+/* Griglia interna — ancora usata nel body del Modal Mantine */
 .document-modal-grid {
   display: grid;
   gap: 12px;
+  margin-top: 8px;
 }
 
 .document-modal-grid.double {
@@ -2064,148 +1819,11 @@ tbody tr:hover td:first-child {
   margin: 0;
 }
 
-/* ─── ADD USER MODAL ─────────────────────────────────────────────────────── */
-
-@keyframes modal-backdrop-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes modal-content-in {
-  from {
-    opacity: 0;
-    transform: scale(0.92) translateY(24px);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    filter: blur(0px);
-  }
-}
-
-.add-user-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2300;
-  background: rgba(3, 3, 7, 0.82);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  animation: modal-backdrop-in 280ms var(--ease-smooth) both;
-}
-
-.add-user-modal {
-  width: min(480px, 100%);
-  max-height: 90dvh;
-  overflow-y: auto;
-  border-radius: var(--radius-xl);
-  border: 1px solid rgba(223, 37, 49, 0.28);
-  background:
-    radial-gradient(ellipse at 20% -10%, rgba(223, 37, 49, 0.18), transparent 45%),
-    radial-gradient(ellipse at 80% 110%, rgba(80, 10, 20, 0.15), transparent 40%),
-    linear-gradient(180deg, rgba(22, 22, 30, 0.99), rgba(10, 10, 16, 0.99));
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 24px 56px rgba(0, 0, 0, 0.6),
-    0 8px 20px rgba(0, 0, 0, 0.4);
-  padding: 24px;
-  display: grid;
-  gap: 18px;
-  animation: modal-content-in var(--dur-modal) var(--ease-back-out) both;
-  animation-delay: 40ms;
-}
-
-.add-user-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.add-user-close-btn {
-  padding: 6px;
-  flex-shrink: 0;
-}
-
-.add-user-modal-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.add-user-modal-actions .button {
-  flex: 1;
-}
+/* ─── ADD USER MODAL (ora gestito da Mantine Modal) ──────────────────────── */
+/* Mantine gestisce overlay, animazione pop, backdrop e scroll lock. */
 
 /* ─── USER EDIT DRAWER (ora gestito da Mantine Drawer) ──────────────────── */
-/* Mantine gestisce overlay, slide-in, backdrop e scroll lock internamente. */
-
-.user-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 20px 20px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  position: sticky;
-  top: 0;
-  background:
-    radial-gradient(ellipse at 100% -40%, rgba(223, 37, 49, 0.18), transparent 55%),
-    rgba(12, 12, 18, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 1;
-  flex-shrink: 0;
-}
-
-.user-drawer-user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.user-drawer-user-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.user-drawer-name {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-drawer-email {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-drawer-close {
-  flex-shrink: 0;
-  transition:
-    transform 200ms var(--ease-spring),
-    background 150ms ease,
-    border-color 150ms ease;
-}
-
-.user-drawer-close:hover {
-  transform: rotate(90deg) scale(1.1);
-}
-
-.user-drawer-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+/* Mantine gestisce overlay, slide-in, header, backdrop e scroll lock. */
 
 .user-drawer-section {
   padding: 20px;
@@ -2312,57 +1930,7 @@ tbody tr:hover td:first-child {
   background: rgba(120, 10, 20, 0.07);
 }
 
-/* ─── DRAWER TABS ────────────────────────────────────────────────────────── */
-
-.drawer-tabs {
-  display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-}
-
-.drawer-tab {
-  flex: 1;
-  padding: 13px 8px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color 150ms ease, border-color 200ms ease, background 150ms ease;
-  letter-spacing: 0.02em;
-  position: relative;
-  outline: none;
-}
-
-.drawer-tab:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.drawer-tab:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--brand-65);
-}
-
-.drawer-tab.active {
-  color: var(--text);
-  border-bottom-color: var(--brand);
-}
-
-.drawer-tab-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.drawer-tab-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
+/* Drawer tabs — ora gestiti da Mantine Tabs */
 
 /* ─── DRAWER FOOTER ──────────────────────────────────────────────────────── */
 
@@ -2400,16 +1968,7 @@ tbody tr:hover td:first-child {
   align-items: center;
 }
 
-/* ─── DRAWER — user-avatar-lg ────────────────────────────────────────────── */
-
-.user-avatar-lg {
-  width: 52px !important;
-  height: 52px !important;
-  font-size: 20px !important;
-  flex-shrink: 0;
-}
-
-/* Drawer sub notice */
+/* Drawer sub notice — usato in drawer Mantine */
 .drawer-sub-notice {
   color: rgba(173, 173, 184, 0.55) !important;
   font-style: italic;
@@ -2836,76 +2395,10 @@ tbody tr:hover td:first-child {
   font-size: 0.9rem;
 }
 
-/* ─── MOBILE HEADER ──────────────────────────────────────────────────────── */
+/* ─── MOBILE HEADER & BOTTOM NAV (ora gestiti da Mantine AppShell) ────────── */
+/* Mantine AppShell.Header e AppShell.Footer con hiddenFrom/visibleFrom. */
 
-.mobile-header {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--mobile-header-h);
-  z-index: 200;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: rgba(8, 8, 12, 0.92);
-  border-bottom: 1px solid rgba(223, 37, 49, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.mobile-header-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.mobile-header-logout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
-}
-
-.mobile-header-logout:hover,
-.mobile-header-logout:active {
-  color: var(--text);
-  background: var(--surface-strong);
-}
-
-.mobile-header-title {
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--text);
-}
-
-/* ─── BOTTOM NAV ─────────────────────────────────────────────────────────── */
-
-.bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--bottom-nav-h);
-  z-index: 200;
-  align-items: stretch;
-  background: rgba(8, 8, 12, 0.94);
-  border-top: 1px solid rgba(223, 37, 49, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 0 8px;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
+/* Bottom nav link — ancora usato nel footer Mantine */
 .bottom-nav-link {
   flex: 1;
   display: flex;
@@ -2941,37 +2434,7 @@ tbody tr:hover td:first-child {
 /* ─── RESPONSIVE — 980px ─────────────────────────────────────────────────── */
 
 @media (max-width: 980px) {
-  /* App shell becomes single column */
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  /* Hide all sidebar & hamburger machinery */
-  .sidebar-toggle-input,
-  .sidebar-open-button,
-  .sidebar-overlay,
-  .sidebar-mobile-head {
-    display: none !important;
-  }
-
-  /* Hide sidebar entirely */
-  .app-sidebar {
-    display: none;
-  }
-
-  /* Show mobile header + bottom nav */
-  .mobile-header {
-    display: flex;
-  }
-
-  .bottom-nav {
-    display: flex;
-  }
-
-  /* Offset content for fixed header */
-  .app-content {
-    padding-top: var(--mobile-header-h);
-  }
+  /* Mantine AppShell gestisce il responsive (sidebar collapse, header/footer show/hide) */
 
   .dashboard-shell,
   .profile-shell {
@@ -3215,28 +2678,9 @@ tbody tr:hover td:first-child {
     min-width: unset;
   }
 
-  .add-user-modal-actions {
-    flex-direction: column;
-  }
-
-  /* Document modal */
-  .document-modal {
-    padding: 16px;
-  }
-
+  /* Document modal grid responsive */
   .document-modal-grid.double {
     grid-template-columns: 1fr;
-  }
-
-  .document-modal-backdrop {
-    align-items: flex-end;
-    padding: 0;
-  }
-
-  .document-modal {
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    max-height: 95dvh;
-    width: 100%;
   }
 
   /* Calendar */
@@ -3394,143 +2838,5 @@ tbody tr:hover td:first-child {
   }
 }
 
-/* ─── TOAST ──────────────────────────────────────────────────────────────── */
-
-/*
- * Lifecycle animation unica (4.1s = tempo prima che React rimuova dal DOM):
- *   0% → 7%   : enter  (~290ms)
- *   7% → 80%  : hold   (~3000ms)
- *   80% → 100%: exit   (~820ms)
- */
-@keyframes toast-lifecycle {
-  0% {
-    opacity: 0;
-    transform: translateX(calc(100% + 32px)) scale(0.88);
-    filter: blur(6px);
-  }
-  7% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-    filter: blur(0px);
-  }
-  80% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(16px) scale(0.94);
-    filter: blur(3px);
-  }
-}
-
-@keyframes toast-dot-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.4); opacity: 0.7; }
-}
-
-.toast-container {
-  position: fixed;
-  bottom: 28px;
-  right: 24px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  pointer-events: none;
-  align-items: flex-end;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 13px 18px;
-  border-radius: 14px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.4;
-  max-width: 360px;
-  pointer-events: auto;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid transparent;
-  position: relative;
-  overflow: hidden;
-  /* single lifecycle animation, no conflicts */
-  animation: toast-lifecycle 4.1s var(--ease-expo-out) both;
-}
-
-/* top shimmer line */
-.toast::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
-}
-
-.toast-dot {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  animation: toast-dot-pulse 2s ease-in-out 0.3s infinite;
-}
-
-/* ── Success ─────────────────────────────────────────────────────────────── */
-.toast-success {
-  background:
-    radial-gradient(ellipse at 0% 50%, rgba(22, 163, 74, 0.22), transparent 60%),
-    rgba(8, 28, 14, 0.92);
-  border-color: rgba(34, 197, 94, 0.3);
-  color: #a7f3c0;
-  box-shadow:
-    0 0 0 1px rgba(34, 197, 94, 0.08) inset,
-    0 8px 32px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(22, 163, 74, 0.12);
-}
-
-.toast-success .toast-dot {
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22), 0 0 8px rgba(34, 197, 94, 0.6);
-}
-
-/* ── Error ───────────────────────────────────────────────────────────────── */
-.toast-error {
-  background:
-    radial-gradient(ellipse at 0% 50%, rgba(220, 38, 38, 0.22), transparent 60%),
-    rgba(24, 8, 10, 0.92);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  box-shadow:
-    0 0 0 1px rgba(239, 68, 68, 0.08) inset,
-    0 8px 32px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(223, 37, 49, 0.12);
-}
-
-.toast-error .toast-dot {
-  background: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22), 0 0 8px rgba(239, 68, 68, 0.6);
-}
-
-@media (max-width: 600px) {
-  .toast-container {
-    bottom: 80px;
-    right: 12px;
-    left: 12px;
-    align-items: stretch;
-  }
-
-  .toast {
-    max-width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toast { animation: none; opacity: 1; }
-  .toast-dot { animation: none; }
-}
+/* ─── TOAST (ora gestito da Mantine Notifications) ───────────────────────── */
+/* Mantine Notifications gestisce posizionamento, animazione e auto-close. */

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Pencil, Search, UserPlus, X } from "lucide-react";
+import { Pencil, Search, UserPlus } from "lucide-react";
+import { Modal, Button, TextInput, Text, Stack, Group } from "@mantine/core";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
 
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
@@ -235,78 +236,102 @@ export function UserManagement({ users, errorMessage }: UserManagementProps) {
         />
       )}
 
-      {/* ── Modale aggiungi utente ─────────────────────────────────── */}
-      {showAddModal && (
-        <div
-          className="add-user-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Aggiungi nuovo utente"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAddModal(false);
-          }}
-        >
-          <div className="add-user-modal">
-            <div className="add-user-modal-header">
-              <div>
-                <p className="panel-kicker">Nuovo account</p>
-                <h3 className="panel-title">Aggiungi utente</h3>
-              </div>
-              <button
-                type="button"
-                className="button button-ghost add-user-close-btn"
-                onClick={() => setShowAddModal(false)}
-                aria-label="Chiudi"
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            </div>
-
-            <form action={createUserByAdminAction} className="grid-form compact">
-              <label className="input-group">
-                <span>Nome</span>
-                <input name="firstName" required autoComplete="off" />
-              </label>
-
-              <label className="input-group">
-                <span>Cognome</span>
-                <input name="lastName" required autoComplete="off" />
-              </label>
-
-              <label className="input-group">
-                <span>Email</span>
-                <input type="email" name="email" required autoComplete="off" />
-              </label>
-
-              <label className="input-group">
-                <span>Password</span>
-                <input type="password" name="password" required minLength={8} />
-              </label>
-
-              <CustomSelect
-                name="role"
-                label="Ruolo"
-                options={ROLE_OPTIONS}
-                defaultValue={UserRole.SUBSCRIBER}
-                required
-              />
-
-              <div className="add-user-modal-actions">
-                <button type="submit" className="button button-primary">
-                  Crea account
-                </button>
-                <button
-                  type="button"
-                  className="button button-ghost"
-                  onClick={() => setShowAddModal(false)}
-                >
-                  Annulla
-                </button>
-              </div>
-            </form>
+      {/* ── Modale aggiungi utente (Mantine Modal — sempre montata) ─── */}
+      <Modal
+        opened={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title={
+          <div>
+            <Text size="xs" tt="uppercase" lts="0.1em" fw={700} c="#f09ca3">
+              Nuovo account
+            </Text>
+            <Text size="lg" fw={700} c="white">
+              Aggiungi utente
+            </Text>
           </div>
-        </div>
-      )}
+        }
+        centered
+        size="md"
+        overlayProps={{ backgroundOpacity: 0.65, blur: 6 }}
+        transitionProps={{
+          transition: "pop",
+          duration: 300,
+          timingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)"
+        }}
+        styles={{
+          content: {
+            background:
+              "radial-gradient(ellipse at 20% -10%, rgba(223,37,49,0.18), transparent 45%), radial-gradient(ellipse at 80% 110%, rgba(80,10,20,0.15), transparent 40%), linear-gradient(180deg, rgba(22,22,30,0.99), rgba(10,10,16,0.99))",
+            border: "1px solid rgba(223,37,49,0.28)",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset, 0 24px 56px rgba(0,0,0,0.6)"
+          },
+          header: {
+            background: "transparent",
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            paddingBottom: 16
+          },
+          close: {
+            color: "rgba(255,255,255,0.5)"
+          }
+        }}
+      >
+        <form action={createUserByAdminAction}>
+          <Stack gap="sm" mt="md">
+            <Group grow>
+              <TextInput
+                name="firstName"
+                label="Nome"
+                required
+                autoComplete="off"
+                classNames={{ input: "mantine-drawer-input" }}
+              />
+              <TextInput
+                name="lastName"
+                label="Cognome"
+                required
+                autoComplete="off"
+                classNames={{ input: "mantine-drawer-input" }}
+              />
+            </Group>
+            <TextInput
+              name="email"
+              type="email"
+              label="Email"
+              required
+              autoComplete="off"
+              classNames={{ input: "mantine-drawer-input" }}
+            />
+            <TextInput
+              name="password"
+              type="password"
+              label="Password"
+              required
+              minLength={8}
+              classNames={{ input: "mantine-drawer-input" }}
+            />
+            <CustomSelect
+              name="role"
+              label="Ruolo"
+              options={ROLE_OPTIONS}
+              defaultValue={UserRole.SUBSCRIBER}
+              required
+            />
+            <Group mt="sm" gap="sm">
+              <Button type="submit" color="brand" flex={1}>
+                Crea account
+              </Button>
+              <Button
+                variant="subtle"
+                color="gray"
+                flex={1}
+                onClick={() => setShowAddModal(false)}
+              >
+                Annulla
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
     </>
   );
 }

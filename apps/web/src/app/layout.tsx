@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Open_Sans } from "next/font/google";
 import { ColorSchemeScript } from "@mantine/core";
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 
 import { AppMantineProvider } from "@/components/providers/mantine-provider";
 import { ToastProvider } from "@/components/ui/toast-provider";

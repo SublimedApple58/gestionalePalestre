@@ -26,6 +26,81 @@ export const mantineTheme = createTheme({
 
   // Forza dark ovunque — non usiamo light mode
   components: {
+    AppShell: {
+      styles: {
+        main: {
+          background: "transparent",
+          minHeight: "100vh"
+        },
+        navbar: {
+          borderRight: "1px solid rgba(223,37,49,0.28)",
+          background:
+            "radial-gradient(circle at 10% -4%, rgba(223,37,49,0.28), transparent 35%), linear-gradient(180deg, rgba(15,15,22,0.98), rgba(8,8,12,0.98))",
+          backdropFilter: "blur(6px)",
+          boxShadow: "inset -1px 0 0 rgba(255,255,255,0.05)"
+        },
+        header: {
+          background: "rgba(8,8,12,0.92)",
+          borderBottom: "1px solid rgba(223,37,49,0.2)",
+          backdropFilter: "blur(12px)"
+        },
+        footer: {
+          background: "rgba(8,8,12,0.94)",
+          borderTop: "1px solid rgba(223,37,49,0.2)",
+          backdropFilter: "blur(12px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)"
+        }
+      }
+    },
+
+    NavLink: {
+      styles: {
+        root: {
+          borderRadius: "var(--mantine-radius-md)",
+          fontWeight: 600,
+          fontSize: 14,
+          transition: "all 150ms ease"
+        }
+      }
+    },
+
+    Modal: {
+      defaultProps: {
+        centered: true,
+        overlayProps: { backgroundOpacity: 0.65, blur: 6 },
+        transitionProps: {
+          transition: "pop",
+          duration: 300,
+          timingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)"
+        }
+      },
+      styles: {
+        content: {
+          background:
+            "radial-gradient(ellipse at 20% -10%, rgba(223,37,49,0.18), transparent 45%), linear-gradient(180deg, rgba(22,22,30,0.99), rgba(10,10,16,0.99))",
+          border: "1px solid rgba(223,37,49,0.28)",
+          boxShadow:
+            "0 0 0 1px rgba(255,255,255,0.06) inset, 0 24px 56px rgba(0,0,0,0.6)"
+        },
+        header: {
+          background: "transparent",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          padding: "20px 20px 16px"
+        },
+        title: {
+          fontWeight: 600,
+          fontSize: "15px",
+          color: "var(--mantine-color-gray-1)"
+        },
+        body: {
+          padding: "16px 20px 20px"
+        },
+        close: {
+          color: "rgba(255,255,255,0.5)"
+        }
+      }
+    },
+
     Drawer: {
       defaultProps: {
         overlayProps: { backgroundOpacity: 0.62, blur: 6 },
@@ -143,6 +218,17 @@ export const mantineTheme = createTheme({
           background: "rgba(18,18,26,0.98)",
           border: "1px solid rgba(255,255,255,0.12)",
           backdropFilter: "blur(12px)"
+        }
+      }
+    },
+
+    Notification: {
+      styles: {
+        root: {
+          background: "rgba(18,18,26,0.95)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.4)"
         }
       }
     }

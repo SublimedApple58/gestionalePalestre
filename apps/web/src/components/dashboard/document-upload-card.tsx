@@ -6,8 +6,8 @@ import {
   DocumentType,
   type UserDocument
 } from "@gestionale/db";
-import { X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Modal, Text } from "@mantine/core";
 
 import {
   countRemainingAiAttempts,
@@ -144,28 +144,6 @@ export function DocumentUploadCard({
     return remainingBySide;
   }, [maxAttempts, slots, type]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", onEscape);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onEscape);
-    };
-  }, [open]);
-
   return (
     <>
       <button
@@ -199,57 +177,65 @@ export function DocumentUploadCard({
         <p className="document-type-card-action">Apri gestione documento</p>
       </button>
 
-      {open ? (
-        <div
-          className="document-modal-backdrop"
-          onClick={() => setOpen(false)}
-          role="presentation"
-        >
-          <section
-            className="document-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Gestione ${documentTypeLabel(type)}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="document-modal-header">
-              <div>
-                <p className="panel-kicker">Gestione documento</p>
-                <h4 className="document-modal-title">{documentTypeLabel(type)}</h4>
-              </div>
-
-              <button
-                type="button"
-                className="document-modal-close"
-                onClick={() => setOpen(false)}
-                aria-label="Chiudi"
-              >
-                <X size={16} aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className={`document-modal-grid ${slots.length > 1 ? "double" : "single"}`}>
-              {slots.map((slot) => (
-                <DocumentUploadSlot
-                  key={`${type}-${slot.side}`}
-                  type={type}
-                  side={slot.side}
-                  slotTitle={
-                    slot.side === DocumentSide.SINGLE
-                      ? documentTypeLabel(type)
-                      : slot.side === DocumentSide.FRONT
-                      ? "Fronte"
-                      : "Retro"
-                  }
-                  current={slot.current}
-                  medicalCertificateRequired={type === DocumentType.MEDICAL_CERTIFICATE}
-                  maxAttempts={maxAttempts}
-                />
-              ))}
-            </div>
-          </section>
+      {/* Mantine Modal — sempre montata, animata da opened */}
+      <Modal
+        opened={open}
+        onClose={() => setOpen(false)}
+        title={
+          <div>
+            <Text size="xs" tt="uppercase" lts="0.1em" fw={700} c="#f09ca3">
+              Gestione documento
+            </Text>
+            <Text size="lg" fw={700} c="white">
+              {documentTypeLabel(type)}
+            </Text>
+          </div>
+        }
+        centered
+        size="xl"
+        overlayProps={{ backgroundOpacity: 0.65, blur: 6 }}
+        transitionProps={{
+          transition: "pop",
+          duration: 300,
+          timingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)"
+        }}
+        styles={{
+          content: {
+            background:
+              "radial-gradient(circle at 18% -26%, rgba(223,37,49,0.24), transparent 40%), linear-gradient(180deg, rgba(20,20,28,0.98), rgba(11,11,16,0.98))",
+            border: "1px solid rgba(223,37,49,0.34)",
+            boxShadow: "0 24px 52px rgba(0,0,0,0.55)"
+          },
+          header: {
+            background: "transparent",
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            paddingBottom: 16
+          },
+          close: {
+            color: "rgba(255,255,255,0.5)"
+          }
+        }}
+      >
+        <div className={`document-modal-grid ${slots.length > 1 ? "double" : "single"}`}>
+          {slots.map((slot) => (
+            <DocumentUploadSlot
+              key={`${type}-${slot.side}`}
+              type={type}
+              side={slot.side}
+              slotTitle={
+                slot.side === DocumentSide.SINGLE
+                  ? documentTypeLabel(type)
+                  : slot.side === DocumentSide.FRONT
+                  ? "Fronte"
+                  : "Retro"
+              }
+              current={slot.current}
+              medicalCertificateRequired={type === DocumentType.MEDICAL_CERTIFICATE}
+              maxAttempts={maxAttempts}
+            />
+          ))}
         </div>
-      ) : null}
+      </Modal>
     </>
   );
 }

@@ -1,14 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext } from "react";
+import { Notifications, notifications } from "@mantine/notifications";
 
 type ToastType = "success" | "error";
-
-type Toast = {
-  id: string;
-  message: string;
-  type: ToastType;
-};
 
 type ToastContextValue = {
   addToast: (message: string, type: ToastType) => void;
@@ -21,28 +16,35 @@ export function useToast() {
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
   const addToast = useCallback((message: string, type: ToastType) => {
-    const id = Math.random().toString(36).slice(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    // Rimuovi dallo stato dopo che l'animazione CSS è completata (4.1s)
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4100);
+    notifications.show({
+      message,
+      color: type === "success" ? "green" : "red",
+      autoClose: 4000,
+      withBorder: true,
+      style: {
+        background:
+          type === "success"
+            ? "rgba(34, 197, 94, 0.12)"
+            : "rgba(223, 37, 49, 0.12)",
+        borderColor:
+          type === "success"
+            ? "rgba(34, 197, 94, 0.3)"
+            : "rgba(223, 37, 49, 0.3)",
+        backdropFilter: "blur(8px)"
+      }
+    });
   }, []);
 
   return (
     <ToastContext.Provider value={{ addToast }}>
+      <Notifications
+        position="bottom-right"
+        autoClose={4000}
+        transitionDuration={300}
+        limit={5}
+      />
       {children}
-      <div className="toast-container" aria-live="polite" aria-atomic="false">
-        {toasts.map((toast) => (
-          <div key={toast.id} className={`toast toast-${toast.type}`} role="status">
-            <span className="toast-dot" aria-hidden="true" />
-            {toast.message}
-          </div>
-        ))}
-      </div>
     </ToastContext.Provider>
   );
 }
