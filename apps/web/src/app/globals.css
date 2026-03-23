@@ -355,8 +355,17 @@ p {
 /* ── Address row (CAP + Città) ────────────────────────────────────────────── */
 .register-address-row {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 110px 1fr;
   gap: 12px;
+}
+
+.register-address-row > * {
+  min-width: 0;
+}
+
+.register-address-row input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── Step 2 nav (Indietro + Crea account) ────────────────────────────────── */
