@@ -16,7 +16,6 @@ import {
   documentStatusLabel,
   documentTypeLabel
 } from "@/lib/documents";
-import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomFilePicker } from "@/components/ui/custom-file-picker";
 
 type DocumentUploadSlotProps = {
@@ -35,7 +34,6 @@ type DocumentUploadSlotProps = {
     | "rejectionReason"
     | "medicalCertificateExpiresAt"
   > | null;
-  medicalCertificateRequired?: boolean;
   maxAttempts?: number;
 };
 
@@ -64,7 +62,6 @@ export function DocumentUploadSlot({
   side,
   slotTitle,
   current,
-  medicalCertificateRequired = false,
   maxAttempts = 3
 }: DocumentUploadSlotProps) {
   const router = useRouter();
@@ -72,11 +69,7 @@ export function DocumentUploadSlot({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(current?.fileName ?? null);
-  const [medicalExpiry, setMedicalExpiry] = useState<string>(
-    current?.medicalCertificateExpiresAt ? new Date(current.medicalCertificateExpiresAt).toISOString().slice(0, 10) : ""
-  );
   const [viewLoading, setViewLoading] = useState(false);
-  const todayYmd = new Date().toISOString().slice(0, 10);
 
   const isApproved = current?.status === DocumentStatus.APPROVED;
 
@@ -176,14 +169,6 @@ export function DocumentUploadSlot({
         sha256: hash
       };
 
-      if (medicalCertificateRequired) {
-        if (!medicalExpiry) {
-          throw new Error("Inserisci la data di scadenza del certificato medico.");
-        }
-
-        commitPayload.medicalCertificateExpiresAt = medicalExpiry;
-      }
-
       const commitResponse = await fetch("/api/documents/commit", {
         method: "POST",
         headers: {
@@ -253,16 +238,6 @@ export function DocumentUploadSlot({
       ) : (
         /* Documento non approvato — permetti upload */
         <>
-          {medicalCertificateRequired ? (
-            <CustomCalendar
-              label="Scadenza certificato medico"
-              value={medicalExpiry}
-              onChange={setMedicalExpiry}
-              min={todayYmd}
-              required
-            />
-          ) : null}
-
           <CustomFilePicker
             label="Carica documento"
             accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"

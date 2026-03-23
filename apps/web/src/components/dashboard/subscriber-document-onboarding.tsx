@@ -188,7 +188,6 @@ export function SubscriberDocumentOnboarding({
                     : "Retro"
                 }
                 current={getDocumentSlot(documents, { type: activeStep.type, side })}
-                medicalCertificateRequired={activeStep.type === DocumentType.MEDICAL_CERTIFICATE}
               />
             ))}
           </div>

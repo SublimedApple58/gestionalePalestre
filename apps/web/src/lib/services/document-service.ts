@@ -143,12 +143,8 @@ function shouldProcessWithAi(type: DocumentType): boolean {
 }
 
 function initialStatusByType(type: DocumentType): DocumentStatus {
-  if (type === DocumentType.PROFILE_PHOTO) {
+  if (type === DocumentType.PROFILE_PHOTO || type === DocumentType.MEDICAL_CERTIFICATE) {
     return DocumentStatus.APPROVED;
-  }
-
-  if (type === DocumentType.MEDICAL_CERTIFICATE) {
-    return DocumentStatus.PENDING_ADMIN_REVIEW;
   }
 
   return DocumentStatus.UPLOADED;
@@ -299,27 +295,6 @@ export async function commitUploadedDocument(
 
   await assertUploadObjectMatchesMime(input.storageKey, input.contentType);
 
-  if (
-    input.type === DocumentType.MEDICAL_CERTIFICATE &&
-    (!input.medicalCertificateExpiresAt || Number.isNaN(input.medicalCertificateExpiresAt.valueOf()))
-  ) {
-    throw new DomainError(
-      "INVALID_MEDICAL_CERTIFICATE_EXPIRY",
-      "Per il certificato medico e' obbligatoria la data di scadenza."
-    );
-  }
-
-  if (
-    input.type === DocumentType.MEDICAL_CERTIFICATE &&
-    input.medicalCertificateExpiresAt &&
-    input.medicalCertificateExpiresAt <= new Date()
-  ) {
-    throw new DomainError(
-      "INVALID_MEDICAL_CERTIFICATE_EXPIRY",
-      "La scadenza del certificato medico deve essere futura."
-    );
-  }
-
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: { id: true }
@@ -430,28 +405,6 @@ export async function approveDocumentByAdmin(
 
   if (!document) {
     throw new DomainError("NOT_FOUND", "Documento non trovato.");
-  }
-
-  if (
-    document.type === DocumentType.MEDICAL_CERTIFICATE &&
-    !input.medicalCertificateExpiresAt &&
-    !document.medicalCertificateExpiresAt
-  ) {
-    throw new DomainError(
-      "INVALID_MEDICAL_CERTIFICATE_EXPIRY",
-      "Inserisci la data di scadenza del certificato medico prima dell'approvazione."
-    );
-  }
-
-  if (
-    document.type === DocumentType.MEDICAL_CERTIFICATE &&
-    input.medicalCertificateExpiresAt &&
-    input.medicalCertificateExpiresAt <= new Date()
-  ) {
-    throw new DomainError(
-      "INVALID_MEDICAL_CERTIFICATE_EXPIRY",
-      "La scadenza del certificato medico deve essere futura."
-    );
   }
 
   await prisma.userDocument.update({

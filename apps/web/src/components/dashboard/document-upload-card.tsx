@@ -228,7 +228,6 @@ export function DocumentUploadCard({
                   : "Retro"
               }
               current={slot.current}
-              medicalCertificateRequired={type === DocumentType.MEDICAL_CERTIFICATE}
               maxAttempts={maxAttempts}
             />
           ))}

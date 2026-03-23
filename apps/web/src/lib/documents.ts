@@ -58,18 +58,10 @@ function isDocumentSubmitted(document: Pick<UserDocument, "status"> | null): boo
 }
 
 function isMedicalCertificateExpired(
-  document: Pick<UserDocument, "type" | "medicalCertificateExpiresAt">,
-  now: Date
+  _document: Pick<UserDocument, "type" | "medicalCertificateExpiresAt">,
+  _now: Date
 ): boolean {
-  if (document.type !== DocumentType.MEDICAL_CERTIFICATE) {
-    return false;
-  }
-
-  if (!document.medicalCertificateExpiresAt) {
-    return true;
-  }
-
-  return now > document.medicalCertificateExpiresAt;
+  return false;
 }
 
 export function documentTypeLabel(type: DocumentType): string {

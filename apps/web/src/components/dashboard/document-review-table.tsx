@@ -1,4 +1,4 @@
-import { DocumentType, type UserDocument } from "@gestionale/db";
+import { type UserDocument } from "@gestionale/db";
 
 import {
   approveDocumentAction,
@@ -10,7 +10,6 @@ import {
   documentStatusLabel,
   documentTypeLabel
 } from "@/lib/documents";
-import { CustomCalendar } from "@/components/ui/custom-calendar";
 
 type ReviewDocumentRow = UserDocument & {
   user: {
@@ -61,15 +60,6 @@ export function DocumentReviewTable({ documents, embedded }: DocumentReviewTable
                     <div>
                       <p style={{ margin: 0 }}>{`${documentTypeLabel(document.type)} — ${documentSideLabel(document.side)}`}</p>
                       <small style={{ color: "var(--text-muted)" }}>{document.fileName}</small>
-                      {document.type === DocumentType.MEDICAL_CERTIFICATE ? (
-                        <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
-                          {`Scadenza: ${
-                            document.medicalCertificateExpiresAt
-                              ? new Date(document.medicalCertificateExpiresAt).toLocaleDateString("it-IT")
-                              : "non impostata"
-                          }`}
-                        </p>
-                      ) : null}
                     </div>
                   </td>
 
@@ -99,18 +89,6 @@ export function DocumentReviewTable({ documents, embedded }: DocumentReviewTable
                     <div className="row-actions">
                       <form action={approveDocumentAction} className="grid-form">
                         <input type="hidden" name="documentId" value={document.id} />
-                        {document.type === DocumentType.MEDICAL_CERTIFICATE ? (
-                          <CustomCalendar
-                            name="medicalCertificateExpiresAt"
-                            label="Scadenza certificato"
-                            defaultValue={
-                              document.medicalCertificateExpiresAt
-                                ? new Date(document.medicalCertificateExpiresAt).toISOString().slice(0, 10)
-                                : undefined
-                            }
-                            required
-                          />
-                        ) : null}
                         <button type="submit" className="button button-primary small">
                           Approva
                         </button>

@@ -47,13 +47,6 @@ type AdminDashboardProps = {
       previewUrl: string | null;
     }
   >;
-  pendingMedicalSubscribers: Array<{
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    uploadedAt: Date;
-  }>;
   profilePhotoUrls?: Record<string, string>;
 };
 
@@ -61,10 +54,9 @@ export function AdminDashboard({
   currentUser,
   accessLogs,
   reviewDocuments,
-  pendingMedicalSubscribers,
   profilePhotoUrls = {}
 }: AdminDashboardProps) {
-  const totalPending = reviewDocuments.length + pendingMedicalSubscribers.length;
+  const totalPending = reviewDocuments.length;
 
   return (
     <div className="dash-content">
@@ -104,31 +96,6 @@ export function AdminDashboard({
             </h3>
           </div>
         </div>
-
-        {/* Certificati medici da validare */}
-        {pendingMedicalSubscribers.length > 0 && (
-          <div className="dash-subsection">
-            <p className="dash-subsection-label">
-              <FileCheck size={12} className="dash-subsection-icon" />
-              Certificati medici — revisione manuale
-            </p>
-            <ul className="pending-medical-list">
-              {pendingMedicalSubscribers.map((subscriber) => (
-                <li key={subscriber.id}>
-                  <UserAvatar
-                    firstName={subscriber.firstName}
-                    profilePhotoUrl={profilePhotoUrls[subscriber.id]}
-                  />
-                  <div className="pending-medical-info">
-                    <strong>{`${subscriber.firstName} ${subscriber.lastName}`}</strong>
-                    <p>{subscriber.email}</p>
-                    <small>{`Caricato il ${new Date(subscriber.uploadedAt).toLocaleString("it-IT")}`}</small>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {/* Documenti in attesa di revisione */}
         <div className="dash-subsection">

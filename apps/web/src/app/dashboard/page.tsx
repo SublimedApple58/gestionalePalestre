@@ -1,4 +1,4 @@
-import { db, DocumentStatus, DocumentType, UserRole } from "@gestionale/db";
+import { db, DocumentStatus, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -254,33 +254,9 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     }))
   );
 
-  // Deduplicate: one entry per subscriber with pending medical cert
-  const seenSubscriberIds = new Set<string>();
-  const pendingMedicalSubscribers: Array<{
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    uploadedAt: Date;
-  }> = [];
-
-  for (const doc of reviewDocumentsRaw) {
-    if (doc.type !== DocumentType.MEDICAL_CERTIFICATE) continue;
-    if (seenSubscriberIds.has(doc.user.id)) continue;
-    seenSubscriberIds.add(doc.user.id);
-    pendingMedicalSubscribers.push({
-      id: doc.user.id,
-      firstName: doc.user.firstName,
-      lastName: doc.user.lastName,
-      email: doc.user.email,
-      uploadedAt: doc.uploadedAt
-    });
-  }
-
-  // Fetch profile photos for users in access logs and pending medical
+  // Fetch profile photos for users in access logs
   const allUserIds = new Set<string>();
   for (const log of accessLogs) allUserIds.add(log.user.id);
-  for (const sub of pendingMedicalSubscribers) allUserIds.add(sub.id);
   const photoUrlMap = await getProfilePhotoUrls(Array.from(allUserIds));
 
   return (
@@ -288,7 +264,6 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       currentUser={{ id: currentUserId, accessCode }}
       accessLogs={accessLogs}
       reviewDocuments={reviewDocuments}
-      pendingMedicalSubscribers={pendingMedicalSubscribers}
       profilePhotoUrls={Object.fromEntries(photoUrlMap)}
     />
   );
