@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { registerAction } from "@/app/actions/auth-actions";
 import { getSessionUser } from "@/lib/session";
+import { RegisterForm } from "@/components/auth/register-form";
 
 type RegisterPageProps = {
   searchParams: Promise<{
@@ -15,7 +14,7 @@ function mapError(error?: string): string | null {
     case "formato-non-valido":
       return "Controlla i campi inseriti e riprova.";
     case "email-gia-registrata":
-      return "Email gia' presente nel sistema.";
+      return "Email già presente nel sistema.";
     default:
       return null;
   }
@@ -33,48 +32,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
   return (
     <main className="auth-shell">
-      <section className="auth-card">
-        <p className="eyebrow">Gestionale Palestre</p>
-        <h1>Registrati</h1>
-        <p className="subtitle">Crei un account iscritto. Ruolo modificabile dall&apos;admin.</p>
-
-        {error ? <p className="error-banner">{error}</p> : null}
-
-        <form action={registerAction} className="grid-form">
-          <label className="input-group">
-            <span>Nome</span>
-            <input name="firstName" required minLength={2} autoComplete="given-name" />
-          </label>
-
-          <label className="input-group">
-            <span>Cognome</span>
-            <input name="lastName" required minLength={2} autoComplete="family-name" />
-          </label>
-
-          <label className="input-group">
-            <span>Email</span>
-            <input name="email" type="email" required autoComplete="email" inputMode="email" />
-          </label>
-
-          <label className="input-group">
-            <span>Password</span>
-            <input name="password" type="password" required minLength={8} autoComplete="new-password" />
-          </label>
-
-          <label className="input-group">
-            <span>Indirizzo di residenza</span>
-            <input name="address" required minLength={5} maxLength={200} autoComplete="street-address" placeholder="Via Roma 1, 20100 Milano" />
-          </label>
-
-          <button type="submit" className="button button-primary">
-            Crea account
-          </button>
-        </form>
-
-        <p className="auth-footer">
-          Hai gia&apos; un account? <Link href="/login">Vai al login</Link>
-        </p>
-      </section>
+      <RegisterForm error={error} />
     </main>
   );
 }

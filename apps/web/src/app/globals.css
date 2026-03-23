@@ -310,6 +310,62 @@ p {
   line-height: 1.06;
 }
 
+/* ── Multi-step progress indicator ───────────────────────────────────────── */
+.auth-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.auth-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.auth-step-dot.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(223, 37, 49, 0.22);
+}
+
+.auth-step-dot.done {
+  background: rgba(50, 182, 89, 0.85);
+  border-color: rgba(50, 182, 89, 0.85);
+}
+
+.auth-step-connector {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 6px;
+  border-radius: 2px;
+  transition: background var(--transition-fast);
+}
+
+.auth-step-connector.done {
+  background: rgba(50, 182, 89, 0.55);
+}
+
+/* ── Address row (CAP + Città) ────────────────────────────────────────────── */
+.register-address-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+}
+
+/* ── Step 2 nav (Indietro + Crea account) ────────────────────────────────── */
+.register-step-nav {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
 .auth-footer {
   font-size: 14px;
   color: var(--text-muted);
