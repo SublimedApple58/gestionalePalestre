@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Pencil, Search, UserPlus } from "lucide-react";
 import { Modal, Button, Input, Typography, Space, Flex } from "antd";
 import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
@@ -48,6 +48,8 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
 
   const drawerUserRef = useRef<DrawerUserRow | null>(null);
   if (selectedUser) drawerUserRef.current = selectedUser;
+
+  const handleCloseDrawer = useCallback(() => setSelectedUser(null), []);
 
   const instructors = users.filter((u) => u.role === UserRole.INSTRUCTOR);
 
@@ -226,7 +228,7 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         <UserEditDrawer
           user={drawerUserRef.current}
           opened={!!selectedUser}
-          onClose={() => setSelectedUser(null)}
+          onClose={handleCloseDrawer}
           instructors={instructors.map((i) => ({
             id: i.id,
             firstName: i.firstName,
