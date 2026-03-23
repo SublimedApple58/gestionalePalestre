@@ -13,7 +13,8 @@ export async function registerAction(formData: FormData): Promise<void> {
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
     email: formData.get("email"),
-    password: formData.get("password")
+    password: formData.get("password"),
+    address: formData.get("address") ?? undefined
   });
 
   if (!parsed.success) {

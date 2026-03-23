@@ -15,7 +15,8 @@ export const registerSchema = z.object({
   firstName: z.string().trim().min(2).max(60),
   lastName: z.string().trim().min(2).max(60),
   email,
-  password
+  password,
+  address: z.string().trim().min(5).max(200).optional()
 });
 
 export const loginSchema = z.object({

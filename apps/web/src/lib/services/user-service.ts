@@ -16,6 +16,7 @@ type RegisterSubscriberInput = {
   lastName: string;
   email: string;
   password: string;
+  address?: string;
 };
 
 type AdminCreateUserInput = RegisterSubscriberInput & {
@@ -98,7 +99,8 @@ export async function registerSubscriber(
       email: input.email,
       passwordHash,
       role: UserRole.SUBSCRIBER,
-      accessCode: generateAccessCode()
+      accessCode: generateAccessCode(),
+      ...(input.address ? { address: input.address } : {})
     }
   });
 }

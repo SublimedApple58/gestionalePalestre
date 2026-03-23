@@ -61,6 +61,11 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>
 
+          <label className="input-group">
+            <span>Indirizzo di residenza</span>
+            <input name="address" required minLength={5} maxLength={200} autoComplete="street-address" placeholder="Via Roma 1, 20100 Milano" />
+          </label>
+
           <button type="submit" className="button button-primary">
             Crea account
           </button>
