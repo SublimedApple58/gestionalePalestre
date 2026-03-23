@@ -43,22 +43,22 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
         <form action={registerAction} className="grid-form">
           <label className="input-group">
             <span>Nome</span>
-            <input name="firstName" required minLength={2} />
+            <input name="firstName" required minLength={2} autoComplete="given-name" />
           </label>
 
           <label className="input-group">
             <span>Cognome</span>
-            <input name="lastName" required minLength={2} />
+            <input name="lastName" required minLength={2} autoComplete="family-name" />
           </label>
 
           <label className="input-group">
             <span>Email</span>
-            <input name="email" type="email" required />
+            <input name="email" type="email" required autoComplete="email" inputMode="email" />
           </label>
 
           <label className="input-group">
             <span>Password</span>
-            <input name="password" type="password" required minLength={8} />
+            <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>
 
           <button type="submit" className="button button-primary">

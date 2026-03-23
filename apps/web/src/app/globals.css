@@ -1882,6 +1882,7 @@ tbody tr:hover td:first-child {
   justify-content: space-between;
   gap: 10px;
   cursor: pointer;
+  touch-action: manipulation;
   transition: border-color 170ms ease, transform 170ms ease, box-shadow 170ms ease;
 }
 
@@ -3268,6 +3269,7 @@ tbody tr:hover td:first-child {
   .onboarding-step-content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 20px;
     border: none;
     border-radius: 0;
@@ -3322,6 +3324,7 @@ tbody tr:hover td:first-child {
 
   .file-picker .button {
     width: 100%;
+    min-height: 44px;
   }
 
   .file-picker-actions {
