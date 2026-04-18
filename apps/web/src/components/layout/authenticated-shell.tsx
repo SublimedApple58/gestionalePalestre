@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { LayoutDashboard, LogOut, User, Users } from "lucide-react";
+import { CreditCard, LayoutDashboard, LogOut, User, Users } from "lucide-react";
 import { Layout, Menu, Button, Drawer, Typography } from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import { type UserRole } from "@gestionale/db";
@@ -15,7 +15,7 @@ const { Text } = Typography;
 
 type AuthenticatedShellProps = {
   children: React.ReactNode;
-  currentPath: "/dashboard" | "/utenti" | "/profilo";
+  currentPath: "/dashboard" | "/utenti" | "/profilo" | "/checkout";
   user: {
     firstName: string;
     role: UserRole;
@@ -25,12 +25,14 @@ type AuthenticatedShellProps = {
 const NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={18} />,
   "/utenti": <Users size={18} />,
+  "/checkout": <CreditCard size={18} />,
   "/profilo": <User size={18} />
 };
 
 const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={22} />,
   "/utenti": <Users size={22} />,
+  "/checkout": <CreditCard size={22} />,
   "/profilo": <User size={22} />
 };
 

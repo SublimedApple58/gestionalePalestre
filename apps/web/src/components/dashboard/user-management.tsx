@@ -3,7 +3,14 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Pencil, Search, UserPlus } from "lucide-react";
 import { Modal, Button, Input, Typography, Space, Flex } from "antd";
-import { SubscriptionTier, UserRole, type UserDocument } from "@gestionale/db";
+import {
+  SubscriptionTier,
+  UserRole,
+  type Installment,
+  type InstallmentPlan,
+  type Payment,
+  type UserDocument
+} from "@gestionale/db";
 
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
 import { getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
@@ -27,6 +34,8 @@ type UserRow = {
   documents: UserDocument[];
   assignedInstructor: { firstName: string; lastName: string } | null;
   subscription: { tier: SubscriptionTier; startsAt: Date; endsAt: Date } | null;
+  payments: Payment[];
+  installmentPlans: (InstallmentPlan & { installments: Installment[] })[];
 };
 
 type UserManagementProps = {

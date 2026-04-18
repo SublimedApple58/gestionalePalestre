@@ -32,10 +32,10 @@ function buildSubscriptionRange(tier, startsAt = new Date()) {
   switch (tier) {
     case SubscriptionTier.MONTHLY:
       return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 1) };
-    case SubscriptionTier.QUARTERLY:
-      return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 3) };
     case SubscriptionTier.YEARLY:
       return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 12) };
+    case SubscriptionTier.BIENNIAL:
+      return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 24) };
     default:
       return { startsAt: normalizedStart, endsAt: addMonths(normalizedStart, 1) };
   }

@@ -13,6 +13,7 @@ import {
 import { openGymDoorAction } from "@/app/actions/dashboard-actions";
 import { roleLabel } from "@/lib/roles";
 
+import { BirthdayBanner } from "./birthday-banner";
 import { DocumentReviewTable } from "./document-review-table";
 import { MaskedAccessCode } from "../ui/masked-access-code";
 import { UserAvatar } from "../ui/user-avatar";
@@ -60,6 +61,9 @@ export function AdminDashboard({
 
   return (
     <div className="dash-content">
+      {/* ── Banner compleanni (oggi + domani) ────────────────────── */}
+      <BirthdayBanner />
+
       {/* ── Quick actions row ────────────────────────────────────── */}
       <div className="dash-grid-2col">
         {/* Codice admin */}

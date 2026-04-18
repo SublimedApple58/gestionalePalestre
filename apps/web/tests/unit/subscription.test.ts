@@ -3,12 +3,12 @@ import { SubscriptionTier } from "@gestionale/db";
 import { computeSubscriptionEndDate, isSubscriptionActive } from "@/lib/subscription";
 
 describe("subscription utils", () => {
-  it("calcola correttamente la data di fine per il piano trimestrale", () => {
+  it("calcola correttamente la data di fine per il piano biennale", () => {
     const startsAt = new Date("2026-01-15T00:00:00.000Z");
-    const endsAt = computeSubscriptionEndDate(SubscriptionTier.QUARTERLY, startsAt);
+    const endsAt = computeSubscriptionEndDate(SubscriptionTier.BIENNIAL, startsAt);
 
-    expect(endsAt.getUTCFullYear()).toBe(2026);
-    expect(endsAt.getUTCMonth()).toBe(3);
+    expect(endsAt.getUTCFullYear()).toBe(2028);
+    expect(endsAt.getUTCMonth()).toBe(0);
     expect(endsAt.getUTCDate()).toBe(15);
   });
 

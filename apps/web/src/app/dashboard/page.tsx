@@ -118,10 +118,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {currentUser.role === UserRole.SUBSCRIBER ? (
           <SubscriberView
             accessCode={currentUser.accessCode}
+            firstName={currentUser.firstName}
             assignedInstructor={currentUser.assignedInstructor}
             documents={currentUser.documents}
             subscription={currentUser.subscription}
             workoutPlan={currentUser.workoutPlan}
+            isBirthdayToday={isSameMonthDay(currentUser.dateOfBirth, new Date())}
           />
         ) : null}
       </main>
@@ -133,6 +135,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
 type SubscriberViewProps = {
   accessCode: string;
+  firstName: string;
   assignedInstructor: {
     id: string;
     firstName: string;
@@ -142,14 +145,17 @@ type SubscriberViewProps = {
   documents: Parameters<typeof SubscriberDashboard>[0]["documents"];
   subscription: Parameters<typeof SubscriberDashboard>[0]["subscription"];
   workoutPlan: Parameters<typeof SubscriberDashboard>[0]["workoutPlan"];
+  isBirthdayToday: boolean;
 };
 
 async function SubscriberView({
   accessCode,
+  firstName,
   assignedInstructor,
   documents,
   subscription,
-  workoutPlan
+  workoutPlan,
+  isBirthdayToday
 }: SubscriberViewProps) {
   const instructorPhotoUrl = assignedInstructor
     ? await getProfilePhotoUrl(assignedInstructor.id)
@@ -159,14 +165,25 @@ async function SubscriberView({
     <>
       <SubscriberDashboard
         accessCode={accessCode}
+        firstName={firstName}
         assignedInstructor={assignedInstructor}
         instructorPhotoUrl={instructorPhotoUrl}
         documents={documents}
         subscription={subscription}
         workoutPlan={workoutPlan}
+        isBirthdayToday={isBirthdayToday}
       />
       <SubscriberDocumentOnboarding documents={documents} />
     </>
+  );
+}
+
+function isSameMonthDay(dateOfBirth: Date | null | undefined, reference: Date): boolean {
+  if (!dateOfBirth) return false;
+  const dob = new Date(dateOfBirth);
+  return (
+    dob.getUTCMonth() === reference.getUTCMonth() &&
+    dob.getUTCDate() === reference.getUTCDate()
   );
 }
 

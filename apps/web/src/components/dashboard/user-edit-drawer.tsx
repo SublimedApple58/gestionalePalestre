@@ -7,8 +7,14 @@ import {
   DocumentSide,
   DocumentStatus,
   DocumentType,
+  InstallmentStatus,
+  PaymentProvider,
+  PaymentStatus,
   SubscriptionTier,
   UserRole,
+  type Installment,
+  type InstallmentPlan,
+  type Payment,
   type UserDocument
 } from "@gestionale/db";
 
@@ -23,7 +29,7 @@ import {
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { roleLabel } from "@/lib/roles";
-import { tierLabel } from "@/lib/subscription";
+import { formatEuroCents, tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -40,6 +46,8 @@ export type DrawerUserRow = {
   assignedInstructor: { firstName: string; lastName: string } | null;
   documents: UserDocument[];
   subscription: { tier: SubscriptionTier; startsAt: Date; endsAt: Date } | null;
+  payments: Payment[];
+  installmentPlans: (InstallmentPlan & { installments: Installment[] })[];
 };
 
 type UserEditDrawerProps = {
@@ -58,8 +66,8 @@ const ROLE_OPTIONS = [
 
 const SUBSCRIPTION_OPTIONS = [
   { value: SubscriptionTier.MONTHLY, label: "Mensile" },
-  { value: SubscriptionTier.QUARTERLY, label: "Trimestrale" },
-  { value: SubscriptionTier.YEARLY, label: "Annuale" }
+  { value: SubscriptionTier.YEARLY, label: "Annuale" },
+  { value: SubscriptionTier.BIENNIAL, label: "Biennale" }
 ];
 
 const DOC_SLOTS: { type: DocumentType; side: DocumentSide; label: string }[] = [
@@ -75,6 +83,51 @@ const ROLE_TAG_COLOR: Record<UserRole, string> = {
   [UserRole.INSTRUCTOR]: "blue",
   [UserRole.SUBSCRIBER]: "default"
 };
+
+function PaymentStatusTag({ status }: { status: PaymentStatus }) {
+  switch (status) {
+    case PaymentStatus.PAID:
+      return <Tag color="success">Pagato</Tag>;
+    case PaymentStatus.PENDING:
+      return <Tag color="processing">In attesa</Tag>;
+    case PaymentStatus.AUTHORIZED:
+      return <Tag color="processing">Autorizzato</Tag>;
+    case PaymentStatus.FAILED:
+      return <Tag color="error">Fallito</Tag>;
+    case PaymentStatus.CANCELED:
+      return <Tag color="default">Annullato</Tag>;
+    case PaymentStatus.REFUNDED:
+      return <Tag color="warning">Rimborsato</Tag>;
+    default:
+      return <Tag>{status}</Tag>;
+  }
+}
+
+function InstallmentStatusTag({ status }: { status: InstallmentStatus }) {
+  switch (status) {
+    case InstallmentStatus.PAID:
+      return <Tag color="success">Pagata</Tag>;
+    case InstallmentStatus.SCHEDULED:
+      return <Tag color="default">Programmata</Tag>;
+    case InstallmentStatus.FAILED:
+      return <Tag color="error">Fallita</Tag>;
+    case InstallmentStatus.REFUNDED:
+      return <Tag color="warning">Rimborsata</Tag>;
+    default:
+      return <Tag>{status}</Tag>;
+  }
+}
+
+function providerLabel(provider: PaymentProvider): string {
+  switch (provider) {
+    case PaymentProvider.SUMUP:
+      return "SumUp";
+    case PaymentProvider.KLARNA:
+      return "Klarna";
+    default:
+      return provider;
+  }
+}
 
 function DocStatusTag({ status }: { status: DocumentStatus | undefined }) {
   if (!status) return <Tag color="default">Non caricato</Tag>;
@@ -308,6 +361,87 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
               </Button>
             </form>
           </section>
+        </div>
+      )
+    },
+    {
+      key: "pagamenti",
+      label: "Pagamenti",
+      children: (
+        <div className="drawer-tab-content">
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Storico pagamenti</h4>
+            {user.payments.length === 0 ? (
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                Nessun pagamento registrato per questo utente.
+              </Text>
+            ) : (
+              <ul className="user-drawer-payments-list">
+                {user.payments.map((p) => (
+                  <li key={p.id} className="user-drawer-payment-row">
+                    <div className="user-drawer-payment-main">
+                      <span className="user-drawer-payment-amount">
+                        {formatEuroCents(p.amountCents)}
+                      </span>
+                      <span className="user-drawer-payment-meta">
+                        {providerLabel(p.provider)} · {tierLabel(p.tier)}
+                      </span>
+                    </div>
+                    <div className="user-drawer-payment-right">
+                      <PaymentStatusTag status={p.status} />
+                      <span className="user-drawer-payment-date">
+                        {new Date(p.paidAt ?? p.createdAt).toLocaleDateString("it-IT")}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {user.installmentPlans.length > 0 && (
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Piani rateali</h4>
+              {user.installmentPlans.map((plan) => {
+                const paid = plan.installments.filter(
+                  (i) => i.status === InstallmentStatus.PAID
+                ).length;
+                return (
+                  <div key={plan.id} className="user-drawer-plan">
+                    <div className="user-drawer-plan-header">
+                      <span className="user-drawer-plan-title">
+                        {plan.installmentsCount} rate da{" "}
+                        {formatEuroCents(plan.installmentAmountCents)}
+                      </span>
+                      <Tag color={plan.status === "ACTIVE" ? "processing" : "default"}>
+                        {plan.status}
+                      </Tag>
+                    </div>
+                    <div className="user-drawer-plan-progress">
+                      {paid} / {plan.installmentsCount} pagate · totale{" "}
+                      {formatEuroCents(plan.totalAmountCents)}
+                    </div>
+                    <ul className="user-drawer-installment-list">
+                      {plan.installments.map((inst) => (
+                        <li key={inst.id} className="user-drawer-installment-row">
+                          <span className="user-drawer-installment-num">
+                            #{inst.sequenceNumber}
+                          </span>
+                          <span className="user-drawer-installment-date">
+                            {new Date(inst.dueAt).toLocaleDateString("it-IT")}
+                          </span>
+                          <span className="user-drawer-installment-amount">
+                            {formatEuroCents(inst.amountCents)}
+                          </span>
+                          <InstallmentStatusTag status={inst.status} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          )}
         </div>
       )
     },

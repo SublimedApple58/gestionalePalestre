@@ -40,6 +40,18 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
         documents: true,
         assignedInstructor: {
           select: { firstName: true, lastName: true }
+        },
+        payments: {
+          orderBy: { createdAt: "desc" },
+          take: 20
+        },
+        installmentPlans: {
+          include: {
+            installments: {
+              orderBy: { sequenceNumber: "asc" }
+            }
+          },
+          orderBy: { createdAt: "desc" }
         }
       },
       orderBy: [{ role: "asc" }, { lastName: "asc" }]

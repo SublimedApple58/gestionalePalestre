@@ -25,12 +25,14 @@ import {
 } from "@/lib/documents";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 
+import { BirthdayCelebration } from "./birthday-celebration";
 import { MaskedAccessCode } from "../ui/masked-access-code";
 import { UserAvatar } from "../ui/user-avatar";
 import { WeeklyPlanForm } from "../ui/weekly-plan-form";
 
 type SubscriberDashboardProps = {
   accessCode: string;
+  firstName: string;
   workoutPlan: WorkoutPlan | null;
   subscription: {
     tier: SubscriptionTier;
@@ -44,15 +46,19 @@ type SubscriberDashboardProps = {
   } | null;
   instructorPhotoUrl?: string | null;
   documents: UserDocument[];
+  /** True se oggi è il compleanno dell'utente (match mese+giorno, non anno). */
+  isBirthdayToday: boolean;
 };
 
 export function SubscriberDashboard({
   accessCode,
+  firstName,
   workoutPlan,
   subscription,
   assignedInstructor,
   instructorPhotoUrl,
-  documents
+  documents,
+  isBirthdayToday
 }: SubscriberDashboardProps) {
   const subscriptionActive = isSubscriptionActive(subscription);
   const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents);
@@ -83,6 +89,8 @@ export function SubscriberDashboard({
 
   return (
     <div className="dash-content">
+      {isBirthdayToday ? <BirthdayCelebration firstName={firstName} /> : null}
+
       {/* ── Quick stats row ───────────────────────────────────────── */}
       <div className="dash-stats-row">
         <QuickStat

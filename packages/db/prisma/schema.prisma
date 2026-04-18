@@ -16,8 +16,36 @@ enum UserRole {
 
 enum SubscriptionTier {
   MONTHLY
-  QUARTERLY
   YEARLY
+  BIENNIAL
+}
+
+enum PaymentProvider {
+  SUMUP
+  KLARNA
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum InstallmentPlanStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  CANCELED
+}
+
+enum InstallmentStatus {
+  SCHEDULED
+  PAID
+  FAILED
+  REFUNDED
 }
 
 enum AccessEventType {
@@ -79,6 +107,8 @@ model User {
   sessions              Session[]
   accounts              Account[]
   subscriptionsAssigned UserSubscription[] @relation("AdminAssignedSubscriptions")
+  payments              Payment[]
+  installmentPlans      InstallmentPlan[]
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -215,6 +245,67 @@ model Session {
   updatedAt    DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Payment {
+  id                 String           @id @default(cuid())
+  userId             String
+  subscriptionId     String?
+  provider           PaymentProvider
+  providerReference  String
+  amountCents        Int
+  currency           String           @default("EUR") @db.VarChar(3)
+  status             PaymentStatus    @default(PENDING)
+  tier               SubscriptionTier
+  paidAt             DateTime?
+  failureReason      String?
+  rawWebhookPayload  Json?
+  installmentPlan    InstallmentPlan?
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([providerReference, provider])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model InstallmentPlan {
+  id                     String                @id @default(cuid())
+  paymentId              String                @unique
+  userId                 String
+  totalAmountCents       Int
+  installmentsCount      Int
+  installmentAmountCents Int
+  klarnaOrderId          String?
+  firstChargeAt          DateTime
+  status                 InstallmentPlanStatus @default(ACTIVE)
+  payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installments           Installment[]
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([userId, status])
+  @@index([status, firstChargeAt])
+}
+
+model Installment {
+  id               String            @id @default(cuid())
+  planId           String
+  sequenceNumber   Int
+  dueAt            DateTime
+  amountCents      Int
+  status           InstallmentStatus @default(SCHEDULED)
+  paidAt           DateTime?
+  klarnaCaptureId  String?
+  failureReason    String?
+  plan             InstallmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([planId, sequenceNumber])
+  @@index([status, dueAt])
 }
 
 model VerificationToken {

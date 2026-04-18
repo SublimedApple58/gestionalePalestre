@@ -1,6 +1,6 @@
 import { UserRole } from "@gestionale/db";
 
-export type AppNavHref = "/dashboard" | "/utenti" | "/profilo";
+export type AppNavHref = "/dashboard" | "/utenti" | "/profilo" | "/checkout";
 
 export type AppNavItem = {
   href: AppNavHref;
@@ -8,20 +8,21 @@ export type AppNavItem = {
   active: boolean;
 };
 
-const BASE_ITEMS: Array<Pick<AppNavItem, "href" | "label">> = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/profilo", label: "Dati personali" }
-];
-
-const ADMIN_EXTRA_ITEMS: Array<Pick<AppNavItem, "href" | "label">> = [
-  { href: "/utenti", label: "Utenti" }
-];
+const DASHBOARD_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/dashboard", label: "Dashboard" };
+const PROFILE_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/profilo", label: "Dati personali" };
+const USERS_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/utenti", label: "Utenti" };
+const CHECKOUT_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/checkout", label: "Abbonamento" };
 
 export function getAppNavigationItems(currentPath: string, role?: UserRole): AppNavItem[] {
-  const items: Array<Pick<AppNavItem, "href" | "label">> =
-    role === UserRole.ADMIN
-      ? [BASE_ITEMS[0]!, ...ADMIN_EXTRA_ITEMS, BASE_ITEMS[1]!]
-      : [...BASE_ITEMS];
+  let items: Array<Pick<AppNavItem, "href" | "label">>;
+
+  if (role === UserRole.ADMIN) {
+    items = [DASHBOARD_ITEM, USERS_ITEM, PROFILE_ITEM];
+  } else if (role === UserRole.SUBSCRIBER) {
+    items = [DASHBOARD_ITEM, CHECKOUT_ITEM, PROFILE_ITEM];
+  } else {
+    items = [DASHBOARD_ITEM, PROFILE_ITEM];
+  }
 
   return items.map((item) => ({
     ...item,
