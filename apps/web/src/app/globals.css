@@ -3032,6 +3032,40 @@ tbody tr:hover td:first-child {
   font-size: 11px;
 }
 
+/* Logo image variant: clips the House of Muscle JPEG inside the same 38×38 mark.
+   Usato in sidebar desktop + header mobile; nessun layout shift perché dimensioni
+   sono identiche al mark testuale sostituito. */
+.sidebar-brand-mark-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 10px;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Logo centrato sopra le auth card (login + register) — circle 72px, stesso
+   linguaggio visivo del logo hero della landing ma adattato al contesto card. */
+.auth-brand-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #000;
+  box-shadow: 0 10px 28px rgba(223, 37, 49, 0.35);
+  margin: 0 auto 4px;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-brand-logo { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+}
+
 /* Bottom nav link */
 .bottom-nav-link {
   flex: 1;

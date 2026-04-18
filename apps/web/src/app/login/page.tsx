@@ -32,6 +32,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="auth-shell">
       <section className="auth-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.jpeg" alt="House of Muscle" className="auth-brand-logo" />
         <p className="eyebrow">Gestionale Palestre</p>
         <h1>Accedi</h1>
         <p className="subtitle">Area role-based per admin, istruttori e iscritti.</p>

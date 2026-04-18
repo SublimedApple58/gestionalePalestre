@@ -50,7 +50,9 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
     <>
       {/* Brand */}
       <div className="sidebar-brand">
-        <span className="sidebar-brand-mark" aria-hidden="true">GP</span>
+        <span className="sidebar-brand-mark" aria-hidden="true">
+          <img src="/logo.jpeg" alt="" className="sidebar-brand-mark-logo" />
+        </span>
         <div>
           <Text className="sidebar-brand-kicker">Gestionale Palestre</Text>
           <Text className="sidebar-brand-title">HOUSE OF MUSCLE</Text>
@@ -122,7 +124,9 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
             className="mobile-burger"
           />
           <div className="mobile-header-brand">
-            <span className="sidebar-brand-mark sidebar-brand-mark-small" aria-hidden="true">GP</span>
+            <span className="sidebar-brand-mark sidebar-brand-mark-small" aria-hidden="true">
+              <img src="/logo.jpeg" alt="" className="sidebar-brand-mark-logo" />
+            </span>
             <Text strong style={{ color: "white", fontSize: 13, letterSpacing: "0.06em" }}>
               HOUSE OF MUSCLE
             </Text>

@@ -52,6 +52,8 @@ export function RegisterForm({ error }: RegisterFormProps) {
   if (step === 0) {
     return (
       <section className="auth-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.jpeg" alt="House of Muscle" className="auth-brand-logo" />
         <div className="auth-step-indicator">
           <span className="auth-step-dot active" />
           <span className="auth-step-connector" />
@@ -103,6 +105,8 @@ export function RegisterForm({ error }: RegisterFormProps) {
   /* ── Step 2 — indirizzo di residenza ─────────────────────────────────── */
   return (
     <section className="auth-card">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.jpeg" alt="House of Muscle" className="auth-brand-logo" />
       <div className="auth-step-indicator">
         <span className="auth-step-dot done" />
         <span className="auth-step-connector done" />
