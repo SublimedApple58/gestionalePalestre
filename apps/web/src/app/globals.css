@@ -3705,13 +3705,6 @@ tbody tr:hover td:first-child {
   border-radius: 999px;
 }
 
-.checkout-tier-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .checkout-tier-kicker {
   font-size: 11px;
   font-weight: 700;
@@ -3727,7 +3720,8 @@ tbody tr:hover td:first-child {
 .checkout-tier-savings-chip {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  align-self: flex-start;
+  padding: 4px 10px;
   background: rgba(108, 229, 181, 0.1);
   border: 1px solid rgba(108, 229, 181, 0.28);
   color: #6ce5b5;

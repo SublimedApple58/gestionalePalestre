@@ -150,12 +150,7 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
                 </span>
               ) : null}
 
-              <div className="checkout-tier-head">
-                <p className="checkout-tier-kicker">{tierLabel(t.tier).toUpperCase()}</p>
-                {savingsPct ? (
-                  <span className="checkout-tier-savings-chip">−{savingsPct}%</span>
-                ) : null}
-              </div>
+              <p className="checkout-tier-kicker">{tierLabel(t.tier).toUpperCase()}</p>
 
               <div className="checkout-tier-price">
                 <span className="checkout-tier-price-value">
@@ -163,6 +158,12 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
                 </span>
                 <span className="checkout-tier-price-unit">{TIER_COPY[t.tier].unitLabel}</span>
               </div>
+
+              {savingsPct ? (
+                <span className="checkout-tier-savings-chip">
+                  −{savingsPct}% rispetto al mensile
+                </span>
+              ) : null}
 
               {installmentsPreview ? (
                 <p className="checkout-tier-installments-label">
