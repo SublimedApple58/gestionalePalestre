@@ -46,6 +46,9 @@ export async function createCheckout(input: CreateCheckoutInput): Promise<SumUpC
   const apiKey = requireEnv("SUMUP_API_KEY");
   const merchantCode = requireEnv("SUMUP_MERCHANT_CODE");
 
+  // `hosted_checkout.enabled: true` + `redirect_url` sono richiesti per ricevere
+  // `hosted_checkout_url` nella response — senza questi flag SumUp crea un checkout
+  // "two-step" che richiede un PUT server-side coi dati carta (non hosted).
   const body = {
     checkout_reference: input.reference,
     amount: input.amountCents / 100,
@@ -53,7 +56,9 @@ export async function createCheckout(input: CreateCheckoutInput): Promise<SumUpC
     merchant_code: merchantCode,
     description: input.description,
     return_url: input.returnUrl,
-    customer_email: input.customerEmail
+    redirect_url: input.returnUrl,
+    customer_email: input.customerEmail,
+    hosted_checkout: { enabled: true }
   };
 
   const response = await fetch(`${SUMUP_BASE_URL}/v0.1/checkouts`, {
@@ -77,13 +82,20 @@ export async function createCheckout(input: CreateCheckoutInput): Promise<SumUpC
     id: string;
     checkout_reference: string;
     status: SumUpCheckout["status"];
+    hosted_checkout_url?: string;
   };
+
+  if (!data.hosted_checkout_url) {
+    throw new Error(
+      `[sumup] createCheckout: response priva di hosted_checkout_url — verifica che l'account abbia la feature Hosted Checkout abilitata`
+    );
+  }
 
   return {
     id: data.id,
     checkoutReference: data.checkout_reference,
     status: data.status,
-    hostedUrl: `https://checkout.sumup.com/pay/${data.id}`
+    hostedUrl: data.hosted_checkout_url
   };
 }
 
@@ -117,13 +129,15 @@ export async function getCheckout(checkoutId: string): Promise<SumUpCheckout | n
     id: string;
     checkout_reference: string;
     status: SumUpCheckout["status"];
+    hosted_checkout_url?: string;
   };
 
   return {
     id: data.id,
     checkoutReference: data.checkout_reference,
     status: data.status,
-    hostedUrl: `https://checkout.sumup.com/pay/${data.id}`
+    // In fase di GET potrebbe non essere presente (checkout scaduto o non-hosted): non è bloccante.
+    hostedUrl: data.hosted_checkout_url ?? ""
   };
 }
 
