@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Check, CreditCard, Info, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Info, Lock, Sparkles } from "lucide-react";
 
 import { initiateCheckoutAction } from "@/app/actions/payment-actions";
 import {
@@ -31,35 +31,16 @@ type CheckoutFormProps = {
   activeSubscription: ActiveSubscription | null;
 };
 
-/** Sottotitolo + feature list per ogni tier — single source of truth lato client. */
-const TIER_COPY: Record<
-  CheckoutTier,
-  { tagline: string; features: string[] }
-> = {
-  MONTHLY: {
-    tagline: "Flessibilità totale, senza vincoli di durata.",
-    features: [
-      "Accesso sala pesi e cardio",
-      "Corsi di gruppo inclusi",
-      "Nessun vincolo di durata"
-    ]
-  },
-  YEARLY: {
-    tagline: "Il miglior equilibrio tra prezzo e costanza.",
-    features: [
-      "Tutto del piano mensile",
-      "Accesso ai corsi speciali",
-      "Blocco del prezzo per 12 mesi"
-    ]
-  },
-  BIENNIAL: {
-    tagline: "Il risparmio massimo per chi fa sul serio.",
-    features: [
-      "Tutto del piano annuale",
-      "Piano di allenamento personalizzato",
-      "Massimo risparmio totale"
-    ]
-  }
+/**
+ * Copy onesta per ogni tier: SOLO fatti veri sul prodotto — durata + accesso.
+ * Nessun claim di servizi inventati (niente "corsi di gruppo", "personal trainer",
+ * "schede personalizzate"): quelle cose le aggiunge l'admin o l'istruttore, non
+ * dipendono dal tipo di abbonamento.
+ */
+const TIER_COPY: Record<CheckoutTier, { durationLabel: string; unitLabel: string }> = {
+  MONTHLY: { durationLabel: "Durata 1 mese", unitLabel: "al mese" },
+  YEARLY: { durationLabel: "Durata 12 mesi", unitLabel: "all'anno" },
+  BIENNIAL: { durationLabel: "Durata 24 mesi", unitLabel: "per 24 mesi" }
 };
 
 const POPULAR_TIER: CheckoutTier = "YEARLY";
@@ -86,7 +67,6 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
 
   function handleTierSelect(tier: CheckoutTier) {
     setSelectedTier(tier);
-    // Se il nuovo tier non supporta le rate, ripiega a unica soluzione.
     const tierData = tiers.find((t) => t.tier === tier);
     if (!tierData?.installments) {
       setPayInInstallments(false);
@@ -109,46 +89,47 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
       })
     : null;
 
+  const summaryAmountLabel =
+    effectivePayMode === "installments" && selectedTierData.installments
+      ? `${selectedTierData.installments.count} × ${formatEuroCents(
+          selectedTierData.installments.amountCents
+        )}`
+      : formatEuroCents(selectedTierData.oneShotCents);
+
   return (
     <div className="checkout-container">
-      {/* ── Hero / intro ──────────────────────────────────────── */}
+      {/* ── Hero / intro ─────────────────────────────────────────── */}
       <header className="checkout-hero">
-        <p className="checkout-hero-kicker">Abbonamenti</p>
-        <h1 className="checkout-hero-title">Scegli il tuo abbonamento</h1>
+        <p className="checkout-hero-kicker">Abbonamento</p>
+        <h1 className="checkout-hero-title">Scegli il tuo piano</h1>
         <p className="checkout-hero-sub">
-          Attiva subito l&apos;accesso alla palestra. Pagamento sicuro con carta,
-          {" "}
-          {klarnaEnabled
-            ? "rate disponibili con Klarna sui piani annuale e biennale."
-            : "rate Klarna in arrivo per i piani annuale e biennale."}
+          Paga una volta, rinnova quando ti pare. Nessun rinnovo automatico.
         </p>
       </header>
 
-      {/* ── Subscription attuale (opzionale) ──────────────────── */}
+      {/* ── Banner abbonamento già attivo (rinnovo) ──────────────── */}
       {activeSubscription && activeEndsAtLabel ? (
         <div className="checkout-active-banner" role="status">
           <Info size={16} aria-hidden="true" className="checkout-active-banner-icon" />
           <p className="checkout-active-banner-text">
-            Hai già un abbonamento <strong>{tierLabel(activeSubscription.tier as CheckoutTier)}</strong>{" "}
+            Hai un abbonamento <strong>{tierLabel(activeSubscription.tier as CheckoutTier)}</strong>{" "}
             attivo fino al <strong>{activeEndsAtLabel}</strong>. Rinnovando ora il nuovo
             periodo partirà alla scadenza.
           </p>
         </div>
       ) : null}
 
-      {/* ── Tier cards ────────────────────────────────────────── */}
+      {/* ── Tier cards ───────────────────────────────────────────── */}
       <div className="checkout-tiers" role="radiogroup" aria-label="Scegli un piano">
         {tiers.map((t) => {
           const isSelected = t.tier === selectedTier;
           const isPopular = t.tier === POPULAR_TIER;
-          const canInstallments = klarnaEnabled && Boolean(t.installments);
           const installmentsPreview = t.installments
             ? `${t.installments.count} × ${formatEuroCents(t.installments.amountCents)}`
             : null;
-
-          const savingsVsMonthly =
+          const savingsPct =
             t.tier !== "MONTHLY"
-              ? computeSavings(t.oneShotCents, monthlyPriceCents, t.tier)
+              ? computeSavingsPct(t.oneShotCents, monthlyPriceCents, t.tier)
               : null;
 
           return (
@@ -169,62 +150,58 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
                 </span>
               ) : null}
 
-              <p className="checkout-tier-kicker">{tierLabel(t.tier).toUpperCase()}</p>
+              <div className="checkout-tier-head">
+                <p className="checkout-tier-kicker">{tierLabel(t.tier).toUpperCase()}</p>
+                {savingsPct ? (
+                  <span className="checkout-tier-savings-chip">−{savingsPct}%</span>
+                ) : null}
+              </div>
 
               <div className="checkout-tier-price">
                 <span className="checkout-tier-price-value">
                   {formatEuroCents(t.oneShotCents)}
                 </span>
-                <span className="checkout-tier-price-unit">
-                  {t.tier === "MONTHLY"
-                    ? "/ al mese"
-                    : t.tier === "YEARLY"
-                    ? "/ all'anno"
-                    : "/ per 24 mesi"}
-                </span>
+                <span className="checkout-tier-price-unit">{TIER_COPY[t.tier].unitLabel}</span>
               </div>
 
-              {savingsVsMonthly ? (
-                <p className="checkout-tier-savings">Risparmi {savingsVsMonthly}</p>
-              ) : null}
-
-              <p className="checkout-tier-tagline">{TIER_COPY[t.tier].tagline}</p>
-
-              <p className="checkout-tier-installments-label">
-                {t.installments
-                  ? canInstallments
-                    ? `Oppure ${installmentsPreview} con Klarna`
-                    : `Rate ${installmentsPreview} — in arrivo con Klarna`
-                  : "Rate non disponibili"}
-              </p>
+              {installmentsPreview ? (
+                <p className="checkout-tier-installments-label">
+                  oppure {installmentsPreview}
+                </p>
+              ) : (
+                <p className="checkout-tier-installments-label-empty">&nbsp;</p>
+              )}
 
               <ul className="checkout-tier-features">
-                {TIER_COPY[t.tier].features.map((f) => (
-                  <li key={f}>
-                    <span className="checkout-tier-feature-icon" aria-hidden="true">
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                    <span>{f}</span>
-                  </li>
-                ))}
+                <li>
+                  <span className="checkout-tier-feature-icon" aria-hidden="true">
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                  <span>Accesso illimitato alla palestra</span>
+                </li>
+                <li>
+                  <span className="checkout-tier-feature-icon" aria-hidden="true">
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                  <span>{TIER_COPY[t.tier].durationLabel}</span>
+                </li>
               </ul>
+
+              <span className="checkout-tier-select-hint">
+                {isSelected ? "Selezionato" : "Seleziona"}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Summary + toggle rate + CTA ───────────────────────── */}
+      {/* ── Summary + toggle rate + CTA ──────────────────────────── */}
       <section className="checkout-summary" aria-label="Riepilogo e pagamento">
         <div className="checkout-summary-row">
           <div className="checkout-summary-info">
-            <p className="checkout-summary-label">Piano selezionato</p>
+            <p className="checkout-summary-label">Stai acquistando</p>
             <p className="checkout-summary-value">
-              {tierLabel(selectedTier)} ·{" "}
-              {effectivePayMode === "installments" && selectedTierData.installments
-                ? `${selectedTierData.installments.count} × ${formatEuroCents(
-                    selectedTierData.installments.amountCents
-                  )}`
-                : formatEuroCents(selectedTierData.oneShotCents)}
+              {tierLabel(selectedTier)} · {summaryAmountLabel}
             </p>
           </div>
 
@@ -277,15 +254,14 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
             className="button button-primary checkout-cta"
             disabled={isPending}
           >
-            <CreditCard size={16} aria-hidden="true" />
             {isPending ? "Reindirizzamento al pagamento…" : "Vai al pagamento"}
+            <ArrowRight size={18} aria-hidden="true" />
           </button>
         </form>
 
         <p className="checkout-trust">
           <Lock size={12} aria-hidden="true" />
-          Pagamento sicuro — carta tramite SumUp
-          {klarnaEnabled ? ", rate con Klarna" : ""}.
+          Pagamento sicuro gestito da SumUp.
         </p>
       </section>
     </div>
@@ -293,18 +269,20 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
 }
 
 /**
- * Calcola un risparmio "indicativo" rispetto al piano mensile, utile come badge UX.
- * Non è un claim contrattuale: arrotondiamo per eccesso sui centesimi.
+ * Calcola la percentuale di sconto rispetto al costo mensile equivalente.
+ * Esempio: YEARLY = 450€ vs 12×70€ = 840€ → −46%.
+ * Usata come "chip" visivo sulle card annuale/biennale.
  */
-function computeSavings(
+function computeSavingsPct(
   tierCents: number,
   monthlyCents: number,
   tier: CheckoutTier
-): string | null {
+): number | null {
   const months = tier === "YEARLY" ? 12 : tier === "BIENNIAL" ? 24 : 0;
   if (months === 0) return null;
   const monthlyEquivalent = months * monthlyCents;
+  if (monthlyEquivalent <= 0) return null;
   const savings = monthlyEquivalent - tierCents;
   if (savings <= 0) return null;
-  return formatEuroCents(savings);
+  return Math.round((savings / monthlyEquivalent) * 100);
 }

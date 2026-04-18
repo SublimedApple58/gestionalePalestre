@@ -3705,6 +3705,13 @@ tbody tr:hover td:first-child {
   border-radius: 999px;
 }
 
+.checkout-tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .checkout-tier-kicker {
   font-size: 11px;
   font-weight: 700;
@@ -3717,18 +3724,33 @@ tbody tr:hover td:first-child {
   color: var(--brand);
 }
 
+.checkout-tier-savings-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  background: rgba(108, 229, 181, 0.1);
+  border: 1px solid rgba(108, 229, 181, 0.28);
+  color: #6ce5b5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
 .checkout-tier-price {
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .checkout-tier-price-value {
-  font-size: 44px;
-  font-weight: 700;
+  font-size: 52px;
+  font-weight: 800;
   color: #fff;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -3738,32 +3760,41 @@ tbody tr:hover td:first-child {
   color: var(--text-muted);
 }
 
-.checkout-tier-savings {
-  display: inline-block;
-  margin: 0;
-  padding: 3px 10px;
-  background: rgba(108, 229, 181, 0.1);
-  border: 1px solid rgba(108, 229, 181, 0.25);
-  color: #6ce5b5;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  align-self: flex-start;
-}
-
-.checkout-tier-tagline {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 20px;
-}
-
 .checkout-tier-installments-label {
   margin: 0;
-  padding-top: 10px;
+  padding: 10px 0;
   border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+
+/* Placeholder per allineare verticalmente le card senza opzione rate. */
+.checkout-tier-installments-label-empty {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.04);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  line-height: 20px;
+  visibility: hidden;
+}
+
+.checkout-tier-select-hint {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  transition: color 180ms ease;
+}
+
+.checkout-tier-card.selected .checkout-tier-select-hint,
+.checkout-tier-card:hover .checkout-tier-select-hint {
+  color: var(--brand);
 }
 
 .checkout-tier-features {
@@ -4079,7 +4110,113 @@ tbody tr:hover td:first-child {
   }
 
   .checkout-tier-price-value {
-    font-size: 38px;
+    font-size: 44px;
+  }
+}
+
+/* ─── SUBSCRIBER EMPTY STATE (no active subscription) ───────────────────── */
+/* Mostrato quando l'iscritto atterra sulla dashboard senza abbonamento attivo:
+   sostituisce la dashboard "normale" con un hero pieno che spinge diretto
+   a /checkout. Evita card metriche vuote/confuse. */
+.sub-empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  padding: 64px 28px 56px;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(223, 37, 49, 0.18),
+      rgba(223, 37, 49, 0) 60%
+    ),
+    linear-gradient(180deg, rgba(22, 22, 30, 0.85), rgba(12, 12, 18, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.sub-empty-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: rgba(223, 37, 49, 0.12);
+  border: 1px solid rgba(223, 37, 49, 0.3);
+  border-radius: 20px;
+  color: var(--brand);
+}
+
+.sub-empty-hero-title {
+  margin: 0;
+  font-size: clamp(26px, 3.6vw, 34px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.sub-empty-hero-sub {
+  margin: 0;
+  max-width: 500px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-muted);
+}
+
+.sub-empty-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 8px;
+  box-shadow: 0 10px 28px rgba(223, 37, 49, 0.3);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.sub-empty-hero-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(223, 37, 49, 0.38);
+}
+
+.sub-empty-hero-reassure {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 600px) {
+  .sub-empty-hero {
+    padding: 48px 20px 44px;
+    border-radius: 20px;
+  }
+
+  .sub-empty-hero-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  .sub-empty-hero-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sub-empty-hero-cta {
+    transition: none;
+  }
+  .sub-empty-hero-cta:hover {
+    transform: none;
   }
 }
 

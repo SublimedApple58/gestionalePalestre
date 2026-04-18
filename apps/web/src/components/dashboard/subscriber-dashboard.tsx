@@ -1,5 +1,8 @@
+import Link from "next/link";
 import {
+  ArrowRight,
   Calendar,
+  Dumbbell,
   DoorOpen,
   ShieldCheck,
   Star,
@@ -86,6 +89,48 @@ export function SubscriberDashboard({
     pendingTypes.length > 0 &&
     missingDocuments.length > 0 &&
     missingDocuments.every((type) => pendingTypes.includes(type));
+
+  // Empty-state: subscriber senza abbonamento attivo (null o scaduto).
+  // Saltiamo la dashboard "normale" e spingiamo diretto all'acquisto:
+  // nessuna card metrica vuota, niente noise — solo l'azione da fare.
+  if (!subscriptionActive) {
+    return (
+      <div className="dash-content">
+        {isBirthdayToday ? <BirthdayCelebration firstName={firstName} /> : null}
+
+        <section className="sub-empty-hero">
+          <div className="sub-empty-hero-icon" aria-hidden="true">
+            <Dumbbell size={40} />
+          </div>
+
+          <h1 className="sub-empty-hero-title">
+            {subscription ? "Abbonamento scaduto" : "Nessun abbonamento attivo"}
+          </h1>
+
+          <p className="sub-empty-hero-sub">
+            {subscription
+              ? `Il tuo abbonamento ${tierLabel(subscription.tier)} è scaduto il ${new Date(
+                  subscription.endsAt
+                ).toLocaleDateString("it-IT", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric"
+                })}. Rinnovalo per tornare ad allenarti.`
+              : "Attiva un piano per accedere alla palestra e alle tue schede di allenamento."}
+          </p>
+
+          <Link href="/checkout" className="button button-primary sub-empty-hero-cta">
+            {subscription ? "Rinnova ora" : "Scegli il piano"}
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+
+          <p className="sub-empty-hero-reassure">
+            Da 70€/mese · Nessun rinnovo automatico · Pagamento sicuro
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="dash-content">
