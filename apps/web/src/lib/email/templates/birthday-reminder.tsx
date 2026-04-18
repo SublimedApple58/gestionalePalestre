@@ -41,12 +41,14 @@ export function BirthdayReminderEmail({
     year: "numeric"
   });
 
+  const first = entries[0];
+
   return (
     <Html lang="it">
       <Head />
       <Preview>
-        {entries.length === 1
-          ? `Domani è il compleanno di ${entries[0].firstName} ${entries[0].lastName}`
+        {entries.length === 1 && first
+          ? `Domani è il compleanno di ${first.firstName} ${first.lastName}`
           : `Domani ci sono ${entries.length} compleanni tra i tuoi iscritti`}
       </Preview>
       <Body style={bodyStyle}>
