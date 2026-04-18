@@ -20,7 +20,18 @@ function isCheckoutTier(value: unknown): value is CheckoutTier {
  * su `/checkout/failure?reason=...`.
  */
 export async function initiateCheckoutAction(formData: FormData): Promise<void> {
-  const user = await requireRole([UserRole.SUBSCRIBER]);
+  const sessionUser = await requireRole([UserRole.SUBSCRIBER]);
+
+  // La sessione espone solo `name` concatenato — per passare first/last name a SumUp
+  // dobbiamo leggerli dal DB.
+  const user = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { id: true, firstName: true, lastName: true, email: true }
+  });
+
+  if (!user) {
+    redirect("/checkout/failure?reason=utente-non-trovato");
+  }
 
   const rawTier = formData.get("tier");
   const rawInstallments = formData.get("installments");
