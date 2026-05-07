@@ -17,8 +17,8 @@ export const dynamic = "force-dynamic";
  *
  * Chiamata dall'app mobile dopo che il browser sheet di SumUp si chiude tramite
  * deep link `houseofmuscle://checkout/success`. Forza la riconciliazione (la
- * stessa funzione idempotente usata anche dal cron `*/15 * * * *`) e restituisce
- * il nuovo stato della subscription.
+ * stessa funzione idempotente usata anche dal cron ogni 15 minuti) e
+ * restituisce il nuovo stato della subscription.
  *
  * Sicurezza: il payment deve appartenere all'utente autenticato (ownership check).
  */
