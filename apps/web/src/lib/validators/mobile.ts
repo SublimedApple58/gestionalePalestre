@@ -26,3 +26,48 @@ export const mobileInitiatePaymentSchema = z.object({
 export const mobileConfirmPaymentSchema = z.object({
   paymentId: z.string().min(1)
 });
+
+/** Body PATCH /api/mobile/me */
+export const mobileUpdateProfileSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "Nome obbligatorio").max(80).optional(),
+    lastName: z.string().trim().min(1, "Cognome obbligatorio").max(80).optional(),
+    phoneNumber: z
+      .string()
+      .trim()
+      .max(40)
+      .regex(/^[+]?[0-9 .\-/()]{6,40}$/, "Numero di telefono non valido")
+      .or(z.literal(""))
+      .optional(),
+    address: z.string().trim().max(240).or(z.literal("")).optional(),
+    dateOfBirth: z
+      .string()
+      .datetime({ offset: true })
+      .or(z.literal(""))
+      .nullable()
+      .optional()
+  })
+  .strict();
+
+/** Body POST /api/mobile/me/avatar/upload-url */
+export const mobileAvatarUploadUrlSchema = z.object({
+  fileName: z.string().min(1).max(120),
+  mimeType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(8 * 1024 * 1024) // 8 MB
+});
+
+/** Body POST /api/mobile/me/avatar/confirm */
+export const mobileAvatarConfirmSchema = z.object({
+  storageKey: z.string().min(1).max(400),
+  fileName: z.string().min(1).max(120),
+  mimeType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(8 * 1024 * 1024)
+});

@@ -2,7 +2,10 @@ import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { getProfilePhotoUrl } from "@/lib/profile-photo";
 import { isSubscriptionActive } from "@/lib/subscription";
+
+import { mobileUpdateProfileSchema } from "@/lib/validators/mobile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,20 +13,26 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/mobile/me
  * Auth: bearer access token
- * 200: { user, accessCode, subscription | null }
+ * 200: { user, accessCode, subscription | null, avatarUrl | null }
  *
  * Single source of truth per la home dell'app. Mantiene minimale il payload.
  */
 export const GET = withMobileAuth(async (_request, { user }) => {
-  const [profile, subscription] = await Promise.all([
+  const [profile, subscription, avatarUrl] = await Promise.all([
     db.user.findUnique({
       where: { id: user.id },
-      select: { accessCode: true }
+      select: {
+        accessCode: true,
+        phoneNumber: true,
+        address: true,
+        dateOfBirth: true
+      }
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
       select: { tier: true, startsAt: true, endsAt: true }
-    })
+    }),
+    getProfilePhotoUrl(user.id).catch(() => null)
   ]);
 
   if (!profile) {
@@ -46,9 +55,118 @@ export const GET = withMobileAuth(async (_request, { user }) => {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role
+      role: user.role,
+      phoneNumber: profile.phoneNumber,
+      address: profile.address,
+      dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.toISOString() : null
     },
     accessCode: profile.accessCode,
+    avatarUrl,
+    subscription: subscription
+      ? {
+          tier: subscription.tier,
+          startsAt: subscription.startsAt.toISOString(),
+          endsAt: subscription.endsAt.toISOString(),
+          isActive,
+          daysRemaining
+        }
+      : null
+  });
+});
+
+/**
+ * PATCH /api/mobile/me
+ * Auth: bearer access token
+ * Body: { firstName?, lastName?, phoneNumber?, address?, dateOfBirth? (ISO|null) }
+ * 200: payload identico a GET dopo update.
+ *
+ * Email NON è editabile dal mobile (è chiave login → richiede flusso verifica).
+ */
+export const PATCH = withMobileAuth(async (request, { user }) => {
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
+
+  const parsed = mobileUpdateProfileSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "INVALID_BODY", issues: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const data = parsed.data;
+  const update: Record<string, unknown> = {};
+
+  if (data.firstName !== undefined) update.firstName = data.firstName;
+  if (data.lastName !== undefined) update.lastName = data.lastName;
+  if (data.phoneNumber !== undefined) update.phoneNumber = data.phoneNumber || null;
+  if (data.address !== undefined) update.address = data.address || null;
+  if (data.dateOfBirth !== undefined) {
+    update.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "NO_FIELDS_TO_UPDATE" }, { status: 400 });
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: update
+  });
+
+  // Reload + same payload shape della GET per semplificare il client.
+  const [profile, subscription, avatarUrl] = await Promise.all([
+    db.user.findUnique({
+      where: { id: user.id },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        accessCode: true,
+        phoneNumber: true,
+        address: true,
+        dateOfBirth: true
+      }
+    }),
+    db.userSubscription.findUnique({
+      where: { userId: user.id },
+      select: { tier: true, startsAt: true, endsAt: true }
+    }),
+    getProfilePhotoUrl(user.id).catch(() => null)
+  ]);
+
+  if (!profile) {
+    return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  }
+
+  const now = new Date();
+  const isActive = isSubscriptionActive(subscription, now);
+  const daysRemaining =
+    subscription && isActive
+      ? Math.max(
+          0,
+          Math.ceil((subscription.endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        )
+      : 0;
+
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      email: profile.email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      role: profile.role,
+      phoneNumber: profile.phoneNumber,
+      address: profile.address,
+      dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.toISOString() : null
+    },
+    accessCode: profile.accessCode,
+    avatarUrl,
     subscription: subscription
       ? {
           tier: subscription.tier,
