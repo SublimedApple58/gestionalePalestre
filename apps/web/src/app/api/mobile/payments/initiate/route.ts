@@ -2,7 +2,7 @@ import { db, PaymentProvider, PaymentStatus } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
-import { createStripePaymentIntent, getStripePublishableKey } from "@/lib/payments/stripe";
+import { initiatePayment } from "@/lib/payments";
 import { TIER_CATALOG } from "@/lib/subscription";
 import { mobileInitiatePaymentSchema } from "@/lib/validators/mobile";
 
@@ -13,12 +13,15 @@ export const dynamic = "force-dynamic";
  * POST /api/mobile/payments/initiate
  * Auth: bearer access token
  * Body: { tier }
- * 200: { paymentId, clientSecret, publishableKey, amountCents, tier }
- * 4xx: { error }
+ * 200: { paymentId, hostedUrl, amountCents, tier }
  *
- * Crea un Payment(PENDING) provider=STRIPE e un Stripe PaymentIntent. Il
- * client (`@stripe/stripe-react-native`) usa `clientSecret` per aprire il
- * PaymentSheet con Apple/Google Pay nativi.
+ * Crea un Payment(PENDING) provider=SUMUP via lo stesso `initiatePayment` del
+ * web, ma con `returnUrl` che usa il custom scheme `houseofmuscle://` così a
+ * pagamento concluso SumUp redirige nell'app via deep link.
+ *
+ * Il client (mobile) apre `hostedUrl` con `expo-web-browser.openAuthSessionAsync`
+ * che intercetta automaticamente la redirect al custom scheme e ritorna il
+ * controllo all'app.
  */
 export const POST = withMobileAuth(async (request, { user }) => {
   let raw: unknown;
@@ -36,11 +39,11 @@ export const POST = withMobileAuth(async (request, { user }) => {
   const tier = parsed.data.tier as keyof typeof TIER_CATALOG;
   const tierConfig = TIER_CATALOG[tier];
 
-  // 1) Crea il Payment(PENDING) provider STRIPE — providerReference temporaneo.
+  // Crea il record Payment con un providerReference temporaneo.
   const payment = await db.payment.create({
     data: {
       userId: user.id,
-      provider: PaymentProvider.STRIPE,
+      provider: PaymentProvider.SUMUP,
       providerReference: `pending-${crypto.randomUUID()}`,
       amountCents: tierConfig.oneShotCents,
       currency: "EUR",
@@ -49,41 +52,47 @@ export const POST = withMobileAuth(async (request, { user }) => {
     }
   });
 
-  // 2) Crea il PaymentIntent su Stripe e salva l'intent.id come reference.
-  let clientSecret: string;
-  let publishableKey: string;
+  // Return URL via custom scheme dell'app mobile. expo-web-browser intercetta
+  // automaticamente questo schema e chiude il browser sheet.
+  const mobileReturnUrl = `houseofmuscle://checkout/success?pid=${payment.id}`;
+
   try {
-    const intent = await createStripePaymentIntent({
+    const initiated = await initiatePayment({
       tier,
-      paymentId: payment.id,
-      userId: user.id,
-      customerEmail: user.email
+      payInInstallments: false, // mobile Phase 1: solo pagamento unica soluzione
+      reference: payment.id,
+      returnUrl: mobileReturnUrl,
+      customer: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      }
     });
 
     await db.payment.update({
       where: { id: payment.id },
-      data: { providerReference: intent.paymentIntentId }
+      data: {
+        provider: initiated.provider,
+        providerReference: initiated.providerReference,
+        amountCents: initiated.amountCents
+      }
     });
 
-    clientSecret = intent.clientSecret;
-    publishableKey = getStripePublishableKey();
+    return NextResponse.json({
+      paymentId: payment.id,
+      hostedUrl: initiated.hostedUrl,
+      amountCents: initiated.amountCents,
+      tier
+    });
   } catch (error) {
-    console.error("[mobile/payments/initiate] Stripe failed:", error);
+    console.error("[mobile/payments/initiate] gateway failed:", error);
     await db.payment.update({
       where: { id: payment.id },
       data: {
         status: PaymentStatus.FAILED,
-        failureReason: error instanceof Error ? error.message : "Stripe error"
+        failureReason: error instanceof Error ? error.message : "Gateway error"
       }
     });
     return NextResponse.json({ error: "GATEWAY_ERROR" }, { status: 502 });
   }
-
-  return NextResponse.json({
-    paymentId: payment.id,
-    clientSecret,
-    publishableKey,
-    amountCents: tierConfig.oneShotCents,
-    tier
-  });
 });

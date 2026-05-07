@@ -58,9 +58,6 @@ importers:
       resend:
         specifier: ^6.0.1
         version: 6.12.0(@react-email/render@2.0.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
-      stripe:
-        specifier: ^22.1.1
-        version: 22.1.1(@types/node@25.6.0)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3524,15 +3521,6 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
-
-  stripe@22.1.1:
-    resolution: {integrity: sha512-cmodIYP27tBkJ8G7DuGgWw0PFuemlFZbuF3Wwr1TrjFjUa3T7NIgCe6TVwX8BO2ynu+xtTuDGfHafNDCPt9lXA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
 
   strnum@2.2.0:
     resolution: {integrity: sha512-Y7Bj8XyJxnPAORMZj/xltsfo55uOiyHcU2tnAVzHUnSJR/KsEX+9RoDeXEnsXtl/CX4fAcrt64gZ13aGaWPeBg==}
@@ -7867,10 +7855,6 @@ snapshots:
       min-indent: 1.0.1
 
   strip-json-comments@3.1.1: {}
-
-  stripe@22.1.1(@types/node@25.6.0):
-    optionalDependencies:
-      '@types/node': 25.6.0
 
   strnum@2.2.0: {}
 

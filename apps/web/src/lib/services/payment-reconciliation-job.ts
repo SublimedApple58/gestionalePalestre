@@ -1,6 +1,6 @@
 import { db, PaymentProvider, PaymentStatus } from "@gestionale/db";
 
-import { reconcileStripePayment, reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
+import { reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
 
 /**
  * Finestra di lookback (in giorni) per cercare Payment SumUp ancora PENDING.
@@ -33,11 +33,11 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
 
   const pendingPayments = await db.payment.findMany({
     where: {
-      provider: { in: [PaymentProvider.SUMUP, PaymentProvider.STRIPE] },
+      provider: PaymentProvider.SUMUP,
       status: PaymentStatus.PENDING,
       createdAt: { gte: cutoff }
     },
-    select: { id: true, provider: true }
+    select: { id: true }
   });
 
   const summary: ReconciliationJobSummary = {
@@ -48,12 +48,9 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
     errors: 0
   };
 
-  for (const { id, provider } of pendingPayments) {
+  for (const { id } of pendingPayments) {
     try {
-      const updated =
-        provider === PaymentProvider.STRIPE
-          ? await reconcileStripePayment(id)
-          : await reconcileSumUpPayment(id);
+      const updated = await reconcileSumUpPayment(id);
       if (!updated) {
         summary.errors += 1;
         continue;

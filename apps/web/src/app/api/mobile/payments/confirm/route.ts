@@ -2,7 +2,7 @@ import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
-import { reconcileStripePayment } from "@/lib/services/payment-reconciliation";
+import { reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { mobileConfirmPaymentSchema } from "@/lib/validators/mobile";
 
@@ -14,12 +14,11 @@ export const dynamic = "force-dynamic";
  * Auth: bearer access token
  * Body: { paymentId }
  * 200: { payment, subscription }
- * 4xx: { error }
  *
- * Chiamata dall'app subito dopo `presentPaymentSheet()` con esito success: forza
- * la riconciliazione (idempotente) e ritorna il nuovo stato della subscription.
- * Il webhook Stripe può arrivare in qualunque ordine — `reconcileStripePayment`
- * è transaction-safe e no-op su stati finali, quindi non c'è race.
+ * Chiamata dall'app mobile dopo che il browser sheet di SumUp si chiude tramite
+ * deep link `houseofmuscle://checkout/success`. Forza la riconciliazione (la
+ * stessa funzione idempotente usata anche dal cron `*/15 * * * *`) e restituisce
+ * il nuovo stato della subscription.
  *
  * Sicurezza: il payment deve appartenere all'utente autenticato (ownership check).
  */
@@ -36,13 +35,12 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
   }
 
-  // Ownership check + esistenza
   const payment = await db.payment.findUnique({ where: { id: parsed.data.paymentId } });
   if (!payment || payment.userId !== user.id) {
     return NextResponse.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
   }
 
-  const reconciled = await reconcileStripePayment(payment.id);
+  const reconciled = await reconcileSumUpPayment(payment.id);
 
   const subscription = await db.userSubscription.findUnique({
     where: { userId: user.id }
