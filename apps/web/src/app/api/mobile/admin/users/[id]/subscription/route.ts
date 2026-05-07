@@ -1,7 +1,8 @@
-import { db, UserRole } from "@gestionale/db";
+import { AuditAction, db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { logAdminAction } from "@/lib/services/audit-log-service";
 import { assignSubscriptionByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
 import { mobileAdminUserSubscriptionSchema } from "@/lib/validators/mobile";
@@ -48,6 +49,17 @@ export const POST = withMobileAuth<{ id: string }>(
     const fresh = await db.userSubscription.findUnique({
       where: { userId: params.id },
       select: { tier: true, startsAt: true, endsAt: true }
+    });
+
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: params.id,
+      action: AuditAction.SUBSCRIPTION_ASSIGNED,
+      payload: {
+        tier: parsed.data.tier,
+        startsAt: startsAt.toISOString(),
+        endsAt: fresh?.endsAt.toISOString() ?? null
+      }
     });
 
     return NextResponse.json({

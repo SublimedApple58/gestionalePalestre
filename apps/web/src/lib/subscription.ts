@@ -77,10 +77,15 @@ export function computeSubscriptionEndDate(tier: SubscriptionTier, startsAt: Dat
 }
 
 export function isSubscriptionActive(
-  subscription: Pick<UserSubscription, "startsAt" | "endsAt"> | null,
+  subscription:
+    | Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null } | null,
   now: Date = new Date()
 ): boolean {
   if (!subscription) {
+    return false;
+  }
+
+  if (subscription.deactivatedAt) {
     return false;
   }
 

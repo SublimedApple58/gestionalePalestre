@@ -22,12 +22,16 @@ import {
   type ActionResult,
   assignInstructorActionState,
   assignSubscriptionActionState,
+  changeSubscriptionStartDateActionState,
   changeUserRoleActionState,
+  deactivateSubscriptionActionState,
   deleteUserActionState,
+  reactivateSubscriptionActionState,
   updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
 import { roleLabel } from "@/lib/roles";
 import { formatEuroCents, tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
@@ -45,7 +49,12 @@ export type DrawerUserRow = {
   assignedInstructorId: string | null;
   assignedInstructor: { firstName: string; lastName: string } | null;
   documents: UserDocument[];
-  subscription: { tier: SubscriptionTier; startsAt: Date; endsAt: Date } | null;
+  subscription: {
+    tier: SubscriptionTier;
+    startsAt: Date;
+    endsAt: Date;
+    deactivatedAt: Date | null;
+  } | null;
   payments: Payment[];
   installmentPlans: (InstallmentPlan & { installments: Installment[] })[];
 };
@@ -195,11 +204,26 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
   const [subResult, subAction, subPending] = useActionState(assignSubscriptionActionState, null);
   const [addrResult, addrAction, addrPending] = useActionState(updateUserAddressActionState, null);
   const [deleteResult, deleteAction, deletePending] = useActionState(deleteUserActionState, null);
+  const [deactivateResult, deactivateAction, deactivatePending] = useActionState(
+    deactivateSubscriptionActionState,
+    null
+  );
+  const [reactivateResult, reactivateAction, reactivatePending] = useActionState(
+    reactivateSubscriptionActionState,
+    null
+  );
+  const [startDateResult, startDateAction, startDatePending] = useActionState(
+    changeSubscriptionStartDateActionState,
+    null
+  );
 
   useActionToast(roleResult);
   useActionToast(instrResult);
   useActionToast(subResult);
   useActionToast(addrResult);
+  useActionToast(deactivateResult);
+  useActionToast(reactivateResult);
+  useActionToast(startDateResult);
 
   useEffect(() => {
     if (!deleteResult) return;
@@ -320,17 +344,66 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
             <h4 className="user-drawer-section-title">Stato attuale</h4>
             {user.subscription ? (
               <div className="user-drawer-sub-current">
-                <Tag color="success">{tierLabel(user.subscription.tier)}</Tag>
+                {user.subscription.deactivatedAt ? (
+                  <Tag color="warning">Disattivato</Tag>
+                ) : (
+                  <Tag color="success">{tierLabel(user.subscription.tier)} attivo</Tag>
+                )}
                 <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
                   {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
                   {" → "}
                   {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
                 </Text>
+                {user.subscription.deactivatedAt ? (
+                  <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginTop: 4 }}>
+                    Disattivato il {new Date(user.subscription.deactivatedAt).toLocaleDateString("it-IT")}
+                  </Text>
+                ) : null}
               </div>
             ) : (
               <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Nessun abbonamento attivo.</Text>
             )}
           </section>
+
+          {user.subscription ? (
+            <section className="user-drawer-section">
+              <h4 className="user-drawer-section-title">Gestione abbonamento</h4>
+              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                {user.subscription.deactivatedAt ? (
+                  <form action={reactivateAction}>
+                    <input type="hidden" name="targetUserId" value={user.id} />
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={reactivatePending}
+                      size="small"
+                      style={{ background: "#22c55e", borderColor: "#22c55e" }}
+                    >
+                      Riattiva abbonamento
+                    </Button>
+                  </form>
+                ) : (
+                  <form action={deactivateAction}>
+                    <input type="hidden" name="targetUserId" value={user.id} />
+                    <Button danger htmlType="submit" loading={deactivatePending} size="small">
+                      Disattiva abbonamento
+                    </Button>
+                  </form>
+                )}
+
+                <form action={startDateAction} className="user-drawer-form" style={{ marginTop: 4 }}>
+                  <input type="hidden" name="targetUserId" value={user.id} />
+                  <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", display: "block" }}>
+                    Cambia data di partenza (la scadenza sara' ricalcolata in base al tier).
+                  </Text>
+                  <CustomCalendar name="startsAt" label="Nuova data inizio" />
+                  <Button htmlType="submit" loading={startDatePending} size="small">
+                    Aggiorna data
+                  </Button>
+                </form>
+              </Space>
+            </section>
+          ) : null}
 
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Assegna abbonamento</h4>
@@ -471,6 +544,11 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
           </section>
         </div>
       )
+    },
+    {
+      key: "cronologia",
+      label: "Cronologia",
+      children: <UserAuditLogList userId={user.id} />
     }
   ];
 

@@ -1,8 +1,9 @@
-import { db, UserRole, type Prisma } from "@gestionale/db";
+import { AuditAction, db, UserRole, type Prisma } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrls } from "@/lib/profile-photo";
+import { logAdminAction } from "@/lib/services/audit-log-service";
 import { createUserByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
 import {
@@ -114,6 +115,19 @@ export const POST = withMobileAuth(
 
     try {
       const created = await createUserByAdmin(db, user.role, parsed.data);
+
+      await logAdminAction(db, {
+        actorId: user.id,
+        targetUserId: created.id,
+        action: AuditAction.USER_CREATED,
+        payload: {
+          firstName: created.firstName,
+          lastName: created.lastName,
+          email: created.email,
+          role: created.role
+        }
+      });
+
       return NextResponse.json(
         {
           id: created.id,

@@ -33,7 +33,12 @@ type UserRow = {
   assignedInstructorId: string | null;
   documents: UserDocument[];
   assignedInstructor: { firstName: string; lastName: string } | null;
-  subscription: { tier: SubscriptionTier; startsAt: Date; endsAt: Date } | null;
+  subscription: {
+    tier: SubscriptionTier;
+    startsAt: Date;
+    endsAt: Date;
+    deactivatedAt: Date | null;
+  } | null;
   payments: Payment[];
   installmentPlans: (InstallmentPlan & { installments: Installment[] })[];
 };

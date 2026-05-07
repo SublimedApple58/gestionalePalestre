@@ -110,6 +110,8 @@ model User {
   subscriptionsAssigned UserSubscription[] @relation("AdminAssignedSubscriptions")
   payments              Payment[]
   installmentPlans      InstallmentPlan[]
+  auditLogsAsTarget     UserAuditLog[]     @relation("UserAuditTargets")
+  auditLogsAsActor      UserAuditLog[]     @relation("UserAuditActors")
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -173,16 +175,20 @@ model DocumentProcessingJob {
 }
 
 model UserSubscription {
-  id           String           @id @default(cuid())
-  userId       String           @unique
-  tier         SubscriptionTier
-  startsAt     DateTime
-  endsAt       DateTime
-  assignedById String?
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignedBy   User?            @relation("AdminAssignedSubscriptions", fields: [assignedById], references: [id], onDelete: SetNull)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id            String           @id @default(cuid())
+  userId        String           @unique
+  tier          SubscriptionTier
+  startsAt      DateTime
+  endsAt        DateTime
+  /// Se valorizzato, l'abbonamento e' considerato non attivo anche se endsAt
+  /// e' futuro. Permette all'admin di sospendere/riattivare senza perdere lo
+  /// storico di tier/date.
+  deactivatedAt DateTime?
+  assignedById  String?
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy    User?            @relation("AdminAssignedSubscriptions", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([startsAt, endsAt])
   @@index([assignedById])
@@ -315,4 +321,47 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+/// Audit log per tutte le azioni che un admin compie su un singolo iscritto.
+/// Le entry sono append-only: niente update/delete, retention indefinita per
+/// ora (lifecycle policy verra' aggiunta separatamente quando i volumi
+/// crescono). Il payload Json contiene before/after per le mutazioni di
+/// valore (es. { before: { role: "SUBSCRIBER" }, after: { role: "INSTRUCTOR" } }).
+model UserAuditLog {
+  id           String      @id @default(cuid())
+  /// Utente "soggetto" dell'azione (chi ha subito la modifica). Nullable
+  /// con SET NULL per preservare l'audit anche se l'utente viene eliminato.
+  targetUserId String?
+  /// Utente che ha eseguito l'azione (admin). Null se l'utente e' stato
+  /// cancellato successivamente — manteniamo lo storico.
+  actorId      String?
+  /// Snapshot dell'identita' del target al momento dell'azione (utile dopo
+  /// l'eliminazione, quando targetUserId diventa null).
+  targetSnapshot Json?
+  action       AuditAction
+  payload      Json?
+  createdAt    DateTime    @default(now())
+
+  target User? @relation("UserAuditTargets", fields: [targetUserId], references: [id], onDelete: SetNull)
+  actor  User? @relation("UserAuditActors", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([targetUserId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_DELETED
+  ROLE_CHANGED
+  INSTRUCTOR_ASSIGNED
+  INSTRUCTOR_UNASSIGNED
+  ADDRESS_UPDATED
+  SUBSCRIPTION_ASSIGNED
+  SUBSCRIPTION_DEACTIVATED
+  SUBSCRIPTION_REACTIVATED
+  SUBSCRIPTION_DATE_CHANGED
+  DOC_APPROVED
+  DOC_REJECTED
+  DOC_REUPLOAD_REQUESTED
 }

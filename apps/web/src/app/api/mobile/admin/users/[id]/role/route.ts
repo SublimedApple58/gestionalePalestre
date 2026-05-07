@@ -1,7 +1,8 @@
-import { db, UserRole } from "@gestionale/db";
+import { AuditAction, db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { logAdminAction } from "@/lib/services/audit-log-service";
 import { updateUserRoleByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
 import { mobileAdminUserRoleSchema } from "@/lib/validators/mobile";
@@ -28,6 +29,10 @@ export const POST = withMobileAuth<{ id: string }>(
       return NextResponse.json({ error: "INVALID_BODY", issues: parsed.error.flatten() }, { status: 400 });
     }
 
+    const before = await db.user
+      .findUnique({ where: { id: params.id }, select: { role: true } })
+      .catch(() => null);
+
     try {
       await updateUserRoleByAdmin(db, user.role, {
         targetUserId: params.id,
@@ -39,6 +44,13 @@ export const POST = withMobileAuth<{ id: string }>(
       }
       throw e;
     }
+
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: params.id,
+      action: AuditAction.ROLE_CHANGED,
+      payload: { before: { role: before?.role ?? null }, after: { role: parsed.data.role } }
+    });
 
     return NextResponse.json({ ok: true });
   },

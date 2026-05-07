@@ -30,7 +30,7 @@ export const GET = withMobileAuth(async (_request, { user }) => {
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
-      select: { tier: true, startsAt: true, endsAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
     }),
     getProfilePhotoUrl(user.id).catch(() => null)
   ]);
@@ -135,7 +135,7 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
-      select: { tier: true, startsAt: true, endsAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
     }),
     getProfilePhotoUrl(user.id).catch(() => null)
   ]);

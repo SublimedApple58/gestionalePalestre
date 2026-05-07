@@ -1,7 +1,8 @@
-import { db, UserRole } from "@gestionale/db";
+import { AuditAction, db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { logAdminAction } from "@/lib/services/audit-log-service";
 import { assignInstructorByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
 import { mobileAdminUserInstructorSchema } from "@/lib/validators/mobile";
@@ -31,6 +32,10 @@ export const POST = withMobileAuth<{ id: string }>(
       return NextResponse.json({ error: "INVALID_BODY", issues: parsed.error.flatten() }, { status: 400 });
     }
 
+    const before = await db.user
+      .findUnique({ where: { id: params.id }, select: { assignedInstructorId: true } })
+      .catch(() => null);
+
     try {
       if (parsed.data.instructorId === null) {
         // Disassegna: la guard del service richiede instructorId valido,
@@ -58,6 +63,19 @@ export const POST = withMobileAuth<{ id: string }>(
       }
       throw e;
     }
+
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: params.id,
+      action:
+        parsed.data.instructorId === null
+          ? AuditAction.INSTRUCTOR_UNASSIGNED
+          : AuditAction.INSTRUCTOR_ASSIGNED,
+      payload: {
+        before: { instructorId: before?.assignedInstructorId ?? null },
+        after: { instructorId: parsed.data.instructorId }
+      }
+    });
 
     return NextResponse.json({ ok: true });
   },

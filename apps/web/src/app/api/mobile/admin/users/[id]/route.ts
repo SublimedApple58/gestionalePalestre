@@ -1,8 +1,9 @@
-import { db, UserRole } from "@gestionale/db";
+import { AuditAction, db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrl } from "@/lib/profile-photo";
+import { logAdminAction } from "@/lib/services/audit-log-service";
 import { deleteUserByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
 
@@ -83,7 +84,10 @@ export const GET = withMobileAuth<{ id: string }>(
         ? {
             tier: userRow.subscription.tier,
             startsAt: userRow.subscription.startsAt.toISOString(),
-            endsAt: userRow.subscription.endsAt.toISOString()
+            endsAt: userRow.subscription.endsAt.toISOString(),
+            deactivatedAt: userRow.subscription.deactivatedAt
+              ? userRow.subscription.deactivatedAt.toISOString()
+              : null
           }
         : null,
       documents: userRow.documents.map((d) => ({
@@ -123,6 +127,14 @@ export const GET = withMobileAuth<{ id: string }>(
  */
 export const DELETE = withMobileAuth<{ id: string }>(
   async (_request, { params, user }) => {
+    // Log PRIMA della delete per popolare targetSnapshot mentre l'utente esiste.
+    // Se la delete fallisce, il log resta come tentativo — accettabile.
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: params.id,
+      action: AuditAction.USER_DELETED
+    });
+
     try {
       await deleteUserByAdmin(db, user.role, { targetUserId: params.id });
     } catch (e) {
