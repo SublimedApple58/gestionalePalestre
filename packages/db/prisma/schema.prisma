@@ -23,6 +23,7 @@ enum SubscriptionTier {
 enum PaymentProvider {
   SUMUP
   KLARNA
+  STRIPE
 }
 
 enum PaymentStatus {
