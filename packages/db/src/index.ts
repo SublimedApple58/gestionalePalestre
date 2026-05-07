@@ -13,12 +13,15 @@ export {
   Prisma,
   PrismaClient,
   SubscriptionTier,
-  UserRole
+  UserRole,
+  WorkoutSetType,
+  WorkoutTemplateVisibility
 } from "@prisma/client";
 export type {
   AccessEvent,
   Account,
   DocumentProcessingJob,
+  Exercise,
   Installment,
   InstallmentPlan,
   Payment,
@@ -28,5 +31,10 @@ export type {
   UserDocument,
   UserSubscription,
   VerificationToken,
-  WorkoutPlan
+  WorkoutAssignment,
+  WorkoutPlan,
+  WorkoutTemplate,
+  WorkoutTemplateExercise,
+  WorkoutTemplateSession,
+  WorkoutTemplateSet
 } from "@prisma/client";

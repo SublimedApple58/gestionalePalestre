@@ -84,6 +84,28 @@ enum DocumentJobStatus {
   ESCALATED
 }
 
+/// Tipi di serie supportati nelle schede di allenamento. NORMAL e' il default;
+/// gli altri rappresentano tecniche speciali (warmup, dropset, cluster, ecc.)
+/// con semantica visiva diversa lato mobile.
+enum WorkoutSetType {
+  NORMAL
+  WARMUP
+  DROPSET
+  CLUSTERSET
+  REST_PAUSE
+  AMRAP
+  FAILURE
+}
+
+/// Visibilita' di una scheda. ASSIGNABLE = creata da admin/instructor per
+/// essere assegnata ad altri utenti. PRIVATE = creata sul mobile da un
+/// subscriber per uso personale (in pratica non finisce sul BE — ma teniamo
+/// il valore in caso di feature future di backup).
+enum WorkoutTemplateVisibility {
+  PRIVATE
+  ASSIGNABLE
+}
+
 model User {
   id                    String             @id @default(cuid())
   firstName             String
@@ -112,6 +134,9 @@ model User {
   installmentPlans      InstallmentPlan[]
   auditLogsAsTarget     UserAuditLog[]     @relation("UserAuditTargets")
   auditLogsAsActor      UserAuditLog[]     @relation("UserAuditActors")
+  templatesCreated      WorkoutTemplate[]  @relation("WorkoutTemplatesCreated")
+  workoutAssignmentsReceived WorkoutAssignment[] @relation("WorkoutAssignmentsReceived")
+  workoutAssignmentsCreated  WorkoutAssignment[] @relation("WorkoutAssignmentsCreated")
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -364,4 +389,129 @@ enum AuditAction {
   DOC_APPROVED
   DOC_REJECTED
   DOC_REUPLOAD_REQUESTED
+  WORKOUT_TEMPLATE_ASSIGNED
+  WORKOUT_TEMPLATE_UNASSIGNED
+}
+
+/// Catalogo centrale degli esercizi. Pre-popolato via seed con i piu' comuni
+/// (panca piana, squat, ecc.) ed espandibile dagli admin/instructor durante
+/// l'editing schede ("crea nuovo esercizio"). Lato mobile viene cacheato
+/// localmente e usato per autocomplete.
+model Exercise {
+  id          String   @id @default(cuid())
+  /// Nome canonico (case-insensitive unique a livello applicativo). Usato
+  /// anche per il riferimento storico "ultima volta ho fatto..." nel log.
+  name        String   @unique
+  /// Gruppo muscolare primario (es. "Petto", "Schiena", "Gambe"). Opzionale.
+  muscleGroup String?
+  /// Attrezzatura richiesta (es. "Bilanciere", "Manubri", "Macchina"). Opzionale.
+  equipment   String?
+  /// Note libere (tecnica, video di riferimento). Opzionale.
+  notes       String?
+  /// Esercizi creati ad-hoc dagli utenti (admin/instructor) compaiono come
+  /// custom = true. Quelli del seed iniziale sono custom = false.
+  isCustom    Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  templateExercises WorkoutTemplateExercise[]
+
+  @@index([muscleGroup])
+  @@index([isCustom])
+}
+
+/// Una scheda di allenamento. Creata da admin/instructor per essere
+/// assegnata a uno o piu' iscritti. Cascade su sessions/exercises/sets.
+model WorkoutTemplate {
+  id           String                    @id @default(cuid())
+  name         String
+  description  String?
+  /// Numero giorni/sedute settimanali (1-7). Validato lato applicazione.
+  daysPerWeek  Int
+  visibility   WorkoutTemplateVisibility @default(ASSIGNABLE)
+  createdById  String
+  createdBy    User                      @relation("WorkoutTemplatesCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  sessions     WorkoutTemplateSession[]
+  assignments  WorkoutAssignment[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  @@index([createdById])
+  @@index([visibility])
+}
+
+/// Una seduta/giornata della scheda (es. "A - Push", "Lunedi'"). order definisce
+/// l'ordine settimanale.
+model WorkoutTemplateSession {
+  id         String                    @id @default(cuid())
+  templateId String
+  template   WorkoutTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  /// 0-based, ordine di esecuzione settimanale.
+  order      Int
+  name       String
+  exercises  WorkoutTemplateExercise[]
+
+  @@unique([templateId, order])
+  @@index([templateId])
+}
+
+/// Esercizio dentro una seduta. Riferisce il catalogo Exercise via FK ma
+/// conserva anche `exerciseName` (snapshot) per leggibilita' anche dopo
+/// rinomine/eliminazioni del catalogo.
+model WorkoutTemplateExercise {
+  id           String                 @id @default(cuid())
+  sessionId    String
+  session      WorkoutTemplateSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exerciseId   String
+  exercise     Exercise               @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  /// Snapshot del nome al momento della creazione/aggiornamento. Sopravvive
+  /// a delete del catalogo Exercise.
+  exerciseName String
+  /// 0-based, ordine all'interno della seduta.
+  order        Int
+  notes        String?
+  sets         WorkoutTemplateSet[]
+
+  @@index([sessionId])
+  @@index([exerciseId])
+}
+
+/// Singola serie prescritta per un esercizio. `reps` e' una stringa libera
+/// per supportare range ("8-12") o tecniche speciali ("AMRAP"). `notes`
+/// puo' descrivere la tecnica per DROPSET/CLUSTERSET (es. "−20% poi −20%"
+/// o "3+3+3 con 15s pausa").
+model WorkoutTemplateSet {
+  id         String                  @id @default(cuid())
+  exerciseId String
+  exercise   WorkoutTemplateExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  /// 0-based, ordine all'interno dell'esercizio.
+  order      Int
+  type       WorkoutSetType          @default(NORMAL)
+  reps       String
+  /// Reps in reserve (RIR) opzionale.
+  rir        Int?
+  /// Recupero in secondi opzionale.
+  rest       Int?
+  notes      String?
+
+  @@index([exerciseId])
+}
+
+/// Assegnazione di una scheda a un utente. Una scheda puo' essere
+/// assegnata a piu' utenti (relazione N:N tramite questa tabella).
+/// Idempotente: unique(templateId, userId).
+model WorkoutAssignment {
+  id           String          @id @default(cuid())
+  templateId   String
+  template     WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User            @relation("WorkoutAssignmentsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User            @relation("WorkoutAssignmentsCreated", fields: [assignedById], references: [id], onDelete: Cascade)
+  assignedAt   DateTime        @default(now())
+
+  @@unique([templateId, userId])
+  @@index([userId])
+  @@index([templateId])
 }

@@ -1,4 +1,4 @@
-import { SubscriptionTier, UserRole } from "@gestionale/db";
+import { SubscriptionTier, UserRole, WorkoutSetType } from "@gestionale/db";
 import { z } from "zod";
 
 import { CHECKOUT_TIERS } from "@/lib/subscription";
@@ -140,4 +140,49 @@ export const mobileWeeklyPlanSchema = z.object({
   friday: dayField,
   saturday: dayField,
   sunday: dayField
+});
+
+/* ── WORKOUTS ────────────────────────────────────────────────────────── */
+
+const workoutSetSchema = z.object({
+  type: z.nativeEnum(WorkoutSetType),
+  reps: z.string().trim().min(1).max(60),
+  rir: z.number().int().min(0).max(20).nullable().optional(),
+  rest: z.number().int().min(0).max(3600).nullable().optional(),
+  notes: z.string().trim().max(400).nullable().optional()
+});
+
+const workoutExerciseSchema = z.object({
+  exerciseId: z.string().min(1),
+  notes: z.string().trim().max(400).nullable().optional(),
+  sets: z.array(workoutSetSchema).min(1).max(20)
+});
+
+const workoutSessionSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  exercises: z.array(workoutExerciseSchema).min(1).max(40)
+});
+
+/** Body POST /api/mobile/workouts/templates */
+export const mobileCreateWorkoutTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(800).nullable().optional(),
+  daysPerWeek: z.number().int().min(1).max(7),
+  sessions: z.array(workoutSessionSchema).min(1).max(7)
+});
+
+/** Body PATCH /api/mobile/workouts/templates/[id] */
+export const mobileUpdateWorkoutTemplateSchema = mobileCreateWorkoutTemplateSchema;
+
+/** Body POST /api/mobile/workouts/templates/[id]/assign|unassign */
+export const mobileWorkoutAssignSchema = z.object({
+  userIds: z.array(z.string().min(1)).min(1).max(200)
+});
+
+/** Body POST /api/mobile/workouts/exercises */
+export const mobileCreateExerciseSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  muscleGroup: z.string().trim().max(40).nullable().optional(),
+  equipment: z.string().trim().max(60).nullable().optional(),
+  notes: z.string().trim().max(400).nullable().optional()
 });
