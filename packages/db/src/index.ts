@@ -1,6 +1,7 @@
 export { db } from "./client";
 export {
   AccessEventType,
+  AuditAction,
   DocumentJobStatus,
   DocumentSide,
   DocumentStatus,
@@ -23,6 +24,7 @@ export type {
   Payment,
   Session,
   User,
+  UserAuditLog,
   UserDocument,
   UserSubscription,
   VerificationToken,
