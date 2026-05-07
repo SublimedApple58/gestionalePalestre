@@ -1,0 +1,135 @@
+import { db, UserRole, type Prisma } from "@gestionale/db";
+import { NextResponse } from "next/server";
+
+import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { getProfilePhotoUrls } from "@/lib/profile-photo";
+import { createUserByAdmin } from "@/lib/services/user-service";
+import { DomainError } from "@/lib/services/errors";
+import {
+  mobileAdminCreateUserSchema,
+  mobileAdminUsersQuerySchema
+} from "@/lib/validators/mobile";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/mobile/admin/users?q=&role=&cursor=&limit=
+ * 200: { items: UserListRow[], nextCursor: string | null }
+ *
+ * Cursor-based pagination su (lastName ASC, firstName ASC, id ASC).
+ * Per semplicità il cursor è solo l'id; la performance è accettabile per i
+ * volumi del gestionale palestra.
+ */
+export const GET = withMobileAuth(
+  async (request) => {
+    const { searchParams } = new URL(request.url);
+    const parsed = mobileAdminUsersQuerySchema.safeParse({
+      q: searchParams.get("q") ?? undefined,
+      role: searchParams.get("role") ?? undefined,
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_QUERY" }, { status: 400 });
+    }
+
+    const limit = parsed.data.limit ?? 30;
+    const where: Prisma.UserWhereInput = {};
+
+    if (parsed.data.role) {
+      where.role = parsed.data.role;
+    }
+    if (parsed.data.q) {
+      const q = parsed.data.q;
+      where.OR = [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } }
+      ];
+    }
+
+    const items = await db.user.findMany({
+      where,
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
+      take: limit + 1,
+      ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        subscription: {
+          select: { tier: true, endsAt: true }
+        }
+      }
+    });
+
+    const hasMore = items.length > limit;
+    const sliced = hasMore ? items.slice(0, limit) : items;
+
+    const photoMap = await getProfilePhotoUrls(sliced.map((u) => u.id));
+
+    return NextResponse.json({
+      items: sliced.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        role: u.role,
+        avatarUrl: photoMap.get(u.id) ?? null,
+        subscription: u.subscription
+          ? {
+              tier: u.subscription.tier,
+              endsAt: u.subscription.endsAt.toISOString()
+            }
+          : null
+      })),
+      nextCursor: hasMore ? sliced[sliced.length - 1]!.id : null
+    });
+  },
+  { allowedRoles: [UserRole.ADMIN] }
+);
+
+/**
+ * POST /api/mobile/admin/users
+ * Body: { firstName, lastName, email, password, role }
+ * 201: { id, firstName, lastName, email, role }
+ */
+export const POST = withMobileAuth(
+  async (request, { user }) => {
+    let raw: unknown;
+    try {
+      raw = await request.json();
+    } catch {
+      return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    }
+
+    const parsed = mobileAdminCreateUserSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_BODY", issues: parsed.error.flatten() }, { status: 400 });
+    }
+
+    try {
+      const created = await createUserByAdmin(db, user.role, parsed.data);
+      return NextResponse.json(
+        {
+          id: created.id,
+          firstName: created.firstName,
+          lastName: created.lastName,
+          email: created.email,
+          role: created.role
+        },
+        { status: 201 }
+      );
+    } catch (e) {
+      if (e instanceof DomainError) {
+        return NextResponse.json({ error: e.code, message: e.message }, { status: 400 });
+      }
+      throw e;
+    }
+  },
+  { allowedRoles: [UserRole.ADMIN] }
+);
