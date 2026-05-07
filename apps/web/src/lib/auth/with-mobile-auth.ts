@@ -24,7 +24,10 @@ export function withMobileAuth<R extends object = Record<string, unknown>>(
   handler: MobileRouteHandler<R>,
   options?: { allowedRoles?: UserRole[] }
 ) {
-  return async (request: NextRequest, ctx: { params: Promise<R> } | { params: R }) => {
+  return async (
+    request: NextRequest,
+    ctx?: { params?: Promise<R> | R }
+  ) => {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : null;
 
@@ -52,7 +55,15 @@ export function withMobileAuth<R extends object = Record<string, unknown>>(
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
-    const params = "then" in ctx.params ? await ctx.params : ctx.params;
-    return await handler(request, { params: params as R, user });
+    // Route senza segmenti dinamici (es. /api/mobile/me) → Next passa ctx
+    // senza `params`. Per route con segmenti, Next 15+ ha `params` come
+    // Promise da awaitare.
+    const rawParams = ctx?.params;
+    const params =
+      rawParams && typeof rawParams === "object" && "then" in rawParams
+        ? await (rawParams as Promise<R>)
+        : ((rawParams ?? {}) as R);
+
+    return await handler(request, { params, user });
   };
 }
