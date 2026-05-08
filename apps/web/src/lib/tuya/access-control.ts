@@ -14,6 +14,43 @@ const DEVICE_ID = process.env.TUYA_DEVICE_ID!;
 // Base path for access control device endpoints
 const deviceBase = () => `/v2.0/cloud/access/devices/${DEVICE_ID}`;
 
+// Generic IoT Core commands endpoint (works for our consumer-tier keypad).
+const commandsPath = () => `/v1.0/devices/${DEVICE_ID}/commands`;
+
+// ─── Remote door open ─────────────────────────────────────────────────────────
+//
+// Il keypad (categoria Tuya `mk`, modello F22-WRB1) NON espone un endpoint
+// dedicato "open door" — ma accetta un comando sul DP `remote_no_dp_key` con
+// un payload base64 specifico catturato una tantum dai Device Logs del portale
+// developer (vedi commento su TUYA_REMOTE_OPEN_PAYLOAD nel .env.example).
+//
+// Tuya cloud restituisce success=true quando il comando viene messo in coda
+// per il device. Il device fisicamente sblocca la serratura per ~2 secondi
+// poi richiude automaticamente (auto-lock di default).
+
+/**
+ * Apre la porta della palestra inviando il comando remoto al keypad Tuya.
+ * Throws con messaggio descrittivo se il cloud Tuya rifiuta il comando o se
+ * le env vars non sono configurate.
+ */
+export async function openDoor(): Promise<void> {
+  const payload = process.env.TUYA_REMOTE_OPEN_PAYLOAD;
+  if (!payload) {
+    throw new Error(
+      "Tuya non configurato: manca TUYA_REMOTE_OPEN_PAYLOAD. " +
+      "Vedi .env.example per istruzioni."
+    );
+  }
+
+  await tuyaRequest<{ result: boolean }>(
+    "POST",
+    commandsPath(),
+    {
+      commands: [{ code: "remote_no_dp_key", value: payload }]
+    }
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type TuyaMember = {
