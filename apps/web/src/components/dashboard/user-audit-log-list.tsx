@@ -30,7 +30,9 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   SUBSCRIPTION_DATE_CHANGED: "Data abbonamento modificata",
   DOC_APPROVED: "Documento approvato",
   DOC_REJECTED: "Documento rifiutato",
-  DOC_REUPLOAD_REQUESTED: "Reupload documento richiesto"
+  DOC_REUPLOAD_REQUESTED: "Reupload documento richiesto",
+  WORKOUT_TEMPLATE_ASSIGNED: "Scheda assegnata",
+  WORKOUT_TEMPLATE_UNASSIGNED: "Scheda rimossa"
 };
 
 const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
