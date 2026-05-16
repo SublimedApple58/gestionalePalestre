@@ -211,6 +211,69 @@ export async function createCustomExercise(
   return created;
 }
 
+/**
+ * Conta in quante schede (WorkoutTemplate) l'esercizio è referenziato,
+ * con i nomi delle prime 20 schede impattate. Usato per la preview di
+ * eliminazione: l'UI mostra "Esercizio in uso in N schede" e la lista
+ * dei nomi, l'utente conferma e poi cascadiamo.
+ */
+export async function getExerciseUsage(
+  prisma: PrismaClient,
+  exerciseId: string
+): Promise<{ count: number; templates: Array<{ id: string; name: string }> }> {
+  // WorkoutTemplateExercise → WorkoutTemplateSession → WorkoutTemplate.
+  // Conto le schede DISTINCT (un esercizio potrebbe comparire in più sedute
+  // della stessa scheda — la conto una volta sola).
+  const rows = await prisma.workoutTemplateExercise.findMany({
+    where: { exerciseId },
+    select: {
+      session: { select: { template: { select: { id: true, name: true } } } }
+    }
+  });
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    map.set(r.session.template.id, r.session.template.name);
+  }
+  const templates = [...map.entries()].map(([id, name]) => ({ id, name })).slice(0, 20);
+  return { count: map.size, templates };
+}
+
+/**
+ * Elimina un esercizio dal catalogo.
+ *
+ *  - Se `force=false` (default) e l'esercizio è in uso in almeno 1 scheda,
+ *    NON elimina e ritorna `{ deleted: false, usage }` — il chiamante mostra
+ *    la preview e chiede conferma.
+ *  - Se `force=true` OR usage.count==0, esegue cascade transaction:
+ *    DELETE WorkoutTemplateExercise (cascade sui set) → DELETE Exercise.
+ *
+ * Nota: lo schema ha `onDelete: Restrict` sulla FK, quindi serve la
+ * cascade manuale nella transaction.
+ */
+export async function deleteExercise(
+  prisma: PrismaClient,
+  exerciseId: string,
+  opts: { force?: boolean } = {}
+): Promise<
+  | { deleted: true }
+  | { deleted: false; usage: { count: number; templates: Array<{ id: string; name: string }> } }
+> {
+  const usage = await getExerciseUsage(prisma, exerciseId);
+  if (usage.count > 0 && !opts.force) {
+    return { deleted: false, usage };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (usage.count > 0) {
+      // Rimuovo tutte le occorrenze nelle schede (cascade a WorkoutTemplateSet).
+      await tx.workoutTemplateExercise.deleteMany({ where: { exerciseId } });
+    }
+    await tx.exercise.delete({ where: { id: exerciseId } });
+  });
+
+  return { deleted: true };
+}
+
 /* ─── CRUD template ──────────────────────────────────────────────────── */
 
 export async function createTemplate(
