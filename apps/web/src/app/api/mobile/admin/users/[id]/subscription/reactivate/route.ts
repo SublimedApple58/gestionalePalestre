@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { logAdminAction } from "@/lib/services/audit-log-service";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export const POST = withMobileAuth<{ id: string }>(
       where: { userId: params.id },
       data: { deactivatedAt: null }
     });
+
+    safeSyncPinToKeypad(db, params.id);
 
     await logAdminAction(db, {
       actorId: user.id,

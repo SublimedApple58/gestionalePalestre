@@ -2,6 +2,7 @@ import { db, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db
 
 import { getCheckout } from "@/lib/payments/sumup";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
  * Riconciliazione pull-side di un Payment SumUp: interroga SumUp via API,
@@ -51,7 +52,7 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
   if (!remote) return payment;
 
   if (remote.status === "PAID") {
-    return await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const updated = await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -83,6 +84,10 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
         data: { subscriptionId: subscription.id }
       });
     });
+
+    safeSyncPinToKeypad(db, payment.userId);
+
+    return result;
   }
 
   if (remote.status === "FAILED" || remote.status === "EXPIRED") {

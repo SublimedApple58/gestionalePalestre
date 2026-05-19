@@ -10,6 +10,7 @@ import { generateAccessCode } from "@/lib/access-code";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
 
 import { DomainError } from "./errors";
+import { removeTuyaUserCompletely, safeSyncPinToKeypad } from "./tuya-pin-service";
 
 type RegisterSubscriberInput = {
   firstName: string;
@@ -92,7 +93,7 @@ export async function registerSubscriber(
 
   const passwordHash = await hash(input.password, 12);
 
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       firstName: input.firstName,
       lastName: input.lastName,
@@ -103,6 +104,10 @@ export async function registerSubscriber(
       ...(input.address ? { address: input.address } : {})
     }
   });
+
+  safeSyncPinToKeypad(prisma, user.id);
+
+  return user;
 }
 
 export async function createUserByAdmin(
@@ -122,7 +127,7 @@ export async function createUserByAdmin(
 
   const passwordHash = await hash(input.password, 12);
 
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       firstName: input.firstName,
       lastName: input.lastName,
@@ -132,6 +137,10 @@ export async function createUserByAdmin(
       accessCode: generateAccessCode()
     }
   });
+
+  safeSyncPinToKeypad(prisma, user.id);
+
+  return user;
 }
 
 export async function updateUserRoleByAdmin(
@@ -157,6 +166,8 @@ export async function updateUserRoleByAdmin(
     });
   }
 
+  safeSyncPinToKeypad(prisma, user.id);
+
   return user;
 }
 
@@ -167,6 +178,12 @@ export async function deleteUserByAdmin(
 ): Promise<void> {
   assertAdminRole(actorRole);
   await assertNotLastAdmin(prisma, input.targetUserId);
+
+  try {
+    await removeTuyaUserCompletely(prisma, input.targetUserId);
+  } catch (e) {
+    console.error(`[tuya-pin] Failed to remove Tuya user for ${input.targetUserId}:`, e);
+  }
 
   await prisma.user.delete({
     where: { id: input.targetUserId }
@@ -212,6 +229,8 @@ export async function assignSubscriptionByAdmin(
       assignedById: actorId
     }
   });
+
+  safeSyncPinToKeypad(prisma, input.targetUserId);
 }
 
 export async function assignInstructorByAdmin(

@@ -18,6 +18,7 @@ import {
   requestDocumentReuploadByAdmin
 } from "@/lib/services/document-service";
 import { DomainError } from "@/lib/services/errors";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 import {
   assignInstructorByAdmin,
   assignSubscriptionByAdmin,
@@ -617,6 +618,8 @@ export async function deactivateSubscriptionActionState(
       data: { deactivatedAt: now }
     });
 
+    safeSyncPinToKeypad(db, targetUserId);
+
     await logAdminAction(db, {
       actorId: user.id,
       targetUserId,
@@ -656,6 +659,8 @@ export async function reactivateSubscriptionActionState(
       where: { userId: targetUserId },
       data: { deactivatedAt: null }
     });
+
+    safeSyncPinToKeypad(db, targetUserId);
 
     await logAdminAction(db, {
       actorId: user.id,
@@ -700,6 +705,8 @@ export async function changeSubscriptionStartDateActionState(
       where: { userId: targetUserId },
       data: { startsAt: newStartsAt, endsAt: newEndsAt }
     });
+
+    safeSyncPinToKeypad(db, targetUserId);
 
     await logAdminAction(db, {
       actorId: user.id,

@@ -1,150 +1,186 @@
 /**
- * Tuya Access Control — high-level wrapper
+ * Tuya Smart Lock APIs for keypad WiFi F22-WRB1 (category `mk`).
  *
- * Wraps the Tuya Access Control REST API for a single keypad device.
- * Device ID comes from TUYA_DEVICE_ID env var.
+ * Uses the Smart Lock Open Service endpoints (v1.0) which are the only ones
+ * that actually work with this consumer-tier device. The old v2.0 Access Control
+ * endpoints do NOT work with `mk` devices.
  *
- * API docs: https://developer.tuya.com/en/docs/cloud/access-control
+ * PIN creation flow:
+ *   1. Create user on device → get tuyaUserId
+ *   2. Get password-ticket → ticket_id + encrypted ticket_key
+ *   3. Decrypt ticket_key with AES-256-ECB (key = CLIENT_SECRET)
+ *   4. Encrypt PIN with AES-128-ECB (key = decrypted ticket_key)
+ *   5. PUT .../door-lock/actions/entry with encrypted password
+ *
+ * PIN deletion:
+ *   DELETE .../door-lock/user-types/2/users/{userId}/unlock-types/password/keys/{unlockNo}
  */
+
+import crypto from "crypto";
 
 import { tuyaRequest } from "./client";
 
 const DEVICE_ID = process.env.TUYA_DEVICE_ID!;
+const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET!;
 
-// Base path for access control device endpoints
-const deviceBase = () => `/v2.0/cloud/access/devices/${DEVICE_ID}`;
+// ─── Remote door open (unchanged) ────────────────────────────────────────────
 
-// Generic IoT Core commands endpoint (works for our consumer-tier keypad).
-const commandsPath = () => `/v1.0/devices/${DEVICE_ID}/commands`;
-
-// ─── Remote door open ─────────────────────────────────────────────────────────
-//
-// Il keypad (categoria Tuya `mk`, modello F22-WRB1) NON espone un endpoint
-// dedicato "open door" — ma accetta un comando sul DP `remote_no_dp_key` con
-// un payload base64 specifico catturato una tantum dai Device Logs del portale
-// developer (vedi commento su TUYA_REMOTE_OPEN_PAYLOAD nel .env.example).
-//
-// Tuya cloud restituisce success=true quando il comando viene messo in coda
-// per il device. Il device fisicamente sblocca la serratura per ~2 secondi
-// poi richiude automaticamente (auto-lock di default).
-
-/**
- * Apre la porta della palestra inviando il comando remoto al keypad Tuya.
- * Throws con messaggio descrittivo se il cloud Tuya rifiuta il comando o se
- * le env vars non sono configurate.
- */
 export async function openDoor(): Promise<void> {
   const payload = process.env.TUYA_REMOTE_OPEN_PAYLOAD;
   if (!payload) {
     throw new Error(
       "Tuya non configurato: manca TUYA_REMOTE_OPEN_PAYLOAD. " +
-      "Vedi .env.example per istruzioni."
+        "Vedi .env.example per istruzioni."
     );
   }
 
   await tuyaRequest<{ result: boolean }>(
     "POST",
-    commandsPath(),
+    `/v1.0/devices/${DEVICE_ID}/commands`,
     {
-      commands: [{ code: "remote_no_dp_key", value: payload }]
+      commands: [{ code: "remote_no_dp_key", value: payload }],
     }
   );
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-export type TuyaMember = {
-  user_id:        string; // Tuya-side user ID (store this in your DB for deletion)
-  name:           string;
-  open_type:      string; // "psd" = password/PIN
-  effective_time: number; // 0 = permanent
-  invalid_time:   number; // 0 = permanent
+export type TuyaUser = {
+  user_id: string;
+  nick_name: string;
+  user_contact: string;
+  avatar_url: string;
 };
 
-export type TuyaAccessRecord = {
-  user_id:     string;
-  user_name:   string;
-  open_time:   number; // Unix timestamp ms
-  open_type:   string; // "psd" = PIN
-  open_result: number; // 0 = success, 1 = fail
+type PasswordTicket = {
+  ticket_id: string;
+  ticket_key: string;
+  expire_time: number;
 };
 
-export type AddMemberParams = {
-  userId:  string; // your internal user ID — used as Tuya user_id
-  name:    string; // display name on the device
-  pinCode: string; // numeric PIN (4–8 digits depending on device config)
-};
+// ─── User management ─────────────────────────────────────────────────────────
 
-// ─── API calls ────────────────────────────────────────────────────────────────
-
-/** List all members/PINs currently stored on the device */
-export async function listMembers(): Promise<TuyaMember[]> {
-  const result = await tuyaRequest<{ list: TuyaMember[] }>(
-    "GET",
-    `${deviceBase()}/users`
-  );
-  return result.list ?? [];
-}
-
-/**
- * Add a member with a PIN code to the device.
- *
- * Returns the Tuya user_id assigned to this member.
- * Store it in your DB (e.g. User.tuyaUserId) so you can call removeMember later.
- */
-export async function addMember(params: AddMemberParams): Promise<string> {
-  const result = await tuyaRequest<{ user_id: string }>(
+export async function createTuyaUser(name: string): Promise<string> {
+  const result = await tuyaRequest<string>(
     "POST",
-    `${deviceBase()}/users`,
+    `/v1.0/devices/${DEVICE_ID}/user`,
+    { nick_name: name }
+  );
+  return result; // tuyaUserId
+}
+
+export async function deleteTuyaUser(tuyaUserId: string): Promise<void> {
+  await tuyaRequest<boolean>(
+    "DELETE",
+    `/v1.0/devices/${DEVICE_ID}/users/${tuyaUserId}`
+  );
+}
+
+export async function listTuyaUsers(): Promise<TuyaUser[]> {
+  const result = await tuyaRequest<TuyaUser[]>(
+    "GET",
+    `/v1.0/devices/${DEVICE_ID}/users`
+  );
+  return result ?? [];
+}
+
+// ─── PIN crypto ──────────────────────────────────────────────────────────────
+
+function decryptTicketKey(encryptedHex: string): Buffer {
+  const key = Buffer.from(CLIENT_SECRET, "utf-8"); // 32 bytes
+  const decipher = crypto.createDecipheriv("aes-256-ecb", key, null);
+  decipher.setAutoPadding(true);
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, "hex")),
+    decipher.final(),
+  ]);
+  return decrypted; // 16 bytes = key for PIN encryption
+}
+
+function encryptPin(pin: string, ticketKey: Buffer): string {
+  const cipher = crypto.createCipheriv("aes-128-ecb", ticketKey, null);
+  cipher.setAutoPadding(true);
+  const encrypted = Buffer.concat([
+    cipher.update(pin, "utf-8"),
+    cipher.final(),
+  ]);
+  return encrypted.toString("hex");
+}
+
+// ─── PIN registration ────────────────────────────────────────────────────────
+
+async function getPasswordTicket(): Promise<PasswordTicket> {
+  return await tuyaRequest<PasswordTicket>(
+    "POST",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/password-ticket`,
+    {}
+  );
+}
+
+/**
+ * Register a PIN on the keypad for a given Tuya user.
+ * Returns the unlock key number (needed for deletion).
+ */
+export async function enablePin(
+  tuyaUserId: string,
+  pin: string
+): Promise<string> {
+  const ticket = await getPasswordTicket();
+  const ticketKey = decryptTicketKey(ticket.ticket_key);
+  const encryptedPin = encryptPin(pin, ticketKey);
+
+  await tuyaRequest<boolean>(
+    "PUT",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/actions/entry`,
     {
-      user_id:        params.userId,
-      name:           params.name,
-      open_type:      "psd",        // psd = password/PIN
-      open_psd:       params.pinCode,
-      effective_time: 0,            // 0 = permanent
-      invalid_time:   0,
+      user_id: tuyaUserId,
+      user_type: 2,
+      unlock_type: "password",
+      password_type: "ticket",
+      ticket_id: ticket.ticket_id,
+      password: encryptedPin,
     }
   );
-  return result.user_id;
+
+  // After enablePin, we need to get the unlock key number.
+  // We poll the device status for the unlock_method_create DP which contains
+  // the hardware-assigned key number in bytes 6-7 (big-endian).
+  // As a simpler approach, we list the user's unlock methods to find the latest one.
+  const unlockNo = await getLatestUnlockNo(tuyaUserId);
+  return unlockNo;
 }
 
 /**
- * Remove a member from the device by their Tuya user_id.
- * Use the user_id returned by addMember (stored in your DB).
+ * Get the latest password unlock key number for a user by listing their unlock records.
+ * Falls back to "1" if we can't determine it (single PIN per user scenario).
  */
-export async function removeMember(tuyaUserId: string): Promise<void> {
-  await tuyaRequest<unknown>(
+async function getLatestUnlockNo(tuyaUserId: string): Promise<string> {
+  try {
+    const result = await tuyaRequest<{ records: Array<{ unlock_no: number }> }>(
+      "GET",
+      `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
+    );
+    if (result?.records?.length > 0) {
+      const latest = result.records[result.records.length - 1];
+      return String(latest.unlock_no);
+    }
+  } catch {
+    // If this endpoint doesn't work, we'll store what we can
+    console.warn(
+      `[tuya] Could not list unlock keys for user ${tuyaUserId}, falling back`
+    );
+  }
+  return "1";
+}
+
+// ─── PIN removal ─────────────────────────────────────────────────────────────
+
+export async function disablePin(
+  tuyaUserId: string,
+  unlockNo: string
+): Promise<void> {
+  await tuyaRequest<boolean>(
     "DELETE",
-    `${deviceBase()}/users/${tuyaUserId}`
+    `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password/keys/${unlockNo}`
   );
-}
-
-/**
- * Get access records (door open/fail events) from the device.
- *
- * @param startTime  Unix ms — defaults to 24h ago
- * @param endTime    Unix ms — defaults to now
- * @param pageSize   Max records to return (default 50, max 100)
- */
-export async function getAccessRecords(opts?: {
-  startTime?: number;
-  endTime?:   number;
-  pageSize?:  number;
-}): Promise<TuyaAccessRecord[]> {
-  const now       = Date.now();
-  const startTime = opts?.startTime ?? now - 24 * 60 * 60 * 1000;
-  const endTime   = opts?.endTime   ?? now;
-  const pageSize  = opts?.pageSize  ?? 50;
-
-  const qs = new URLSearchParams({
-    start_time: startTime.toString(),
-    end_time:   endTime.toString(),
-    page_size:  pageSize.toString(),
-  });
-
-  const result = await tuyaRequest<{ list: TuyaAccessRecord[] }>(
-    "GET",
-    `${deviceBase()}/records?${qs.toString()}`
-  );
-  return result.list ?? [];
 }

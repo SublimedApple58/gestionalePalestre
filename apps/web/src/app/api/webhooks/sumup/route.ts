@@ -3,6 +3,7 @@ import { db, PaymentStatus } from "@gestionale/db";
 
 import { getCheckout, verifyWebhookSignature } from "@/lib/payments/sumup";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
  * Webhook SumUp per conferma/fallimento checkout.
@@ -94,6 +95,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         data: { subscriptionId: subscription.id }
       });
     });
+
+    safeSyncPinToKeypad(db, payment.userId);
 
     return NextResponse.json({ ok: true });
   }
