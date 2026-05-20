@@ -93,13 +93,6 @@ const SEED_EXERCISES = [
   { name: "Hanging leg raise", muscleGroup: "Addome", equipment: "Sbarra" },
   { name: "Mountain climber", muscleGroup: "Addome", equipment: "Corpo libero" },
 
-  // Cardio
-  { name: "Tapis roulant", muscleGroup: "Cardio", equipment: "Macchina" },
-  { name: "Cyclette", muscleGroup: "Cardio", equipment: "Macchina" },
-  { name: "Stepper", muscleGroup: "Cardio", equipment: "Macchina" },
-  { name: "Vogatore", muscleGroup: "Cardio", equipment: "Macchina" },
-  { name: "Ellittica", muscleGroup: "Cardio", equipment: "Macchina" },
-  { name: "Corsa", muscleGroup: "Cardio", equipment: "Corpo libero" }
 ];
 
 async function main() {
