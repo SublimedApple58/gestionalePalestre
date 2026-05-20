@@ -55,6 +55,22 @@ export const GET = withMobileAuth<{ id: string }>(
           },
           orderBy: { createdAt: "desc" },
           take: 30
+        },
+        workoutAssignmentsReceived: {
+          select: {
+            template: {
+              select: {
+                id: true,
+                name: true,
+                daysPerWeek: true,
+                createdBy: {
+                  select: { id: true, firstName: true, lastName: true }
+                }
+              }
+            },
+            assignedAt: true
+          },
+          orderBy: { assignedAt: "desc" }
         }
       }
     });
@@ -113,6 +129,13 @@ export const GET = withMobileAuth<{ id: string }>(
         status: p.status,
         createdAt: p.createdAt.toISOString(),
         paidAt: p.paidAt ? p.paidAt.toISOString() : null
+      })),
+      workoutAssignments: userRow.workoutAssignmentsReceived.map((a) => ({
+        templateId: a.template.id,
+        templateName: a.template.name,
+        daysPerWeek: a.template.daysPerWeek,
+        createdBy: a.template.createdBy,
+        assignedAt: a.assignedAt.toISOString()
       }))
     });
   },

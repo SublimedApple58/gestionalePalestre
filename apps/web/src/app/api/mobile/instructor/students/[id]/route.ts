@@ -28,7 +28,23 @@ export const GET = withMobileAuth<{ id: string }>(
             medicalCertificateExpiresAt: true
           }
         },
-        assignedInstructor: { select: { id: true } }
+        assignedInstructor: { select: { id: true } },
+        workoutAssignmentsReceived: {
+          select: {
+            template: {
+              select: {
+                id: true,
+                name: true,
+                daysPerWeek: true,
+                createdBy: {
+                  select: { id: true, firstName: true, lastName: true }
+                }
+              }
+            },
+            assignedAt: true
+          },
+          orderBy: { assignedAt: "desc" }
+        }
       }
     });
 
@@ -69,6 +85,13 @@ export const GET = withMobileAuth<{ id: string }>(
         medicalCertificateExpiresAt: d.medicalCertificateExpiresAt
           ? d.medicalCertificateExpiresAt.toISOString()
           : null
+      })),
+      workoutAssignments: student.workoutAssignmentsReceived.map((a) => ({
+        templateId: a.template.id,
+        templateName: a.template.name,
+        daysPerWeek: a.template.daysPerWeek,
+        createdBy: a.template.createdBy,
+        assignedAt: a.assignedAt.toISOString()
       }))
     });
   },
