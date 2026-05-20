@@ -3597,372 +3597,225 @@ tbody tr:hover td:first-child {
 
 /* ─── CHECKOUT PAGE (subscriber self-service) ───────────────────────────── */
 .checkout-page {
-  padding: 40px 32px 80px;
-  max-width: 1200px;
+  padding: 48px 24px 80px;
+  max-width: 520px;
   margin: 0 auto;
   min-height: 100vh;
 }
 
-.checkout-container {
+/* ── New minimal checkout (ck-*) ─────────────────────────────────────────── */
+.ck {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
-/* Hero */
-.checkout-hero {
-  max-width: 640px;
-}
+.ck-header { text-align: center; }
 
-.checkout-hero-kicker {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--brand);
-  margin: 0 0 10px;
-}
-
-.checkout-hero-title {
-  font-size: clamp(28px, 4vw, 40px);
+.ck-title {
+  font-size: 28px;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 12px;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
 }
 
-.checkout-hero-sub {
-  font-size: 15px;
-  line-height: 24px;
+.ck-subtitle {
+  font-size: 14px;
   color: var(--text-muted);
   margin: 0;
 }
 
-/* Active subscription banner */
-.checkout-active-banner {
+/* Active banner */
+.ck-banner {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
-  padding: 14px 18px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-}
-
-.checkout-active-banner-icon {
-  color: var(--brand);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.checkout-active-banner-text {
-  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
   font-size: 13px;
-  line-height: 20px;
-  color: #c9c9d1;
+  line-height: 19px;
+  color: #b0b0b8;
 }
 
-.checkout-active-banner-text strong {
-  color: #fff;
-  font-weight: 600;
-}
+.ck-banner svg { color: var(--brand); flex-shrink: 0; margin-top: 2px; }
+.ck-banner p { margin: 0; }
+.ck-banner strong { color: #fff; font-weight: 600; }
 
-/* Tier cards grid */
-.checkout-tiers {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.checkout-tier-card {
-  position: relative;
+/* Plan rows */
+.ck-plans {
   display: flex;
   flex-direction: column;
-  text-align: left;
+  gap: 6px;
+}
+
+.ck-plan {
+  display: flex;
+  align-items: center;
   gap: 14px;
-  padding: 28px 24px;
-  background: linear-gradient(
-    180deg,
-    rgba(22, 22, 30, 0.85),
-    rgba(14, 14, 20, 0.85)
-  );
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   cursor: pointer;
-  transition:
-    transform 200ms ease,
-    border-color 200ms ease,
-    box-shadow 200ms ease;
+  transition: border-color 150ms ease, background 150ms ease;
   color: inherit;
   font: inherit;
+  text-align: left;
 }
 
-.checkout-tier-card:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-2px);
+.ck-plan:hover {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.checkout-tier-card:focus-visible {
+.ck-plan:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
-.checkout-tier-card.popular {
-  border-color: rgba(223, 37, 49, 0.35);
-  box-shadow: 0 14px 40px rgba(223, 37, 49, 0.12);
-}
-
-.checkout-tier-card.selected {
+.ck-plan--selected {
   border-color: var(--brand);
-  box-shadow:
-    0 0 0 1px var(--brand),
-    0 18px 44px rgba(223, 37, 49, 0.22);
+  background: rgba(223, 37, 49, 0.06);
+  box-shadow: 0 0 0 1px var(--brand);
 }
 
-.checkout-tier-badge {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: rgba(223, 37, 49, 0.18);
-  border: 1px solid rgba(223, 37, 49, 0.4);
-  color: #ffb3b9;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-radius: 999px;
+.ck-plan--selected:hover {
+  border-color: var(--brand);
 }
 
-.checkout-tier-kicker {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.checkout-tier-card.popular .checkout-tier-kicker {
-  color: var(--brand);
-}
-
-.checkout-tier-savings-chip {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  padding: 4px 10px;
-  background: rgba(108, 229, 181, 0.1);
-  border: 1px solid rgba(108, 229, 181, 0.28);
-  color: #6ce5b5;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  border-radius: 999px;
-  font-variant-numeric: tabular-nums;
-}
-
-.checkout-tier-price {
+/* Radio circle */
+.ck-plan-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-
-.checkout-tier-price-value {
-  font-size: 52px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.025em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.checkout-tier-price-unit {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.checkout-tier-installments-label {
-  margin: 0;
-  padding: 10px 0;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 500;
-}
-
-/* Placeholder per allineare verticalmente le card senza opzione rate. */
-.checkout-tier-installments-label-empty {
-  margin: 0;
-  padding: 10px 0;
-  border-top: 1px dashed rgba(255, 255, 255, 0.04);
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
-  font-size: 12px;
-  line-height: 20px;
-  visibility: hidden;
-}
-
-.checkout-tier-select-hint {
-  margin-top: 6px;
-  align-self: flex-start;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  transition: color 180ms ease;
-}
-
-.checkout-tier-card.selected .checkout-tier-select-hint,
-.checkout-tier-card:hover .checkout-tier-select-hint {
-  color: var(--brand);
-}
-
-.checkout-tier-features {
-  list-style: none;
-  padding: 0;
-  margin: 4px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.checkout-tier-features li {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 13px;
-  color: #d0d0d8;
-  line-height: 20px;
-}
-
-.checkout-tier-feature-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  background: rgba(223, 37, 49, 0.15);
-  color: var(--brand);
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 1px;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
-/* Summary / CTA block */
-.checkout-summary {
+.ck-plan--selected .ck-plan-radio {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+/* Plan info */
+.ck-plan-info {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px;
-  background: linear-gradient(
-    180deg,
-    rgba(22, 22, 30, 0.8),
-    rgba(12, 12, 18, 0.8)
-  );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-}
-
-.checkout-summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.checkout-summary-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  flex: 1;
   min-width: 0;
 }
 
-.checkout-summary-label {
-  margin: 0;
-  font-size: 11px;
+.ck-plan-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ck-plan-tag {
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(223, 37, 49, 0.15);
+  color: var(--brand);
+}
+
+.ck-plan-duration {
+  font-size: 12px;
   color: var(--text-muted);
 }
 
-.checkout-summary-value {
-  margin: 0;
-  font-size: 20px;
+/* Plan pricing */
+.ck-plan-pricing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ck-plan-price {
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Pay mode toggle pill */
-.checkout-pay-toggle {
-  display: inline-flex;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  gap: 2px;
+.ck-plan-savings {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6ce5b5;
+  padding: 2px 6px;
+  background: rgba(108, 229, 181, 0.1);
+  border-radius: 4px;
 }
 
-.checkout-pay-toggle-option {
-  position: relative;
-  display: inline-flex;
+/* Installments row */
+.ck-installments-row {
+  display: flex;
   flex-direction: column;
+  gap: 8px;
   align-items: center;
+}
+
+.ck-toggle-pill {
+  display: inline-flex;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
   gap: 2px;
+}
+
+.ck-toggle-opt {
   padding: 8px 16px;
   background: transparent;
   border: none;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    color 160ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 
-.checkout-pay-toggle-option:hover:not(:disabled) {
-  color: #fff;
-}
+.ck-toggle-opt:hover { color: #fff; }
 
-.checkout-pay-toggle-option.active {
+.ck-toggle-opt--active {
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(223, 37, 49, 0.3);
+  box-shadow: 0 2px 10px rgba(223, 37, 49, 0.25);
 }
 
-.checkout-pay-toggle-option:disabled,
-.checkout-pay-toggle-option[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.checkout-pay-toggle-hint {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  margin-top: 1px;
+.ck-installments-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* CTA */
-.checkout-summary-form {
+.ck-cta-form {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
-.checkout-cta {
+.ck-cta {
   width: 100%;
   display: inline-flex;
   justify-content: center;
@@ -3973,23 +3826,79 @@ tbody tr:hover td:first-child {
   padding: 14px 20px;
 }
 
-.checkout-cta:disabled {
+.ck-cta:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
 
-/* Trust row */
-.checkout-trust {
+.ck-trust {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
-.checkout-trust svg {
-  color: #6ce5b5;
+.ck-trust svg { color: rgba(108, 229, 181, 0.6); }
+
+/* Daily pass — compact, separate from subscriptions */
+.ck-daily {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ck-daily-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ck-daily-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ck-daily-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-daily-btn {
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.ck-daily-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ck-daily-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile */
+@media (max-width: 540px) {
+  .checkout-page { padding: 32px 16px 60px; }
+  .ck-plan { padding: 14px 14px; gap: 12px; }
+  .ck-plan-price { font-size: 15px; }
+  .ck-toggle-pill { flex-direction: column; width: 100%; }
+  .ck-toggle-opt { text-align: center; }
 }
 
 /* ─── CHECKOUT OUTCOME (success/failure pages) ──────────────────────────── */
