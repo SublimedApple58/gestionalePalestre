@@ -693,13 +693,25 @@ export async function changeSubscriptionStartDateActionState(
       return { ok: false, message: "Data non valida." };
     }
 
+    const rawEndsAt = formData.get("endsAt")?.toString();
+    let customEndsAt: Date | null = null;
+    if (rawEndsAt) {
+      customEndsAt = new Date(rawEndsAt);
+      if (Number.isNaN(customEndsAt.getTime())) {
+        return { ok: false, message: "Data di scadenza non valida." };
+      }
+      if (customEndsAt < newStartsAt) {
+        return { ok: false, message: "La data di scadenza non puo' essere precedente alla data di inizio." };
+      }
+    }
+
     const sub = await db.userSubscription.findUnique({
       where: { userId: targetUserId },
       select: { tier: true, startsAt: true, endsAt: true }
     });
     if (!sub) return { ok: false, message: "Nessun abbonamento per questo utente." };
 
-    const newEndsAt = computeSubscriptionEndDate(sub.tier, newStartsAt);
+    const newEndsAt = customEndsAt ?? computeSubscriptionEndDate(sub.tier, newStartsAt);
 
     await db.userSubscription.update({
       where: { userId: targetUserId },
@@ -719,7 +731,7 @@ export async function changeSubscriptionStartDateActionState(
     });
 
     revalidatePath("/utenti");
-    return { ok: true, message: "Data di partenza aggiornata." };
+    return { ok: true, message: customEndsAt ? "Date aggiornate." : "Data di partenza aggiornata." };
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
     return { ok: false, message: "Errore imprevisto." };

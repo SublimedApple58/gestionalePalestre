@@ -394,11 +394,12 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                 <form action={startDateAction} className="user-drawer-form" style={{ marginTop: 4 }}>
                   <input type="hidden" name="targetUserId" value={user.id} />
                   <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", display: "block" }}>
-                    Cambia data di partenza (la scadenza sara' ricalcolata in base al tier).
+                    Cambia date dell'abbonamento. Se la scadenza non viene specificata, sara' ricalcolata in base al tier.
                   </Text>
                   <CustomCalendar name="startsAt" label="Nuova data inizio" />
+                  <CustomCalendar name="endsAt" label="Data scadenza (opzionale)" />
                   <Button htmlType="submit" loading={startDatePending} size="small">
-                    Aggiorna data
+                    Aggiorna date
                   </Button>
                 </form>
               </Space>

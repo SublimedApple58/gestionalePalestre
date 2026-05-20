@@ -10,7 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  startsAt: z.string().datetime({ offset: true })
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }).optional()
 });
 
 /**
@@ -47,7 +48,18 @@ export const POST = withMobileAuth<{ id: string }>(
     }
 
     const newStartsAt = new Date(parsed.data.startsAt);
-    const newEndsAt = computeSubscriptionEndDate(sub.tier, newStartsAt);
+    let newEndsAt: Date;
+    if (parsed.data.endsAt) {
+      newEndsAt = new Date(parsed.data.endsAt);
+      if (newEndsAt < newStartsAt) {
+        return NextResponse.json(
+          { error: "ENDS_BEFORE_STARTS", message: "endsAt cannot be before startsAt" },
+          { status: 400 }
+        );
+      }
+    } else {
+      newEndsAt = computeSubscriptionEndDate(sub.tier, newStartsAt);
+    }
 
     await db.userSubscription.update({
       where: { userId: params.id },
