@@ -200,6 +200,7 @@ export function CustomCalendar({
     <label
       ref={containerRef}
       className={`input-group custom-calendar-field ${compact ? "compact" : ""}`}
+      style={open ? { zIndex: 10 } : undefined}
     >
       <span className={hideLabel ? "sr-only" : undefined}>{label}</span>
 
