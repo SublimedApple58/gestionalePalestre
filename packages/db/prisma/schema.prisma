@@ -15,7 +15,9 @@ enum UserRole {
 }
 
 enum SubscriptionTier {
+  DAILY
   MONTHLY
+  QUARTERLY
   YEARLY
   BIENNIAL
 }
@@ -140,6 +142,7 @@ model User {
   tuyaUserId            String?
   tuyaPinUnlockNo       String?
   tuyaPinActive         Boolean            @default(false)
+  sumupCustomerId       String?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -313,6 +316,7 @@ model InstallmentPlan {
   installmentsCount      Int
   installmentAmountCents Int
   klarnaOrderId          String?
+  sumupCardToken         String?
   firstChargeAt          DateTime
   status                 InstallmentPlanStatus @default(ACTIVE)
   payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Cascade)
@@ -333,8 +337,9 @@ model Installment {
   amountCents      Int
   status           InstallmentStatus @default(SCHEDULED)
   paidAt           DateTime?
-  klarnaCaptureId  String?
-  failureReason    String?
+  klarnaCaptureId    String?
+  providerReference  String?
+  failureReason      String?
   plan             InstallmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

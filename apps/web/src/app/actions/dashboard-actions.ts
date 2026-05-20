@@ -1,6 +1,6 @@
 "use server";
 
-import { AuditAction, db, UserRole } from "@gestionale/db";
+import { AuditAction, db, InstallmentStatus, UserRole } from "@gestionale/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -735,5 +735,151 @@ export async function changeSubscriptionStartDateActionState(
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
     return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+// ── Installment management (admin) ──────────────────────────────────────────
+
+export async function retryInstallmentChargeActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await requireRole([UserRole.ADMIN]);
+    const installmentId = formData.get("installmentId");
+    if (typeof installmentId !== "string" || !installmentId) {
+      return { ok: false, message: "Rata non trovata." };
+    }
+
+    const installment = await db.installment.findUnique({
+      where: { id: installmentId },
+      include: {
+        plan: {
+          include: {
+            user: {
+              select: { id: true, sumupCustomerId: true, firstName: true, lastName: true }
+            },
+            installments: { select: { id: true, status: true } }
+          }
+        }
+      }
+    });
+
+    if (!installment) return { ok: false, message: "Rata non trovata." };
+    if (installment.status === InstallmentStatus.PAID) {
+      return { ok: true, message: "Rata gia' pagata." };
+    }
+
+    const { user } = installment.plan;
+    if (!user.sumupCustomerId) {
+      return { ok: false, message: "Nessun customer SumUp per questo utente." };
+    }
+
+    const { chargeRecurring } = await import("@/lib/payments/sumup");
+
+    const result = await chargeRecurring({
+      customerId: user.sumupCustomerId,
+      amountCents: installment.amountCents,
+      reference: `retry-inst-${installment.id}`,
+      description: `Rata ${installment.sequenceNumber}/${installment.plan.installmentsCount} — ${user.firstName} ${user.lastName}`
+    });
+
+    if (result.status === "PAID" || result.status === "PENDING") {
+      await db.installment.update({
+        where: { id: installment.id },
+        data: {
+          status: InstallmentStatus.PAID,
+          paidAt: new Date(),
+          providerReference: result.checkoutId,
+          failureReason: null
+        }
+      });
+
+      await maybeReactivateSubscription(user.id, installment.plan.id);
+
+      revalidatePath("/dashboard");
+      return { ok: true, message: "Addebito riuscito, rata pagata." };
+    }
+
+    return { ok: false, message: `Addebito fallito: ${result.status}` };
+  } catch (e) {
+    console.error("[retryInstallmentCharge]", e);
+    return { ok: false, message: e instanceof Error ? e.message : "Errore imprevisto." };
+  }
+}
+
+export async function markInstallmentPaidActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await requireRole([UserRole.ADMIN]);
+    const installmentId = formData.get("installmentId");
+    if (typeof installmentId !== "string" || !installmentId) {
+      return { ok: false, message: "Rata non trovata." };
+    }
+
+    const installment = await db.installment.findUnique({
+      where: { id: installmentId },
+      include: {
+        plan: {
+          include: {
+            user: { select: { id: true } },
+            installments: { select: { id: true, status: true } }
+          }
+        }
+      }
+    });
+
+    if (!installment) return { ok: false, message: "Rata non trovata." };
+    if (installment.status === InstallmentStatus.PAID) {
+      return { ok: true, message: "Rata gia' pagata." };
+    }
+
+    await db.installment.update({
+      where: { id: installment.id },
+      data: {
+        status: InstallmentStatus.PAID,
+        paidAt: new Date(),
+        failureReason: null
+      }
+    });
+
+    await maybeReactivateSubscription(installment.plan.user.id, installment.plan.id);
+
+    revalidatePath("/dashboard");
+    return { ok: true, message: "Rata segnata come pagata." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Errore imprevisto." };
+  }
+}
+
+async function maybeReactivateSubscription(userId: string, planId: string): Promise<void> {
+  const remaining = await db.installment.count({
+    where: {
+      planId,
+      status: InstallmentStatus.FAILED
+    }
+  });
+
+  if (remaining === 0) {
+    await db.userSubscription.updateMany({
+      where: { userId, deactivatedAt: { not: null } },
+      data: { deactivatedAt: null }
+    });
+
+    safeSyncPinToKeypad(db, userId);
+  }
+
+  const allInstallments = await db.installment.findMany({
+    where: { planId },
+    select: { status: true }
+  });
+  const allPaid = allInstallments.every((i) => i.status === InstallmentStatus.PAID);
+  if (allPaid) {
+    await db.installmentPlan.update({
+      where: { id: planId },
+      data: { status: "COMPLETED" }
+    });
   }
 }

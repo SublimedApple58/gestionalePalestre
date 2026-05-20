@@ -1,4 +1,4 @@
-import { db, DocumentStatus, UserRole } from "@gestionale/db";
+import { db, DocumentStatus, InstallmentStatus, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -227,7 +227,7 @@ type AdminViewProps = {
 };
 
 async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
-  const [accessLogs, reviewDocumentsRaw] = await Promise.all([
+  const [accessLogs, reviewDocumentsRaw, overdueInstallments] = await Promise.all([
     db.accessEvent.findMany({
       include: {
         user: {
@@ -256,6 +256,22 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       },
       orderBy: { uploadedAt: "desc" },
       take: 80
+    }),
+    db.installment.findMany({
+      where: {
+        status: { in: [InstallmentStatus.FAILED, InstallmentStatus.SCHEDULED] },
+        dueAt: { lte: new Date() },
+        plan: { status: "ACTIVE" }
+      },
+      include: {
+        plan: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, email: true } }
+          }
+        }
+      },
+      orderBy: { dueAt: "asc" },
+      take: 50
     })
   ]);
 
@@ -282,6 +298,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       accessLogs={accessLogs}
       reviewDocuments={reviewDocuments}
       profilePhotoUrls={Object.fromEntries(photoUrlMap)}
+      overdueInstallments={overdueInstallments}
     />
   );
 }

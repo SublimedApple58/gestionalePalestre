@@ -16,6 +16,10 @@
     {
       "path": "/api/internal/tuya-pin-sync/run",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/internal/installments-charge/run",
+      "schedule": "0 7 * * *"
     }
   ]
 }

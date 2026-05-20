@@ -13,8 +13,11 @@ function isCheckoutTier(value: unknown): value is CheckoutTier {
 
 /**
  * Server action invocata dal form di `/checkout`.
- * Crea un record `Payment(PENDING)` in DB, chiama il gateway (SumUp o Klarna) per creare
+ * Crea un record `Payment(PENDING)` in DB, chiama il gateway SumUp per creare
  * l'ordine hosted, salva il `providerReference` e reindirizza il browser all'URL hosted.
+ *
+ * Se payInInstallments=true e il tier ha rate, crea anche un InstallmentPlan con
+ * la prima rata marcata PAID al completamento del checkout e le successive SCHEDULED.
  *
  * Se fallisce prima del redirect aggiorna `Payment.status=FAILED` e manda l'utente
  * su `/checkout/failure?reason=...`.
@@ -22,11 +25,9 @@ function isCheckoutTier(value: unknown): value is CheckoutTier {
 export async function initiateCheckoutAction(formData: FormData): Promise<void> {
   const sessionUser = await requireRole([UserRole.SUBSCRIBER]);
 
-  // La sessione espone solo `name` concatenato — per passare first/last name a SumUp
-  // dobbiamo leggerli dal DB.
   const user = await db.user.findUnique({
     where: { id: sessionUser.id },
-    select: { id: true, firstName: true, lastName: true, email: true }
+    select: { id: true, firstName: true, lastName: true, email: true, sumupCustomerId: true }
   });
 
   if (!user) {
@@ -49,19 +50,15 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
   }
 
   const amountCents = payInInstallments && tierConfig.installments
-    ? tierConfig.installments.amountCents * tierConfig.installments.count
+    ? tierConfig.installments.amountCents
     : tierConfig.oneShotCents;
 
   const baseUrl = process.env.PAYMENT_RETURN_BASE_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
 
-  // 1. Crea Payment(PENDING) — senza ancora providerReference: lo settiamo subito dopo.
-  //    SumUp vuole un reference nella POST, quindi usiamo un UUID temporaneo e lo aggiorniamo
-  //    con l'ID SumUp nel secondo update. Semplifichiamo usando `Payment.id` come reference:
-  //    creiamo il record con `providerReference=temp-<id>` e poi aggiorniamo.
   const payment = await db.payment.create({
     data: {
       userId: user.id,
-      provider: "SUMUP", // placeholder, sarà aggiornato sotto
+      provider: "SUMUP",
       providerReference: `pending-${crypto.randomUUID()}`,
       amountCents,
       currency: "EUR",
@@ -82,7 +79,8 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email
-      }
+      },
+      sumupCustomerId: user.sumupCustomerId ?? undefined
     });
 
     await db.$transaction(async (tx) => {
@@ -95,15 +93,21 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
         }
       });
 
+      if (initiated.sumupCustomerId) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { sumupCustomerId: initiated.sumupCustomerId }
+        });
+      }
+
       if (initiated.installmentPlan) {
         await tx.installmentPlan.create({
           data: {
             paymentId: payment.id,
             userId: user.id,
-            totalAmountCents: initiated.amountCents,
+            totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
             installmentsCount: initiated.installmentPlan.installmentsCount,
             installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
-            klarnaOrderId: initiated.providerReference,
             firstChargeAt: initiated.installmentPlan.firstChargeAt,
             installments: {
               create: Array.from(
@@ -133,7 +137,6 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
     redirect("/checkout/failure?reason=gateway-error");
   }
 
-  // NB: redirect esterno lancia un errore NEXT_REDIRECT dentro try/catch → va fuori dal try.
   redirect(hostedUrl);
 }
 

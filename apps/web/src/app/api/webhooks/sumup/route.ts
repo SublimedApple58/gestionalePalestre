@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, PaymentStatus } from "@gestionale/db";
+import { db, InstallmentStatus, PaymentStatus } from "@gestionale/db";
 
 import { getCheckout, verifyWebhookSignature } from "@/lib/payments/sumup";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
@@ -14,6 +14,7 @@ import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
  *   1. Verifica firma (skip in dev se secret non settato).
  *   2. Trova `Payment` tramite `providerReference = checkout_id`.
  *   3. Se `status=PAID` → transaction: Payment + UserSubscription (upsert con endsAt calcolato).
+ *      Se ha un InstallmentPlan → marca prima rata PAID, salva customer ID.
  *   4. Se `FAILED|EXPIRED|CANCELED` → aggiorna status + failureReason.
  *
  * Il webhook è idempotente: un second delivery sullo stesso checkout non deve duplicare la
@@ -44,12 +45,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const payment = await db.payment.findFirst({
     where: { provider: "SUMUP", providerReference: checkoutId },
-    include: { user: true }
+    include: {
+      user: true,
+      installmentPlan: { include: { installments: true } }
+    }
   });
 
   if (!payment) {
-    // Non restituiamo 404 per evitare che SumUp continui a riprovare all'infinito:
-    // logghiamo e OK. Potrebbe essere un checkout creato fuori dal nostro flusso.
     console.warn(`[webhook/sumup] Payment non trovato per checkout ${checkoutId}`);
     return NextResponse.json({ ok: true, ignored: true });
   }
@@ -80,7 +82,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         update: {
           tier: updated.tier,
           startsAt,
-          endsAt
+          endsAt,
+          deactivatedAt: null
         },
         create: {
           userId: payment.userId,
@@ -94,6 +97,32 @@ export async function POST(request: Request): Promise<NextResponse> {
         where: { id: payment.id },
         data: { subscriptionId: subscription.id }
       });
+
+      // Se il pagamento ha un piano rateale, marca la prima rata come PAID
+      if (payment.installmentPlan) {
+        const firstInstallment = payment.installmentPlan.installments.find(
+          (i) => i.sequenceNumber === 1
+        );
+        if (firstInstallment && firstInstallment.status !== InstallmentStatus.PAID) {
+          await tx.installment.update({
+            where: { id: firstInstallment.id },
+            data: {
+              status: InstallmentStatus.PAID,
+              paidAt: new Date(),
+              providerReference: checkoutId
+            }
+          });
+        }
+
+        // Salva il customer ID estratto dal webhook payload (se presente)
+        const customerId = extractCustomerId(body);
+        if (customerId) {
+          await tx.user.update({
+            where: { id: payment.userId },
+            data: { sumupCustomerId: customerId }
+          });
+        }
+      }
     });
 
     safeSyncPinToKeypad(db, payment.userId);
@@ -141,5 +170,14 @@ function extractStatus(body: unknown): "PAID" | "FAILED" | "EXPIRED" | "PENDING"
   if (upper === "PAID" || upper === "FAILED" || upper === "EXPIRED" || upper === "PENDING") {
     return upper;
   }
+  return null;
+}
+
+function extractCustomerId(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const obj = body as Record<string, unknown>;
+  if (typeof obj.customer_id === "string") return obj.customer_id;
+  const payload = obj.payload as Record<string, unknown> | undefined;
+  if (payload && typeof payload.customer_id === "string") return payload.customer_id;
   return null;
 }

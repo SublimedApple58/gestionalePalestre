@@ -38,6 +38,16 @@ export type SumUpCheckout = {
   hostedUrl: string;
 };
 
+type CreateCheckoutWithCustomerInput = CreateCheckoutInput & {
+  customerId?: string;
+  customerFirstName: string;
+  customerLastName: string;
+};
+
+export type SumUpCheckoutWithCustomer = SumUpCheckout & {
+  customerId: string;
+};
+
 /**
  * Crea un checkout SumUp hosted e ritorna i riferimenti da salvare in DB.
  * L'importo è in EUR espresso in centesimi.
@@ -97,6 +107,170 @@ export async function createCheckout(input: CreateCheckoutInput): Promise<SumUpC
     status: data.status,
     hostedUrl: data.hosted_checkout_url
   };
+}
+
+/**
+ * Crea o recupera un customer SumUp. Necessario per salvare la carta e
+ * addebitare rate successive senza interazione dell'utente.
+ */
+export async function createOrGetCustomer(input: {
+  customerId?: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}): Promise<string> {
+  if (input.customerId) return input.customerId;
+
+  const apiKey = requireEnv("SUMUP_API_KEY");
+
+  const body = {
+    customer_id: `cust-${crypto.randomUUID()}`,
+    personal_details: {
+      first_name: input.firstName,
+      last_name: input.lastName,
+      email: input.email
+    }
+  };
+
+  const response = await fetch(`${SUMUP_BASE_URL}/v0.1/customers`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `[sumup] createOrGetCustomer failed ${response.status} ${response.statusText}: ${text}`
+    );
+  }
+
+  const data = (await response.json()) as { customer_id: string };
+  return data.customer_id;
+}
+
+/**
+ * Crea un checkout collegato a un customer SumUp (salva la carta).
+ * Per il primo pagamento rateale: l'utente paga la prima rata e la carta viene
+ * tokenizzata sul customer per gli addebiti successivi.
+ */
+export async function createCheckoutWithCustomer(
+  input: CreateCheckoutWithCustomerInput
+): Promise<SumUpCheckoutWithCustomer> {
+  const apiKey = requireEnv("SUMUP_API_KEY");
+  const merchantCode = requireEnv("SUMUP_MERCHANT_CODE");
+
+  const customerId = await createOrGetCustomer({
+    customerId: input.customerId,
+    email: input.customerEmail ?? "",
+    firstName: input.customerFirstName,
+    lastName: input.customerLastName
+  });
+
+  const body = {
+    checkout_reference: input.reference,
+    amount: input.amountCents / 100,
+    currency: "EUR",
+    merchant_code: merchantCode,
+    description: input.description,
+    return_url: input.returnUrl,
+    redirect_url: input.returnUrl,
+    customer_id: customerId,
+    customer_email: input.customerEmail,
+    mandate: { type: "recurring" },
+    hosted_checkout: { enabled: true }
+  };
+
+  const response = await fetch(`${SUMUP_BASE_URL}/v0.1/checkouts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `[sumup] createCheckoutWithCustomer failed ${response.status} ${response.statusText}: ${text}`
+    );
+  }
+
+  const data = (await response.json()) as {
+    id: string;
+    checkout_reference: string;
+    status: SumUpCheckout["status"];
+    hosted_checkout_url?: string;
+  };
+
+  if (!data.hosted_checkout_url) {
+    throw new Error(
+      `[sumup] createCheckoutWithCustomer: response priva di hosted_checkout_url`
+    );
+  }
+
+  return {
+    id: data.id,
+    checkoutReference: data.checkout_reference,
+    status: data.status,
+    hostedUrl: data.hosted_checkout_url,
+    customerId
+  };
+}
+
+/**
+ * Addebita una rata sulla carta salvata del customer (nessuna interazione utente).
+ * Crea un checkout con payment_type "recurring" e lo processa immediatamente.
+ */
+export async function chargeRecurring(input: {
+  customerId: string;
+  amountCents: number;
+  reference: string;
+  description: string;
+}): Promise<{ checkoutId: string; status: string }> {
+  const apiKey = requireEnv("SUMUP_API_KEY");
+  const merchantCode = requireEnv("SUMUP_MERCHANT_CODE");
+
+  const body = {
+    checkout_reference: input.reference,
+    amount: input.amountCents / 100,
+    currency: "EUR",
+    merchant_code: merchantCode,
+    description: input.description,
+    customer_id: input.customerId,
+    payment_type: "recurring",
+    mandate: { type: "recurring" }
+  };
+
+  const response = await fetch(`${SUMUP_BASE_URL}/v0.1/checkouts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `[sumup] chargeRecurring failed ${response.status} ${response.statusText}: ${text}`
+    );
+  }
+
+  const data = (await response.json()) as {
+    id: string;
+    status: string;
+  };
+
+  return { checkoutId: data.id, status: data.status };
 }
 
 /**

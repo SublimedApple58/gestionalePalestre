@@ -27,7 +27,6 @@ type ActiveSubscription = {
 
 type CheckoutFormProps = {
   tiers: TierSummary[];
-  klarnaEnabled: boolean;
   activeSubscription: ActiveSubscription | null;
 };
 
@@ -38,14 +37,16 @@ type CheckoutFormProps = {
  * dipendono dal tipo di abbonamento.
  */
 const TIER_COPY: Record<CheckoutTier, { durationLabel: string; unitLabel: string }> = {
+  DAILY: { durationLabel: "Durata 1 giorno", unitLabel: "al giorno" },
   MONTHLY: { durationLabel: "Durata 1 mese", unitLabel: "al mese" },
+  QUARTERLY: { durationLabel: "Durata 3 mesi", unitLabel: "per 3 mesi" },
   YEARLY: { durationLabel: "Durata 12 mesi", unitLabel: "all'anno" },
   BIENNIAL: { durationLabel: "Durata 24 mesi", unitLabel: "per 24 mesi" }
 };
 
 const POPULAR_TIER: CheckoutTier = "YEARLY";
 
-export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: CheckoutFormProps) {
+export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
   const [selectedTier, setSelectedTier] = useState<CheckoutTier>("YEARLY");
   const [payInInstallments, setPayInInstallments] = useState<boolean>(false);
   const [isPending, startTransition] = useTransition();
@@ -56,8 +57,8 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
   );
 
   const canUseInstallmentsForSelection = useMemo(
-    () => klarnaEnabled && Boolean(selectedTierData.installments),
-    [klarnaEnabled, selectedTierData]
+    () => Boolean(selectedTierData.installments),
+    [selectedTierData]
   );
 
   const effectivePayMode: "one-shot" | "installments" =
@@ -103,7 +104,9 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
         <p className="checkout-hero-kicker">Abbonamento</p>
         <h1 className="checkout-hero-title">Scegli il tuo piano</h1>
         <p className="checkout-hero-sub">
-          Paga una volta, rinnova quando ti pare. Nessun rinnovo automatico.
+          {effectivePayMode === "installments"
+            ? "Prima rata addebitata subito. Le successive automaticamente ogni mese."
+            : "Paga una volta, rinnova quando ti pare. Nessun rinnovo automatico."}
         </p>
       </header>
 
@@ -128,7 +131,7 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
             ? `${t.installments.count} × ${formatEuroCents(t.installments.amountCents)}`
             : null;
           const savingsPct =
-            t.tier !== "MONTHLY"
+            t.tier !== "MONTHLY" && t.tier !== "DAILY"
               ? computeSavingsPct(t.oneShotCents, monthlyPriceCents, t.tier)
               : null;
 
@@ -208,9 +211,7 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
 
           {selectedTierData.installments ? (
             <div
-              className={`checkout-pay-toggle ${
-                canUseInstallmentsForSelection ? "" : "disabled"
-              }`}
+              className="checkout-pay-toggle"
               role="group"
               aria-label="Modalità di pagamento"
             >
@@ -229,15 +230,10 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
                 className={`checkout-pay-toggle-option ${
                   effectivePayMode === "installments" ? "active" : ""
                 }`}
-                onClick={() => canUseInstallmentsForSelection && setPayInInstallments(true)}
-                disabled={!canUseInstallmentsForSelection}
+                onClick={() => setPayInInstallments(true)}
                 aria-pressed={effectivePayMode === "installments"}
-                aria-disabled={!canUseInstallmentsForSelection}
               >
                 Paga a rate
-                {!klarnaEnabled ? (
-                  <span className="checkout-pay-toggle-hint">Presto disponibile</span>
-                ) : null}
               </button>
             </div>
           ) : null}
@@ -271,15 +267,16 @@ export function CheckoutForm({ tiers, klarnaEnabled, activeSubscription }: Check
 
 /**
  * Calcola la percentuale di sconto rispetto al costo mensile equivalente.
- * Esempio: YEARLY = 450€ vs 12×70€ = 840€ → −46%.
- * Usata come "chip" visivo sulle card annuale/biennale.
+ * Esempio: YEARLY = 449,99€ vs 12×69,99€ = 839,88€ → −46%.
+ * Usata come "chip" visivo sulle card.
  */
 function computeSavingsPct(
   tierCents: number,
   monthlyCents: number,
   tier: CheckoutTier
 ): number | null {
-  const months = tier === "YEARLY" ? 12 : tier === "BIENNIAL" ? 24 : 0;
+  const months =
+    tier === "QUARTERLY" ? 3 : tier === "YEARLY" ? 12 : tier === "BIENNIAL" ? 24 : 0;
   if (months === 0) return null;
   const monthlyEquivalent = months * monthlyCents;
   if (monthlyEquivalent <= 0) return null;

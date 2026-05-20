@@ -12,16 +12,14 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/mobile/payments/initiate
  * Auth: bearer access token
- * Body: { tier }
+ * Body: { tier, installments?: boolean }
  * 200: { paymentId, hostedUrl, amountCents, tier }
  *
  * Crea un Payment(PENDING) provider=SUMUP via lo stesso `initiatePayment` del
  * web, ma con `returnUrl` che usa il custom scheme `houseofmuscle://` così a
  * pagamento concluso SumUp redirige nell'app via deep link.
  *
- * Il client (mobile) apre `hostedUrl` con `expo-web-browser.openAuthSessionAsync`
- * che intercetta automaticamente la redirect al custom scheme e ritorna il
- * controllo all'app.
+ * Se `installments: true` e il tier ha rate, crea anche un InstallmentPlan.
  */
 export const POST = withMobileAuth(async (request, { user }) => {
   let raw: unknown;
@@ -38,6 +36,20 @@ export const POST = withMobileAuth(async (request, { user }) => {
 
   const tier = parsed.data.tier as keyof typeof TIER_CATALOG;
   const tierConfig = TIER_CATALOG[tier];
+  const payInInstallments = (raw as { installments?: boolean }).installments === true;
+
+  if (payInInstallments && !tierConfig.installments) {
+    return NextResponse.json({ error: "INSTALLMENTS_NOT_AVAILABLE" }, { status: 400 });
+  }
+
+  const amountCents = payInInstallments && tierConfig.installments
+    ? tierConfig.installments.amountCents
+    : tierConfig.oneShotCents;
+
+  const dbUser = await db.user.findUnique({
+    where: { id: user.id },
+    select: { sumupCustomerId: true }
+  });
 
   // Crea il record Payment con un providerReference temporaneo.
   const payment = await db.payment.create({
@@ -45,7 +57,7 @@ export const POST = withMobileAuth(async (request, { user }) => {
       userId: user.id,
       provider: PaymentProvider.SUMUP,
       providerReference: `pending-${crypto.randomUUID()}`,
-      amountCents: tierConfig.oneShotCents,
+      amountCents,
       currency: "EUR",
       status: PaymentStatus.PENDING,
       tier
@@ -59,22 +71,55 @@ export const POST = withMobileAuth(async (request, { user }) => {
   try {
     const initiated = await initiatePayment({
       tier,
-      payInInstallments: false, // mobile Phase 1: solo pagamento unica soluzione
+      payInInstallments,
       reference: payment.id,
       returnUrl: mobileReturnUrl,
       customer: {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email
-      }
+      },
+      sumupCustomerId: dbUser?.sumupCustomerId ?? undefined
     });
 
-    await db.payment.update({
-      where: { id: payment.id },
-      data: {
-        provider: initiated.provider,
-        providerReference: initiated.providerReference,
-        amountCents: initiated.amountCents
+    await db.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          provider: initiated.provider,
+          providerReference: initiated.providerReference,
+          amountCents: initiated.amountCents
+        }
+      });
+
+      if (initiated.sumupCustomerId) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { sumupCustomerId: initiated.sumupCustomerId }
+        });
+      }
+
+      if (initiated.installmentPlan) {
+        await tx.installmentPlan.create({
+          data: {
+            paymentId: payment.id,
+            userId: user.id,
+            totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
+            installmentsCount: initiated.installmentPlan.installmentsCount,
+            installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
+            firstChargeAt: initiated.installmentPlan.firstChargeAt,
+            installments: {
+              create: Array.from(
+                { length: initiated.installmentPlan.installmentsCount },
+                (_, idx) => ({
+                  sequenceNumber: idx + 1,
+                  dueAt: addMonthsUtc(initiated.installmentPlan!.firstChargeAt, idx),
+                  amountCents: initiated.installmentPlan!.installmentAmountCents
+                })
+              )
+            }
+          }
+        });
       }
     });
 
@@ -96,3 +141,17 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "GATEWAY_ERROR" }, { status: 502 });
   }
 });
+
+function addMonthsUtc(base: Date, months: number): Date {
+  const d = new Date(base);
+  return new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth() + months,
+      d.getUTCDate(),
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds()
+    )
+  );
+}

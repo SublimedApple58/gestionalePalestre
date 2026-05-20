@@ -7,13 +7,10 @@ import { PaymentProvider, type SubscriptionTier } from "@gestionale/db";
 
 import { TIER_CATALOG, type CheckoutTier } from "@/lib/subscription";
 
-import { createCheckout as createSumUpCheckout } from "./sumup";
 import {
-  KLARNA_ENABLED,
-  createInstallmentOrder as createKlarnaInstallmentOrder
-} from "./klarna";
-
-export { KLARNA_ENABLED } from "./klarna";
+  createCheckout as createSumUpCheckout,
+  createCheckoutWithCustomer
+} from "./sumup";
 
 export type InitiatePaymentInput = {
   tier: CheckoutTier;
@@ -26,6 +23,8 @@ export type InitiatePaymentInput = {
     lastName: string;
     email: string;
   };
+  /** SumUp customer ID se già creato — per pagamenti ricorrenti. */
+  sumupCustomerId?: string;
 };
 
 export type InitiatedPayment = {
@@ -33,12 +32,14 @@ export type InitiatedPayment = {
   providerReference: string;
   amountCents: number;
   hostedUrl: string;
-  /** Popolato solo se è un piano rateale Klarna. */
+  /** Popolato solo se è un piano rateale. */
   installmentPlan?: {
     installmentsCount: number;
     installmentAmountCents: number;
     firstChargeAt: Date;
   };
+  /** SumUp customer ID (nuovo o riutilizzato) — da salvare su User. */
+  sumupCustomerId?: string;
 };
 
 /**
@@ -53,33 +54,32 @@ export async function initiatePayment(input: InitiatePaymentInput): Promise<Init
     if (!tierConfig.installments) {
       throw new Error(`[payments] Il tier ${input.tier} non supporta la rateizzazione.`);
     }
-    if (!KLARNA_ENABLED) {
-      throw new Error(
-        "[payments] Klarna non è ancora abilitato: la rateizzazione sarà disponibile a breve."
-      );
-    }
 
-    const totalCents = tierConfig.installments.amountCents * tierConfig.installments.count;
-    const order = await createKlarnaInstallmentOrder({
-      amountCents: totalCents,
-      installmentsCount: tierConfig.installments.count,
-      installmentAmountCents: tierConfig.installments.amountCents,
+    // Prima rata via SumUp con customer (salvataggio carta per rate successive)
+    const firstInstallmentCents = tierConfig.installments.amountCents;
+
+    const checkout = await createCheckoutWithCustomer({
+      amountCents: firstInstallmentCents,
       reference: input.reference,
       description: buildDescription(input.tier, true),
       returnUrl: input.returnUrl,
-      customer: input.customer
+      customerEmail: input.customer.email,
+      customerId: input.sumupCustomerId,
+      customerFirstName: input.customer.firstName,
+      customerLastName: input.customer.lastName
     });
 
     return {
-      provider: PaymentProvider.KLARNA,
-      providerReference: order.orderId,
-      amountCents: totalCents,
-      hostedUrl: order.hostedUrl,
+      provider: PaymentProvider.SUMUP,
+      providerReference: checkout.id,
+      amountCents: firstInstallmentCents,
+      hostedUrl: checkout.hostedUrl,
       installmentPlan: {
         installmentsCount: tierConfig.installments.count,
         installmentAmountCents: tierConfig.installments.amountCents,
-        firstChargeAt: order.firstChargeAt
-      }
+        firstChargeAt: new Date()
+      },
+      sumupCustomerId: checkout.customerId
     };
   }
 
@@ -107,8 +107,12 @@ function buildDescription(tier: SubscriptionTier, installments: boolean): string
 
 function tierHumanLabel(tier: SubscriptionTier): string {
   switch (tier) {
+    case "DAILY":
+      return "Giornaliero";
     case "MONTHLY":
       return "Mensile";
+    case "QUARTERLY":
+      return "Trimestrale";
     case "YEARLY":
       return "Annuale";
     case "BIENNIAL":

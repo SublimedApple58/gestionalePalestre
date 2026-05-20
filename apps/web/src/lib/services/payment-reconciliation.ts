@@ -1,4 +1,4 @@
-import { db, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
+import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
 import { getCheckout } from "@/lib/payments/sumup";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
@@ -9,21 +9,20 @@ import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
  * se lo stato remoto è finale aggiorna Payment + (se PAID) la UserSubscription
  * in una singola transazione.
  *
+ * Se il pagamento ha un InstallmentPlan, marca anche la prima rata come PAID.
+ *
  * Idempotente:
  *  - Payment già in stato finale (PAID / FAILED / CANCELED / REFUNDED) → no-op, ritorna il Payment.
  *  - Provider ≠ SUMUP oppure `providerReference` mancante → no-op.
  *  - Se SumUp risponde ancora PENDING → no-op, ritorna il Payment invariato.
- *
- * Chiamanti previsti:
- *  - `/checkout/success` (polling al ritorno da hosted checkout) — uso primario.
- *  - `/api/webhooks/sumup` (se riattivato in futuro).
- *  - Fallback al login / dashboard per Payment orfani (se mai implementato).
- *
- * Nota: ogni eccezione di rete è ingoiata e logga warn — la success page resta
- * reattiva anche se SumUp è temporaneamente irraggiungibile.
  */
 export async function reconcileSumUpPayment(paymentId: string): Promise<Payment | null> {
-  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  const payment = await db.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      installmentPlan: { include: { installments: true } }
+    }
+  });
   if (!payment) return null;
 
   // Provider diverso o senza reference: no-op.
@@ -69,7 +68,8 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
         update: {
           tier: updated.tier,
           startsAt,
-          endsAt
+          endsAt,
+          deactivatedAt: null
         },
         create: {
           userId: payment.userId,
@@ -79,10 +79,29 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
         }
       });
 
-      return await tx.payment.update({
+      const finalPayment = await tx.payment.update({
         where: { id: payment.id },
         data: { subscriptionId: subscription.id }
       });
+
+      // Se il pagamento ha un piano rateale, marca la prima rata come PAID
+      if (payment.installmentPlan) {
+        const firstInstallment = payment.installmentPlan.installments.find(
+          (i) => i.sequenceNumber === 1
+        );
+        if (firstInstallment && firstInstallment.status !== InstallmentStatus.PAID) {
+          await tx.installment.update({
+            where: { id: firstInstallment.id },
+            data: {
+              status: InstallmentStatus.PAID,
+              paidAt: new Date(),
+              providerReference: payment.providerReference
+            }
+          });
+        }
+      }
+
+      return finalPayment;
     });
 
     safeSyncPinToKeypad(db, payment.userId);
@@ -101,5 +120,16 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
   }
 
   // Stato ancora PENDING — no-op, l'utente vedrà il messaggio "in elaborazione".
+  return payment;
+}
+
+/**
+ * Riconciliazione Stripe — stub. Il webhook Stripe chiama questa funzione;
+ * l'implementazione completa verra' aggiunta quando Stripe sara' attivo.
+ */
+export async function reconcileStripePayment(paymentId: string): Promise<Payment | null> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment || payment.provider !== PaymentProvider.STRIPE) return payment;
+  // TODO: implementare riconciliazione Stripe (query PaymentIntent via API)
   return payment;
 }

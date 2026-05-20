@@ -7,7 +7,8 @@ import {
 import {
   type UserRole,
   type AccessEventType,
-  type UserDocument
+  type UserDocument,
+  type InstallmentStatus
 } from "@gestionale/db";
 
 import { openGymDoorAction } from "@/app/actions/dashboard-actions";
@@ -15,6 +16,7 @@ import { roleLabel } from "@/lib/roles";
 
 import { BirthdayBanner } from "./birthday-banner";
 import { DocumentReviewTable } from "./document-review-table";
+import { OverdueInstallmentsSection } from "./overdue-installments-section";
 import { MaskedAccessCode } from "../ui/masked-access-code";
 import { UserAvatar } from "../ui/user-avatar";
 
@@ -28,6 +30,25 @@ type AccessLogRow = {
     firstName: string;
     lastName: string;
     role: UserRole;
+  };
+};
+
+export type OverdueInstallmentRow = {
+  id: string;
+  sequenceNumber: number;
+  dueAt: Date;
+  amountCents: number;
+  status: InstallmentStatus;
+  failureReason: string | null;
+  plan: {
+    id: string;
+    installmentsCount: number;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
   };
 };
 
@@ -49,13 +70,15 @@ type AdminDashboardProps = {
     }
   >;
   profilePhotoUrls?: Record<string, string>;
+  overdueInstallments?: OverdueInstallmentRow[];
 };
 
 export function AdminDashboard({
   currentUser,
   accessLogs,
   reviewDocuments,
-  profilePhotoUrls = {}
+  profilePhotoUrls = {},
+  overdueInstallments = []
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length;
 
@@ -85,6 +108,11 @@ export function AdminDashboard({
           </form>
         </div>
       </div>
+
+      {/* ── Rate in sofferenza ───────────────────────────────────── */}
+      {overdueInstallments.length > 0 && (
+        <OverdueInstallmentsSection installments={overdueInstallments} />
+      )}
 
       {/* ── Approvazioni in sospeso ─────────────────────────────── */}
       <div className="dash-card-full">

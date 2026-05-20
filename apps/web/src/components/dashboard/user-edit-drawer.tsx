@@ -74,7 +74,9 @@ const ROLE_OPTIONS = [
 ];
 
 const SUBSCRIPTION_OPTIONS = [
+  { value: SubscriptionTier.DAILY, label: "Giornaliero" },
   { value: SubscriptionTier.MONTHLY, label: "Mensile" },
+  { value: SubscriptionTier.QUARTERLY, label: "Trimestrale" },
   { value: SubscriptionTier.YEARLY, label: "Annuale" },
   { value: SubscriptionTier.BIENNIAL, label: "Biennale" }
 ];

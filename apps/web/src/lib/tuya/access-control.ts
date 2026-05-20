@@ -161,7 +161,7 @@ async function getLatestUnlockNo(tuyaUserId: string): Promise<string> {
       `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
     );
     if (result?.records?.length > 0) {
-      const latest = result.records.at(-1);
+      const latest = result.records[result.records.length - 1];
       if (latest) return String(latest.unlock_no);
     }
   } catch {
