@@ -78,8 +78,8 @@ export async function syncPinToKeypad(
     });
   } else if (!shouldHavePin && user.tuyaPinActive) {
     // Deactivate PIN
-    if (user.tuyaUserId && user.tuyaPinUnlockNo) {
-      await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo);
+    if (user.tuyaUserId) {
+      await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo ?? "1");
     }
 
     await prisma.user.update({
