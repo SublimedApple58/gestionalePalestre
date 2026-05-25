@@ -63,7 +63,7 @@ export const GET = withMobileAuth(
         email: true,
         role: true,
         subscription: {
-          select: { tier: true, endsAt: true }
+          select: { tier: true, endsAt: true, deactivatedAt: true }
         }
       }
     });
@@ -81,7 +81,7 @@ export const GET = withMobileAuth(
         email: u.email,
         role: u.role,
         avatarUrl: photoMap.get(u.id) ?? null,
-        subscription: u.subscription
+        subscription: u.subscription && !u.subscription.deactivatedAt
           ? {
               tier: u.subscription.tier,
               endsAt: u.subscription.endsAt.toISOString()
