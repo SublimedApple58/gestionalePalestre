@@ -179,8 +179,47 @@ export async function disablePin(
   tuyaUserId: string,
   unlockNo: string
 ): Promise<void> {
-  await tuyaRequest<boolean>(
-    "DELETE",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password/keys/${unlockNo}`
-  );
+  // Try with the stored unlockNo first
+  try {
+    await tuyaRequest<boolean>(
+      "DELETE",
+      `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password/keys/${unlockNo}`
+    );
+    return;
+  } catch (e) {
+    console.warn(
+      `[tuya] disablePin failed with unlockNo=${unlockNo} for user ${tuyaUserId}, trying to list and remove all PINs`
+    );
+  }
+
+  // Fallback: list all PINs for this user and delete each one
+  try {
+    const result = await tuyaRequest<{ records: Array<{ unlock_no: number }> }>(
+      "GET",
+      `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
+    );
+    if (result?.records?.length > 0) {
+      for (const record of result.records) {
+        try {
+          await tuyaRequest<boolean>(
+            "DELETE",
+            `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password/keys/${record.unlock_no}`
+          );
+        } catch {
+          console.warn(`[tuya] Failed to delete key ${record.unlock_no} for user ${tuyaUserId}`);
+        }
+      }
+      return;
+    }
+  } catch {
+    // List endpoint not available
+  }
+
+  // Last resort: try deleting the Tuya user entirely (removes all keys)
+  try {
+    await deleteTuyaUser(tuyaUserId);
+    console.warn(`[tuya] Deleted Tuya user ${tuyaUserId} as last resort to remove PIN`);
+  } catch {
+    console.error(`[tuya] Could not disable PIN for user ${tuyaUserId} — all methods failed`);
+  }
 }
