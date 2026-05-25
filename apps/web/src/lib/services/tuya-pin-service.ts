@@ -36,8 +36,14 @@ export async function ensureTuyaUser(
 }
 
 /**
- * Core sync logic: determines if the user SHOULD have an active PIN on the keypad
- * and enables/disables accordingly.
+ * Core sync — semplice e brutale:
+ *
+ * 1. Decidi se l'utente DEVE avere il PIN (admin/instructor sempre, subscriber solo se abb. attivo)
+ * 2. Se deve averlo → assicurati che ce l'abbia (crea se manca)
+ * 3. Se NON deve averlo → assicurati che NON ce l'abbia (rimuovi se presente)
+ *
+ * Ignora lo stato `tuyaPinActive` nel DB per la decisione — lo usa solo per
+ * capire se serve un'azione. Alla fine riallinea il DB allo stato reale.
  */
 export async function syncPinToKeypad(
   prisma: PrismaClient,
@@ -64,54 +70,44 @@ export async function syncPinToKeypad(
     (user.role === UserRole.SUBSCRIBER &&
       isSubscriptionActive(user.subscription));
 
-  if (shouldHavePin && !user.tuyaPinActive) {
-    // Activate PIN
-    const tuyaUserId = await ensureTuyaUser(prisma, userId);
-    const unlockNo = await enablePin(tuyaUserId, user.accessCode);
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        tuyaPinUnlockNo: unlockNo,
-        tuyaPinActive: true,
-      },
-    });
-  } else if (!shouldHavePin && user.tuyaPinActive) {
-    // Deactivate PIN
-    if (user.tuyaUserId) {
-      await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo ?? "1");
+  if (shouldHavePin) {
+    // Deve avere il PIN — crea se non ce l'ha
+    if (!user.tuyaPinActive) {
+      const tuyaUserId = await ensureTuyaUser(prisma, userId);
+      const unlockNo = await enablePin(tuyaUserId, user.accessCode);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
+      });
     }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        tuyaPinActive: false,
-        tuyaPinUnlockNo: null,
-      },
-    });
+  } else {
+    // NON deve avere il PIN — rimuovi se ce l'ha
+    if (user.tuyaPinActive || user.tuyaPinUnlockNo) {
+      if (user.tuyaUserId) {
+        await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo ?? "1");
+      }
+      await prisma.user.update({
+        where: { id: userId },
+        data: { tuyaPinActive: false, tuyaPinUnlockNo: null },
+      });
+    }
   }
-  // If state already aligned → no-op
 }
 
 /**
  * Fire-and-forget wrapper. Logs errors but never throws.
- * Use everywhere except migration scripts where you want errors to surface.
  */
 export function safeSyncPinToKeypad(
   prisma: PrismaClient,
   userId: string
 ): void {
   syncPinToKeypad(prisma, userId).catch((err) => {
-    console.error(
-      `[tuya-pin] Failed to sync PIN for user ${userId}:`,
-      err
-    );
+    console.error(`[tuya-pin] sync failed for ${userId}:`, err);
   });
 }
 
 /**
- * Full cleanup: disables PIN (if active) then deletes the Tuya user.
- * Used before deleting a user from the DB.
+ * Full cleanup before user deletion.
  */
 export async function removeTuyaUserCompletely(
   prisma: PrismaClient,
@@ -119,27 +115,19 @@ export async function removeTuyaUserCompletely(
 ): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      tuyaUserId: true,
-      tuyaPinUnlockNo: true,
-      tuyaPinActive: true,
-    },
+    select: { tuyaUserId: true, tuyaPinUnlockNo: true, tuyaPinActive: true },
   });
 
   if (!user?.tuyaUserId) return;
 
-  if (user.tuyaPinActive && user.tuyaPinUnlockNo) {
-    await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo);
+  if (user.tuyaPinActive || user.tuyaPinUnlockNo) {
+    await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo ?? "1");
   }
 
   await deleteTuyaUser(user.tuyaUserId);
 
   await prisma.user.update({
     where: { id: userId },
-    data: {
-      tuyaUserId: null,
-      tuyaPinUnlockNo: null,
-      tuyaPinActive: false,
-    },
+    data: { tuyaUserId: null, tuyaPinUnlockNo: null, tuyaPinActive: false },
   });
 }

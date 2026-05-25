@@ -1,13 +1,10 @@
-import { type PrismaClient, UserRole } from "@gestionale/db";
+import { type PrismaClient } from "@gestionale/db";
 
-import { isSubscriptionActive } from "@/lib/subscription";
-
-import { ensureTuyaUser, syncPinToKeypad } from "./tuya-pin-service";
+import { syncPinToKeypad, ensureTuyaUser } from "./tuya-pin-service";
 
 type SyncResult = {
-  deactivated: number;
-  activated: number;
-  registered: number;
+  total: number;
+  synced: number;
   errors: string[];
 };
 
@@ -18,81 +15,36 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Reconciliation job: ensures DB state matches keypad state for all users.
- * Processes sequentially with rate limiting to respect Tuya API limits.
+ * Sync brutale: prende TUTTI gli utenti e per ciascuno chiama syncPinToKeypad.
+ * La logica e' dentro syncPinToKeypad:
+ *   - abbonamento attivo (o admin/instructor) → PIN deve esserci
+ *   - altrimenti → PIN deve essere rimosso
+ *
+ * Nessuna pre-filtratura, nessuna assunzione sullo stato DB.
+ * Rate-limited a 300ms tra una chiamata e l'altra.
  */
 export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResult> {
-  const result: SyncResult = { deactivated: 0, activated: 0, registered: 0, errors: [] };
+  const result: SyncResult = { total: 0, synced: 0, errors: [] };
 
-  // 1. Subscribers with active PIN but expired/deactivated/missing subscription → disable
-  const activeSubscribers = await prisma.user.findMany({
-    where: { role: UserRole.SUBSCRIBER, tuyaPinActive: true },
-    select: {
-      id: true,
-      tuyaUserId: true,
-      tuyaPinUnlockNo: true,
-      subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true },
-      },
-    },
-  });
-
-  for (const user of activeSubscribers) {
-    if (!isSubscriptionActive(user.subscription)) {
-      try {
-        await syncPinToKeypad(prisma, user.id);
-        result.deactivated++;
-        await delay(DELAY_MS);
-      } catch (err) {
-        result.errors.push(`deactivate ${user.id}: ${(err as Error).message}`);
-      }
-    }
-  }
-
-  // 2. ADMIN/INSTRUCTOR without active PIN → enable
-  const staffWithoutPin = await prisma.user.findMany({
-    where: {
-      role: { in: [UserRole.ADMIN, UserRole.INSTRUCTOR] },
-      tuyaPinActive: false,
-    },
+  const users = await prisma.user.findMany({
+    where: { tuyaUserId: { not: null } },
     select: { id: true },
+    orderBy: { createdAt: "asc" },
   });
 
-  for (const user of staffWithoutPin) {
+  result.total = users.length;
+
+  for (const user of users) {
     try {
       await syncPinToKeypad(prisma, user.id);
-      result.activated++;
-      await delay(DELAY_MS);
+      result.synced++;
     } catch (err) {
-      result.errors.push(`activate ${user.id}: ${(err as Error).message}`);
+      result.errors.push(`${user.id}: ${(err as Error).message}`);
     }
+    await delay(DELAY_MS);
   }
 
-  // 2b. SUBSCRIBER with active subscription but PIN off → enable
-  const subscribersNeedingPin = await prisma.user.findMany({
-    where: {
-      role: UserRole.SUBSCRIBER,
-      tuyaPinActive: false,
-      subscription: {
-        deactivatedAt: null,
-        endsAt: { gte: new Date() },
-        startsAt: { lte: new Date() },
-      },
-    },
-    select: { id: true },
-  });
-
-  for (const user of subscribersNeedingPin) {
-    try {
-      await syncPinToKeypad(prisma, user.id);
-      result.activated++;
-      await delay(DELAY_MS);
-    } catch (err) {
-      result.errors.push(`activate-sub ${user.id}: ${(err as Error).message}`);
-    }
-  }
-
-  // 3. Users without tuyaUserId → register on Tuya
+  // Also register users without tuyaUserId
   const unregistered = await prisma.user.findMany({
     where: { tuyaUserId: null },
     select: { id: true },
@@ -101,12 +53,14 @@ export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResul
   for (const user of unregistered) {
     try {
       await ensureTuyaUser(prisma, user.id);
-      result.registered++;
-      await delay(DELAY_MS);
+      result.synced++;
     } catch (err) {
       result.errors.push(`register ${user.id}: ${(err as Error).message}`);
     }
+    await delay(DELAY_MS);
   }
+
+  result.total += unregistered.length;
 
   return result;
 }
