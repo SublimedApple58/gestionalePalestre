@@ -190,6 +190,8 @@ export async function assignSubscriptionAction(formData: FormData): Promise<void
     redirectWithUtentiError(error);
   }
 
+  safeSyncPinToKeypad(db, parsed.data.targetUserId);
+
   await logAdminAction(db, {
     actorId: user.id,
     targetUserId: parsed.data.targetUserId,
@@ -518,6 +520,7 @@ export async function assignSubscriptionActionState(
     });
     if (!parsed.success) return { ok: false, message: "Dati abbonamento non validi." };
     await assignSubscriptionByAdmin(db, user.role, user.id, parsed.data);
+    safeSyncPinToKeypad(db, parsed.data.targetUserId);
     await logAdminAction(db, {
       actorId: user.id,
       targetUserId: parsed.data.targetUserId,

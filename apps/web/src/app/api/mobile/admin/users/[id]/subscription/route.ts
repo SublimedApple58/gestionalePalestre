@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { logAdminAction } from "@/lib/services/audit-log-service";
-import { assignSubscriptionByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
+import { assignSubscriptionByAdmin } from "@/lib/services/user-service";
 import { mobileAdminUserSubscriptionSchema } from "@/lib/validators/mobile";
 
 export const runtime = "nodejs";
@@ -45,6 +46,8 @@ export const POST = withMobileAuth<{ id: string }>(
       }
       throw e;
     }
+
+    safeSyncPinToKeypad(db, params.id);
 
     const fresh = await db.userSubscription.findUnique({
       where: { userId: params.id },

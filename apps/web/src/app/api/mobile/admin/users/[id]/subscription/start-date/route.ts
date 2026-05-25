@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { logAdminAction } from "@/lib/services/audit-log-service";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -65,6 +66,8 @@ export const POST = withMobileAuth<{ id: string }>(
       where: { userId: params.id },
       data: { startsAt: newStartsAt, endsAt: newEndsAt }
     });
+
+    safeSyncPinToKeypad(db, params.id);
 
     await logAdminAction(db, {
       actorId: user.id,
