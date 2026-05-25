@@ -68,6 +68,30 @@ export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResul
     }
   }
 
+  // 2b. SUBSCRIBER with active subscription but PIN off → enable
+  const subscribersNeedingPin = await prisma.user.findMany({
+    where: {
+      role: UserRole.SUBSCRIBER,
+      tuyaPinActive: false,
+      subscription: {
+        deactivatedAt: null,
+        endsAt: { gte: new Date() },
+        startsAt: { lte: new Date() },
+      },
+    },
+    select: { id: true },
+  });
+
+  for (const user of subscribersNeedingPin) {
+    try {
+      await syncPinToKeypad(prisma, user.id);
+      result.activated++;
+      await delay(DELAY_MS);
+    } catch (err) {
+      result.errors.push(`activate-sub ${user.id}: ${(err as Error).message}`);
+    }
+  }
+
   // 3. Users without tuyaUserId → register on Tuya
   const unregistered = await prisma.user.findMany({
     where: { tuyaUserId: null },
