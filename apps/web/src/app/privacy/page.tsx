@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export const metadata = {
   title: "Informativa Privacy — House of Muscle",
 };
@@ -8,8 +6,6 @@ export default function PrivacyPage() {
   return (
     <main className="legal-shell">
       <article className="legal-content">
-        <Link href="/register" className="legal-back">&larr; Torna alla registrazione</Link>
-
         <h1>Informativa sulla Privacy</h1>
         <p className="legal-updated">Ultimo aggiornamento: maggio 2026</p>
 
