@@ -180,6 +180,16 @@ export function RegisterForm({ error }: RegisterFormProps) {
           />
         </label>
 
+        <label className="terms-check">
+          <input type="checkbox" name="terms" required />
+          <span>
+            Ho letto e accetto i{" "}
+            <a href="/terms" target="_blank" rel="noopener noreferrer">Termini e Condizioni</a>
+            {" "}e l'
+            <a href="/privacy" target="_blank" rel="noopener noreferrer">Informativa Privacy</a>.
+          </span>
+        </label>
+
         <div className="register-step-nav">
           <button
             type="button"

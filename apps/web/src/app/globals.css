@@ -397,6 +397,150 @@ p {
   line-height: 1.5;
 }
 
+/* ─── LEGAL PAGES ────────────────────────────────────────────────────────── */
+
+.legal-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.legal-content {
+  max-width: 720px;
+  width: 100%;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.legal-content h1 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.legal-content h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 32px;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.legal-content p {
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.legal-content ul {
+  color: var(--text-muted);
+  padding-left: 24px;
+  margin-bottom: 12px;
+}
+
+.legal-content li {
+  margin-bottom: 6px;
+}
+
+.legal-content a {
+  color: #ff6f79;
+}
+
+.legal-updated {
+  font-size: 13px;
+  color: var(--text-subtle) !important;
+  margin-bottom: 24px !important;
+}
+
+.legal-back {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  text-decoration: none;
+}
+
+.legal-back:hover {
+  color: #ff6f79;
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.legal-table th,
+.legal-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-quiet);
+}
+
+.legal-table th {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.legal-table td {
+  color: var(--text-muted);
+}
+
+/* ─── CHECKBOX T&C ─────────────────────────────────────────────────────── */
+
+.terms-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.terms-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  margin-top: 2px;
+  position: relative;
+}
+
+.terms-check input[type="checkbox"]:checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.terms-check input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.terms-check a {
+  color: #ff6f79;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.terms-check a:hover {
+  text-decoration: underline;
+}
+
 /* ─── APP SHELL LAYOUT (antd Layout + Sider + Menu) ──────────────────────── */
 /* Desktop sidebar: antd Sider with custom gradient + Menu.
    Mobile: header + bottom nav + Drawer for sidebar. */
