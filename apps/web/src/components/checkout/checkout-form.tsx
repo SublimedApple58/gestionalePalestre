@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ArrowRight, Check, Info, Lock } from "lucide-react";
+import { ArrowRight, Check, Crown, Info, Lock } from "lucide-react";
 
 import { initiateCheckoutAction } from "@/app/actions/payment-actions";
 import {
@@ -45,9 +45,19 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
   );
   const dailyTier = useMemo(() => tiers.find((t) => t.tier === "DAILY")!, [tiers]);
 
+  // Default: annuale a rate (la formula promossa)
   const [selectedTier, setSelectedTier] = useState<SubscriptionTierKey>("YEARLY");
-  const [payInInstallments, setPayInInstallments] = useState(false);
+  const [payInInstallments, setPayInInstallments] = useState(true);
   const [isPending, startTransition] = useTransition();
+
+  const yearlyData = useMemo(
+    () => subscriptionTiers.find((t) => t.tier === "YEARLY")!,
+    [subscriptionTiers]
+  );
+  const otherTiers = useMemo(
+    () => subscriptionTiers.filter((t) => t.tier !== "YEARLY"),
+    [subscriptionTiers]
+  );
 
   const selectedData = useMemo(
     () => subscriptionTiers.find((t) => t.tier === selectedTier)!,
@@ -60,10 +70,20 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
 
   const monthlyPrice = tiers.find((t) => t.tier === "MONTHLY")!.oneShotCents;
 
+  const yearlyMonthly = yearlyData.installments!.amountCents;
+  const yearlyInstallmentSavingsPct = Math.round(
+    ((monthlyPrice - yearlyMonthly) / monthlyPrice) * 100
+  );
+  const isYearlyInstallments = selectedTier === "YEARLY" && payInInstallments;
+
   function handleSelect(tier: SubscriptionTierKey) {
     setSelectedTier(tier);
-    const data = subscriptionTiers.find((t) => t.tier === tier);
-    if (!data?.installments) setPayInInstallments(false);
+    setPayInInstallments(false);
+  }
+
+  function selectYearlyInstallments() {
+    setSelectedTier("YEARLY");
+    setPayInInstallments(true);
   }
 
   function handleSubmit(formData: FormData) {
@@ -109,11 +129,44 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
         </div>
       ) : null}
 
+      {/* ── Featured: Annuale a rate ──────────────────────────── */}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={isYearlyInstallments}
+        className={`ck-featured ${isYearlyInstallments ? "ck-featured--selected" : ""}`}
+        onClick={selectYearlyInstallments}
+      >
+        <span className="ck-featured-badge">
+          <Crown size={11} aria-hidden="true" />
+          La scelta n.1
+        </span>
+        <span className="ck-featured-body">
+          <span className="ck-plan-radio ck-featured-radio">
+            {isYearlyInstallments && <Check size={13} strokeWidth={3} />}
+          </span>
+          <span className="ck-featured-info">
+            <span className="ck-featured-name">Annuale · a rate</span>
+            <span className="ck-featured-detail">
+              {yearlyData.installments!.count} rate mensili · un anno intero di accesso
+            </span>
+          </span>
+          <span className="ck-featured-pricing">
+            <span className="ck-featured-price">{formatEuroCents(yearlyMonthly)}</span>
+            <span className="ck-featured-unit">/ mese</span>
+          </span>
+        </span>
+        <span className="ck-featured-foot">
+          Solo {formatEuroCents(yearlyMonthly)} al mese invece di {formatEuroCents(monthlyPrice)} · risparmi il {yearlyInstallmentSavingsPct}%
+        </span>
+      </button>
+
+      <p className="ck-alt-label">Oppure scegli un altro piano</p>
+
       {/* ── Subscription tiers ────────────────────────────────── */}
       <div className="ck-plans" role="radiogroup" aria-label="Scegli un piano">
-        {subscriptionTiers.map((t) => {
-          const isSelected = t.tier === selectedTier;
-          const isPopular = t.tier === "YEARLY";
+        {otherTiers.map((t) => {
+          const isSelected = t.tier === selectedTier && !payInInstallments;
           const savingsPct = computeSavingsPct(t.oneShotCents, monthlyPrice, t.tier);
 
           return (
@@ -122,7 +175,7 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
               type="button"
               role="radio"
               aria-checked={isSelected}
-              className={`ck-plan ${isSelected ? "ck-plan--selected" : ""} ${isPopular ? "ck-plan--popular" : ""}`}
+              className={`ck-plan ${isSelected ? "ck-plan--selected" : ""}`}
               onClick={() => handleSelect(t.tier)}
             >
               <span className="ck-plan-radio">
@@ -132,7 +185,7 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
               <span className="ck-plan-info">
                 <span className="ck-plan-name">
                   {tierLabel(t.tier)}
-                  {isPopular && <span className="ck-plan-tag">Consigliato</span>}
+                  {t.tier === "YEARLY" && <span className="ck-plan-tag-quiet">unica soluzione</span>}
                 </span>
                 <span className="ck-plan-duration">{TIER_DURATION[t.tier]}</span>
               </span>
@@ -148,8 +201,8 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
         })}
       </div>
 
-      {/* ── Installments toggle (when available) ──────────────── */}
-      {selectedData.installments ? (
+      {/* ── Installments toggle (solo per Biennale) ───────────── */}
+      {selectedTier === "BIENNIAL" && selectedData.installments ? (
         <div className="ck-installments-row">
           <div className="ck-toggle-pill">
             <button
@@ -186,7 +239,7 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
           ) : (
             <>
               Abbonati — {effectivePayMode === "installments" && selectedData.installments
-                ? formatEuroCents(selectedData.installments.amountCents)
+                ? `${formatEuroCents(selectedData.installments.amountCents)}/mese`
                 : formatEuroCents(selectedData.oneShotCents)}
               <ArrowRight size={16} />
             </>
