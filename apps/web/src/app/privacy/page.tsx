@@ -18,9 +18,10 @@ export default function PrivacyPage() {
 
         <h2>1. Titolare del Trattamento</h2>
         <p>
-          Il Titolare del trattamento e' House of Muscle. Per esercitare i tuoi diritti
-          o per informazioni sul trattamento dei dati, puoi contattarci tramite i recapiti
-          disponibili sulla Piattaforma o presso la struttura.
+          Il Titolare del trattamento e' <strong>HOUSE OF MUSCLE SSD ARL</strong>,
+          P. IVA 02225020672, con sede in Via Amerigo Vespucci SNC.
+          Per esercitare i tuoi diritti o per informazioni sul trattamento dei dati,
+          puoi contattarci tramite i recapiti disponibili sulla Piattaforma o presso la struttura.
         </p>
 
         <h2>2. Dati Raccolti</h2>

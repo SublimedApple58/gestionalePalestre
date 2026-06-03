@@ -11,7 +11,9 @@ export default function TermsPage() {
 
         <p>
           I presenti Termini e Condizioni ("Termini") regolano l'utilizzo dell'applicazione mobile
-          e della piattaforma web di <strong>House of Muscle</strong> ("il Servizio", "la Piattaforma").
+          e della piattaforma web di <strong>House of Muscle</strong> ("il Servizio", "la Piattaforma"),
+          gestita da <strong>HOUSE OF MUSCLE SSD ARL</strong>, P. IVA 02225020672,
+          con sede in Via Amerigo Vespucci SNC.
           Registrandoti e utilizzando il Servizio, accetti integralmente i presenti Termini.
         </p>
 
@@ -120,6 +122,11 @@ export default function TermsPage() {
         <p>
           Per qualsiasi domanda relativa ai presenti Termini, puoi contattarci tramite
           i recapiti disponibili sulla Piattaforma o presso la struttura.
+        </p>
+        <p>
+          <strong>HOUSE OF MUSCLE SSD ARL</strong><br />
+          Via Amerigo Vespucci SNC<br />
+          P. IVA 02225020672
         </p>
       </article>
     </main>
