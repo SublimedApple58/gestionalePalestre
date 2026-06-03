@@ -54,10 +54,8 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
     () => subscriptionTiers.find((t) => t.tier === "YEARLY")!,
     [subscriptionTiers]
   );
-  const otherTiers = useMemo(
-    () => subscriptionTiers.filter((t) => t.tier !== "YEARLY"),
-    [subscriptionTiers]
-  );
+  // Tutti i piani in lista (Annuale incluso come "unica soluzione"); l'hero sopra e' Annuale a rate.
+  const otherTiers = subscriptionTiers;
 
   const selectedData = useMemo(
     () => subscriptionTiers.find((t) => t.tier === selectedTier)!,
