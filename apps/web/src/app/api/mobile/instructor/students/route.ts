@@ -11,15 +11,11 @@ export const dynamic = "force-dynamic";
  * GET /api/mobile/instructor/students
  * Auth: bearer access token (INSTRUCTOR | ADMIN)
  *
- * INSTRUCTOR vede gli iscritti assegnati a sé.
- * ADMIN, per simmetria, vede TUTTI gli iscritti (utile per testare la UI).
+ * Sia INSTRUCTOR che ADMIN vedono TUTTI gli iscritti.
  */
 export const GET = withMobileAuth(
-  async (_request, { user }) => {
-    const where =
-      user.role === UserRole.ADMIN
-        ? { role: UserRole.SUBSCRIBER }
-        : { role: UserRole.SUBSCRIBER, assignedInstructorId: user.id };
+  async (_request, { user: _user }) => {
+    const where = { role: UserRole.SUBSCRIBER };
 
     const students = await db.user.findMany({
       where,

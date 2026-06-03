@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * Permission: INSTRUCTOR vede solo i suoi assegnati. ADMIN qualunque iscritto.
  */
 export const GET = withMobileAuth<{ id: string }>(
-  async (_request, { params, user }) => {
+  async (_request, { params }) => {
     const student = await db.user.findUnique({
       where: { id: params.id },
       include: {
@@ -50,10 +50,6 @@ export const GET = withMobileAuth<{ id: string }>(
 
     if (!student || student.role !== UserRole.SUBSCRIBER) {
       return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    }
-
-    if (user.role === UserRole.INSTRUCTOR && student.assignedInstructor?.id !== user.id) {
-      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
     const avatarUrl = await getProfilePhotoUrl(student.id).catch(() => null);
