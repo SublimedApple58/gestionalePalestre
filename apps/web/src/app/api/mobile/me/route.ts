@@ -1,9 +1,11 @@
-import { db } from "@gestionale/db";
+import { db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrl } from "@/lib/profile-photo";
 import { isSubscriptionActive } from "@/lib/subscription";
+import { logAdminAction } from "@/lib/services/audit-log-service";
+import { removeTuyaUserCompletely } from "@/lib/services/tuya-pin-service";
 
 import { mobileUpdateProfileSchema } from "@/lib/validators/mobile";
 
@@ -177,4 +179,42 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
         }
       : null
   });
+});
+
+/**
+ * DELETE /api/mobile/me
+ * Auth: bearer access token
+ * Elimina definitivamente l'account dell'utente autenticato (App Store 5.1.1v).
+ * 204: eliminato. 400 LAST_ADMIN: non si può eliminare l'ultimo admin.
+ *
+ * Self-service: l'utente cancella se stesso. Pulisce il PIN/utente Tuya e
+ * registra l'azione nell'audit log (actor = target = se stesso).
+ */
+export const DELETE = withMobileAuth(async (_request, { user }) => {
+  // Guardia: non lasciare la piattaforma senza admin.
+  if (user.role === UserRole.ADMIN) {
+    const adminsCount = await db.user.count({ where: { role: UserRole.ADMIN } });
+    if (adminsCount <= 1) {
+      return NextResponse.json({ error: "LAST_ADMIN" }, { status: 400 });
+    }
+  }
+
+  // Audit prima della delete (lo snapshot del target sopravvive alla cancellazione).
+  await logAdminAction(db, {
+    actorId: user.id,
+    targetUserId: user.id,
+    action: "USER_DELETED",
+    payload: { source: "mobile-self-delete" }
+  });
+
+  // Rimozione completa lato Tuya (best-effort: non blocca la cancellazione).
+  try {
+    await removeTuyaUserCompletely(db, user.id);
+  } catch (e) {
+    console.error(`[mobile/me DELETE] Tuya cleanup failed for ${user.id}:`, e);
+  }
+
+  await db.user.delete({ where: { id: user.id } });
+
+  return new NextResponse(null, { status: 204 });
 });

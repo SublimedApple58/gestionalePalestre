@@ -1,4 +1,4 @@
-import { SubscriptionTier, UserRole, WorkoutSetType } from "@gestionale/db";
+import { DocumentSide, DocumentType, SubscriptionTier, UserRole, WorkoutSetType } from "@gestionale/db";
 import { z } from "zod";
 
 import { CHECKOUT_TIERS } from "@/lib/subscription";
@@ -7,6 +7,16 @@ import { CHECKOUT_TIERS } from "@/lib/subscription";
 export const mobileLoginSchema = z.object({
   email: z.string().trim().email("Email non valida"),
   password: z.string().min(8, "Password minimo 8 caratteri").max(128)
+});
+
+/** Body POST /api/mobile/auth/register */
+export const mobileRegisterSchema = z.object({
+  firstName: z.string().trim().min(2, "Nome troppo corto").max(60),
+  lastName: z.string().trim().min(2, "Cognome troppo corto").max(60),
+  email: z.string().trim().email("Email non valida"),
+  password: z.string().min(8, "Password minimo 8 caratteri").max(128),
+  address: z.string().trim().min(5, "Indirizzo troppo corto").max(200).optional(),
+  acceptedTerms: z.literal(true)
 });
 
 /** Body POST /api/mobile/auth/refresh */
@@ -70,6 +80,37 @@ export const mobileAvatarConfirmSchema = z.object({
     .int()
     .positive()
     .max(8 * 1024 * 1024)
+});
+
+/* ── DOCUMENTI ISCRITTO (onboarding mobile) ──────────────────────────── */
+
+const documentMimeType = z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+const documentFileSize = z
+  .number()
+  .int()
+  .positive()
+  .max(12 * 1024 * 1024); // 12 MB (allineato a DOC_UPLOAD_MAX_BYTES default)
+
+/** Body POST /api/mobile/me/documents/presign */
+export const mobileDocumentPresignSchema = z.object({
+  type: z.nativeEnum(DocumentType),
+  side: z.nativeEnum(DocumentSide),
+  fileName: z.string().trim().min(1).max(120),
+  mimeType: documentMimeType,
+  fileSize: documentFileSize
+});
+
+/** Body POST /api/mobile/me/documents/commit */
+export const mobileDocumentCommitSchema = z.object({
+  type: z.nativeEnum(DocumentType),
+  side: z.nativeEnum(DocumentSide),
+  storageKey: z.string().trim().min(1).max(400),
+  fileName: z.string().trim().min(1).max(120),
+  mimeType: documentMimeType,
+  fileSize: documentFileSize,
+  // Forward-compat: scadenza certificato medico. In v1 la UI mobile non la invia
+  // (l'admin la imposta in fase di approvazione).
+  medicalCertificateExpiresAt: z.string().datetime({ offset: true }).optional()
 });
 
 /* ── ADMIN ────────────────────────────────────────────────────────────── */
