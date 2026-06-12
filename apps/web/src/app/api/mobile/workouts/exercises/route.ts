@@ -2,6 +2,10 @@ import { db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import {
+  createDocumentDownloadUrl,
+  isDocumentStorageConfigured
+} from "@/lib/services/document-storage-service";
 import { DomainError } from "@/lib/services/errors";
 import {
   createCustomExercise,
@@ -12,14 +16,32 @@ import { mobileCreateExerciseSchema } from "@/lib/validators/mobile";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// TTL lungo: le foto esercizio non sono sensibili e il mobile cachea l'immagine.
+const EXERCISE_PHOTO_URL_TTL_SECONDS = 24 * 60 * 60;
+
 /**
  * GET /api/mobile/workouts/exercises
- * 200: { items: Exercise[] }
+ * 200: { items: ExerciseCatalogItem[] }  (con photoUrl presigned o null)
  *
  * Catalogo completo (seed + custom). Lato mobile e' cacheato in SQLite.
  */
 export const GET = withMobileAuth(async () => {
-  const items = await listExerciseCatalog(db);
+  const rows = await listExerciseCatalog(db);
+  const storageReady = isDocumentStorageConfigured();
+
+  const items = await Promise.all(
+    rows.map(async ({ photoStorageKey, ...rest }) => {
+      let photoUrl: string | null = null;
+      if (photoStorageKey && storageReady) {
+        photoUrl = await createDocumentDownloadUrl({
+          storageKey: photoStorageKey,
+          expiresInSeconds: EXERCISE_PHOTO_URL_TTL_SECONDS
+        }).catch(() => null);
+      }
+      return { ...rest, photoUrl };
+    })
+  );
+
   return NextResponse.json({ items });
 });
 

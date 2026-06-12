@@ -113,6 +113,30 @@ export const mobileDocumentCommitSchema = z.object({
   medicalCertificateExpiresAt: z.string().datetime({ offset: true }).optional()
 });
 
+/* ── FOTO ESERCIZIO (catalogo, admin/instructor) ─────────────────────── */
+
+const exercisePhotoMimeType = z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+const exercisePhotoFileSize = z
+  .number()
+  .int()
+  .positive()
+  .max(8 * 1024 * 1024); // 8 MB (foto dimostrativa, allineato all'avatar)
+
+/** Body POST /api/mobile/workouts/exercises/[id]/photo/upload-url */
+export const mobileExercisePhotoUploadUrlSchema = z.object({
+  fileName: z.string().trim().min(1).max(120),
+  mimeType: exercisePhotoMimeType,
+  fileSize: exercisePhotoFileSize
+});
+
+/** Body POST /api/mobile/workouts/exercises/[id]/photo/confirm */
+export const mobileExercisePhotoConfirmSchema = z.object({
+  storageKey: z.string().trim().min(1).max(400),
+  fileName: z.string().trim().min(1).max(120),
+  mimeType: exercisePhotoMimeType,
+  fileSize: exercisePhotoFileSize
+});
+
 /* ── ADMIN ────────────────────────────────────────────────────────────── */
 
 /** Query GET /api/mobile/admin/users */

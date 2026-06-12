@@ -159,6 +159,7 @@ export async function listExerciseCatalog(
     muscleGroup: string | null;
     equipment: string | null;
     isCustom: boolean;
+    photoStorageKey: string | null;
   }>
 > {
   const rows = await prisma.exercise.findMany({
@@ -168,10 +169,47 @@ export async function listExerciseCatalog(
       name: true,
       muscleGroup: true,
       equipment: true,
-      isCustom: true
+      isCustom: true,
+      photoStorageKey: true
     }
   });
   return rows;
+}
+
+/**
+ * Imposta (o sostituisce) la foto dimostrativa di un esercizio del catalogo.
+ * La `storageKey` deve già puntare a un oggetto caricato su R2. Throwa
+ * NOT_FOUND se l'esercizio non esiste.
+ */
+export async function setExercisePhoto(
+  prisma: PrismaClient,
+  exerciseId: string,
+  storageKey: string
+): Promise<void> {
+  const existing = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: { id: true }
+  });
+  if (!existing) {
+    throw new DomainError("NOT_FOUND", "Esercizio non trovato.");
+  }
+  await prisma.exercise.update({
+    where: { id: exerciseId },
+    data: { photoStorageKey: storageKey }
+  });
+}
+
+/** Rimuove il riferimento alla foto (l'oggetto R2 resta per la lifecycle policy). */
+export async function clearExercisePhoto(
+  prisma: PrismaClient,
+  exerciseId: string
+): Promise<void> {
+  await prisma.exercise
+    .update({
+      where: { id: exerciseId },
+      data: { photoStorageKey: null }
+    })
+    .catch(() => null);
 }
 
 export async function createCustomExercise(

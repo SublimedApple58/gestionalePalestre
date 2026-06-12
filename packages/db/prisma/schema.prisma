@@ -416,6 +416,10 @@ model Exercise {
   equipment   String?
   /// Note libere (tecnica, video di riferimento). Opzionale.
   notes       String?
+  /// Storage key R2 della foto dimostrativa dell'esercizio (impostata da
+  /// admin/instructor durante l'editing schede). Null = nessuna foto. La URL
+  /// presigned viene generata a richiesta lato API.
+  photoStorageKey String?
   /// Esercizi creati ad-hoc dagli utenti (admin/instructor) compaiono come
   /// custom = true. Quelli del seed iniziale sono custom = false.
   isCustom    Boolean  @default(false)

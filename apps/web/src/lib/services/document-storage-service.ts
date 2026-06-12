@@ -95,6 +95,16 @@ export function buildDocumentStorageKey(
   return `users/${userId}/documents/${type}/${side}/${Date.now()}-${safeFileName}`;
 }
 
+/**
+ * Storage key per la foto dimostrativa di un esercizio (catalogo). A differenza
+ * dei documenti utente, è esercizio-scoped (non user-scoped). Il prefisso
+ * `exercises/{exerciseId}/photo/` viene verificato in fase di confirm.
+ */
+export function buildExercisePhotoStorageKey(exerciseId: string, fileName: string): string {
+  const safeFileName = sanitizeFileName(fileName);
+  return `exercises/${exerciseId}/photo/${Date.now()}-${safeFileName}`;
+}
+
 export async function createDocumentUploadUrl(input: {
   storageKey: string;
   contentType: string;
