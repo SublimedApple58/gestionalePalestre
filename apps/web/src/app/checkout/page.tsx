@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * Solo SUBSCRIBER. Mostra:
  *  - stato abbonamento attuale (se c'è uno attivo, invita al rinnovo)
  *  - listino TIER_CATALOG (5 card: Giornaliero / Mensile / Trimestrale / Annuale / Biennale)
- *  - toggle unica soluzione vs rate (rate disponibili su Annuale/Biennale via SumUp recurring)
+ *  - toggle unica soluzione vs rate (rate disponibili su Annuale/Biennale via Revolut Subscriptions)
  *  - CTA → server action `initiateCheckoutAction` che redireziona all'hosted checkout.
  */
 export default async function CheckoutPage() {

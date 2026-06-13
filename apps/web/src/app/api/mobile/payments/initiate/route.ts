@@ -15,9 +15,10 @@ export const dynamic = "force-dynamic";
  * Body: { tier, installments?: boolean }
  * 200: { paymentId, hostedUrl, amountCents, tier }
  *
- * Crea un Payment(PENDING) provider=SUMUP via lo stesso `initiatePayment` del
- * web, ma con `returnUrl` che usa il custom scheme `houseofmuscle://` così a
- * pagamento concluso SumUp redirige nell'app via deep link.
+ * Crea un Payment(PENDING) provider=REVOLUT via lo stesso `initiatePayment` del
+ * web, con `returnUrl` = pagina bounce https `/checkout/mobile-return` (Revolut
+ * non accetta redirect_url custom scheme), che a sua volta rimbalza sul deep
+ * link `houseofmuscle://checkout/success` intercettato dall'app.
  *
  * Se `installments: true` e il tier ha rate, crea anche un InstallmentPlan.
  */
@@ -48,14 +49,14 @@ export const POST = withMobileAuth(async (request, { user }) => {
 
   const dbUser = await db.user.findUnique({
     where: { id: user.id },
-    select: { sumupCustomerId: true }
+    select: { revolutCustomerId: true }
   });
 
   // Crea il record Payment con un providerReference temporaneo.
   const payment = await db.payment.create({
     data: {
       userId: user.id,
-      provider: PaymentProvider.SUMUP,
+      provider: PaymentProvider.REVOLUT,
       providerReference: `pending-${crypto.randomUUID()}`,
       amountCents,
       currency: "EUR",
@@ -64,9 +65,13 @@ export const POST = withMobileAuth(async (request, { user }) => {
     }
   });
 
-  // Return URL via custom scheme dell'app mobile. expo-web-browser intercetta
-  // automaticamente questo schema e chiude il browser sheet.
-  const mobileReturnUrl = `houseofmuscle://checkout/success?pid=${payment.id}`;
+  // Revolut Hosted Checkout accetta solo redirect_url http/https (NON i custom
+  // scheme). Passiamo quindi la pagina bounce https `/checkout/mobile-return`,
+  // che al ritorno rimbalza sul deep link `houseofmuscle://checkout/success`
+  // intercettato da expo-web-browser per chiudere lo sheet.
+  const baseUrl =
+    process.env.PAYMENT_RETURN_BASE_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
+  const mobileReturnUrl = `${baseUrl}/checkout/mobile-return?pid=${payment.id}`;
 
   try {
     const initiated = await initiatePayment({
@@ -79,7 +84,7 @@ export const POST = withMobileAuth(async (request, { user }) => {
         lastName: user.lastName,
         email: user.email
       },
-      sumupCustomerId: dbUser?.sumupCustomerId ?? undefined
+      revolutCustomerId: dbUser?.revolutCustomerId ?? undefined
     });
 
     await db.$transaction(async (tx) => {
@@ -92,10 +97,10 @@ export const POST = withMobileAuth(async (request, { user }) => {
         }
       });
 
-      if (initiated.sumupCustomerId) {
+      if (initiated.revolutCustomerId) {
         await tx.user.update({
           where: { id: user.id },
-          data: { sumupCustomerId: initiated.sumupCustomerId }
+          data: { revolutCustomerId: initiated.revolutCustomerId }
         });
       }
 
@@ -107,6 +112,7 @@ export const POST = withMobileAuth(async (request, { user }) => {
             totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
             installmentsCount: initiated.installmentPlan.installmentsCount,
             installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
+            revolutSubscriptionId: initiated.revolutSubscriptionId,
             firstChargeAt: initiated.installmentPlan.firstChargeAt,
             installments: {
               create: Array.from(

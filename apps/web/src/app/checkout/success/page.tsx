@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CheckCircle2, Clock } from "lucide-react";
 
 import { db } from "@gestionale/db";
-import { reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
+import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
 import { requireSessionUser } from "@/lib/session";
 import { formatEuroCents, tierLabel } from "@/lib/subscription";
 
@@ -14,11 +14,11 @@ type SuccessPageProps = {
 export const dynamic = "force-dynamic";
 
 /**
- * Landing page dopo redirect da hosted checkout SumUp/Klarna.
+ * Landing page dopo redirect da hosted checkout Revolut.
  *
  * Architettura: polling pull-side (non dipendiamo dal webhook).
- * Al landing chiamiamo `reconcileSumUpPayment` che interroga SumUp API e
- * aggiorna Payment + UserSubscription se lo stato remoto è PAID.
+ * Al landing chiamiamo `reconcileRevolutPayment` che interroga Revolut API e
+ * aggiorna Payment + UserSubscription se lo stato remoto è completed.
  *
  * Stati possibili dopo riconciliazione:
  *  - PAID    → conferma + CTA torna alla dashboard
@@ -33,9 +33,9 @@ export default async function CheckoutSuccessPage({ searchParams }: SuccessPageP
     redirect("/dashboard");
   }
 
-  // Prova riconciliazione remota (SumUp API) prima di leggere il Payment.
+  // Prova riconciliazione remota (Revolut API) prima di leggere il Payment.
   // Se fallisce, continuiamo comunque con lo stato DB corrente.
-  await reconcileSumUpPayment(pid).catch((error) => {
+  await reconcileRevolutPayment(pid).catch((error) => {
     console.warn(`[checkout/success] reconcile fallito per pid=${pid}:`, error);
   });
 

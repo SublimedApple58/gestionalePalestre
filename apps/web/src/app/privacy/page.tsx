@@ -63,7 +63,7 @@ export default function PrivacyPage() {
         <h2>5. Destinatari dei Dati</h2>
         <p>I dati personali possono essere comunicati a:</p>
         <ul>
-          <li><strong>Fornitori di servizi di pagamento</strong> (SumUp) per l'elaborazione delle transazioni;</li>
+          <li><strong>Fornitori di servizi di pagamento</strong> (Revolut) per l'elaborazione delle transazioni;</li>
           <li><strong>Fornitori di infrastruttura cloud</strong> (Vercel, Neon, AWS S3) per l'hosting e l'archiviazione;</li>
           <li><strong>Fornitori di servizi IoT</strong> (Tuya) per la gestione degli accessi alla struttura;</li>
           <li><strong>Professionisti e consulenti</strong> (commercialista, legale) per adempimenti obbligatori.</li>

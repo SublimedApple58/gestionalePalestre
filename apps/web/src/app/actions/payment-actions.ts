@@ -13,7 +13,7 @@ function isCheckoutTier(value: unknown): value is CheckoutTier {
 
 /**
  * Server action invocata dal form di `/checkout`.
- * Crea un record `Payment(PENDING)` in DB, chiama il gateway SumUp per creare
+ * Crea un record `Payment(PENDING)` in DB, chiama il gateway Revolut per creare
  * l'ordine hosted, salva il `providerReference` e reindirizza il browser all'URL hosted.
  *
  * Se payInInstallments=true e il tier ha rate, crea anche un InstallmentPlan con
@@ -27,7 +27,7 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
 
   const user = await db.user.findUnique({
     where: { id: sessionUser.id },
-    select: { id: true, firstName: true, lastName: true, email: true, sumupCustomerId: true }
+    select: { id: true, firstName: true, lastName: true, email: true, revolutCustomerId: true }
   });
 
   if (!user) {
@@ -58,7 +58,7 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
   const payment = await db.payment.create({
     data: {
       userId: user.id,
-      provider: "SUMUP",
+      provider: "REVOLUT",
       providerReference: `pending-${crypto.randomUUID()}`,
       amountCents,
       currency: "EUR",
@@ -80,7 +80,7 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
         lastName: user.lastName,
         email: user.email
       },
-      sumupCustomerId: user.sumupCustomerId ?? undefined
+      revolutCustomerId: user.revolutCustomerId ?? undefined
     });
 
     await db.$transaction(async (tx) => {
@@ -93,10 +93,10 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
         }
       });
 
-      if (initiated.sumupCustomerId) {
+      if (initiated.revolutCustomerId) {
         await tx.user.update({
           where: { id: user.id },
-          data: { sumupCustomerId: initiated.sumupCustomerId }
+          data: { revolutCustomerId: initiated.revolutCustomerId }
         });
       }
 
@@ -108,6 +108,7 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
             totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
             installmentsCount: initiated.installmentPlan.installmentsCount,
             installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
+            revolutSubscriptionId: initiated.revolutSubscriptionId,
             firstChargeAt: initiated.installmentPlan.firstChargeAt,
             installments: {
               create: Array.from(

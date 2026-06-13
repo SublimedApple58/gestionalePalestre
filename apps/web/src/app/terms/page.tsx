@@ -38,7 +38,7 @@ export default function TermsPage() {
         <p>
           L'accesso alla struttura e' subordinato alla sottoscrizione di un abbonamento valido.
           I prezzi, le durate e le modalita' di pagamento sono indicati nella sezione dedicata
-          della Piattaforma. I pagamenti vengono elaborati tramite fornitori terzi (SumUp).
+          della Piattaforma. I pagamenti vengono elaborati tramite fornitori terzi (Revolut).
           House of Muscle si riserva il diritto di modificare i prezzi con preavviso di 30 giorni.
         </p>
         <p>

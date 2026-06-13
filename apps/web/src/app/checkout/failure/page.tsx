@@ -7,10 +7,10 @@ type FailurePageProps = {
 
 /**
  * Landing page di fallimento checkout.
- * `reason` è emesso da `initiateCheckoutAction` o dal webhook SumUp/Klarna:
+ * `reason` è emesso da `initiateCheckoutAction` o dal webhook Revolut:
  *   - `tier-non-valido`              → tier assente o sconosciuto
  *   - `rate-non-disponibili-per-tier`→ tentativo rate su tier non compatibile
- *   - `gateway-error`                → errore dal provider (SumUp/Klarna)
+ *   - `gateway-error`                → errore dal provider (Revolut)
  * Mostriamo messaggio localizzato + CTA per ritentare o tornare alla dashboard.
  */
 export default async function CheckoutFailurePage({ searchParams }: FailurePageProps) {

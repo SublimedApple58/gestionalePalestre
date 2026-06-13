@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runInstallmentsChargeJob } from "@/lib/services/installments-charge-job";
+import { runInstallmentsReconcileJob } from "@/lib/services/installments-charge-job";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,8 +18,9 @@ function isAuthorized(request: Request): boolean {
 /**
  * Cron giornaliero alle 7:00 UTC (9:00 ora italiana) — vedi `vercel.json`.
  *
- * Addebita tutte le rate SumUp scadute (dueAt <= oggi) sui customer con carta
- * salvata. Se una rata fallisce, l'abbonamento viene sospeso automaticamente.
+ * Safety-net per i piani rateali: con le Subscriptions native di Revolut gli
+ * addebiti li gestisce Revolut (notifiche via webhook). Questo cron chiude i
+ * piani le cui rate risultano tutte PAID, a copertura di webhook persi.
  */
 export async function POST(request: Request) {
   if (!isAuthorized(request)) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const summary = await runInstallmentsChargeJob();
+    const summary = await runInstallmentsReconcileJob();
     return NextResponse.json(summary);
   } catch (err) {
     console.error("[cron/installments-charge] errore:", err);

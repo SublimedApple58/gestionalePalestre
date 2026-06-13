@@ -1,11 +1,11 @@
 import { db, PaymentProvider, PaymentStatus } from "@gestionale/db";
 
-import { reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
+import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
 
 /**
- * Finestra di lookback (in giorni) per cercare Payment SumUp ancora PENDING.
+ * Finestra di lookback (in giorni) per cercare Payment Revolut ancora PENDING.
  * 14 giorni copre con larghezza il caso peggiore (utente che paga, abbandona,
- * torna due settimane dopo) senza sprecare query SumUp su ordini abbandonati
+ * torna due settimane dopo) senza sprecare query Revolut su ordini abbandonati
  * vecchi.
  */
 const LOOKBACK_DAYS = 14;
@@ -19,8 +19,8 @@ export type ReconciliationJobSummary = {
 };
 
 /**
- * Cron job: scansiona i Payment SumUp ancora PENDING degli ultimi LOOKBACK_DAYS
- * e chiama `reconcileSumUpPayment` su ognuno. La funzione è già idempotente e
+ * Cron job: scansiona i Payment Revolut ancora PENDING degli ultimi LOOKBACK_DAYS
+ * e chiama `reconcileRevolutPayment` su ognuno. La funzione è già idempotente e
  * transaction-safe, quindi possiamo rifrullarla senza rischi.
  *
  * Pensato per coprire il caso in cui il polling pull-side sulla success page
@@ -33,7 +33,7 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
 
   const pendingPayments = await db.payment.findMany({
     where: {
-      provider: PaymentProvider.SUMUP,
+      provider: PaymentProvider.REVOLUT,
       status: PaymentStatus.PENDING,
       createdAt: { gte: cutoff }
     },
@@ -50,7 +50,7 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
 
   for (const { id } of pendingPayments) {
     try {
-      const updated = await reconcileSumUpPayment(id);
+      const updated = await reconcileRevolutPayment(id);
       if (!updated) {
         summary.errors += 1;
         continue;

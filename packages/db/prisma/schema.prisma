@@ -23,7 +23,7 @@ enum SubscriptionTier {
 }
 
 enum PaymentProvider {
-  SUMUP
+  REVOLUT
   KLARNA
   STRIPE
 }
@@ -142,7 +142,7 @@ model User {
   tuyaUserId            String?
   tuyaPinUnlockNo       String?
   tuyaPinActive         Boolean            @default(false)
-  sumupCustomerId       String?
+  revolutCustomerId     String?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -316,7 +316,7 @@ model InstallmentPlan {
   installmentsCount      Int
   installmentAmountCents Int
   klarnaOrderId          String?
-  sumupCardToken         String?
+  revolutSubscriptionId  String?
   firstChargeAt          DateTime
   status                 InstallmentPlanStatus @default(ACTIVE)
   payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Cascade)

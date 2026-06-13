@@ -1,16 +1,18 @@
 /**
- * Facade pagamenti: sceglie il provider giusto in base a tier + modalità (one-shot vs rate)
+ * Facade pagamenti: sceglie il flusso giusto in base a tier + modalità (one-shot vs rate)
  * e ritorna al chiamante un oggetto uniforme `InitiatedPayment` con l'URL hosted a cui redirigere.
+ *
+ * Provider: Revolut Merchant API.
+ *  - one-shot → ordine Hosted Checkout (`createOrder`).
+ *  - rate     → subscription nativa Revolut (`createInstallmentSubscription`): Revolut
+ *               gestisce gli addebiti ricorrenti dei cicli e li notifica via webhook.
  */
 
 import { PaymentProvider, type SubscriptionTier } from "@gestionale/db";
 
 import { TIER_CATALOG, type CheckoutTier } from "@/lib/subscription";
 
-import {
-  createCheckout as createSumUpCheckout,
-  createCheckoutWithCustomer
-} from "./sumup";
+import { createOrder, createInstallmentSubscription } from "./revolut";
 
 export type InitiatePaymentInput = {
   tier: CheckoutTier;
@@ -23,8 +25,8 @@ export type InitiatePaymentInput = {
     lastName: string;
     email: string;
   };
-  /** SumUp customer ID se già creato — per pagamenti ricorrenti. */
-  sumupCustomerId?: string;
+  /** Customer Revolut se già creato — per i pagamenti ricorrenti delle rate. */
+  revolutCustomerId?: string;
 };
 
 export type InitiatedPayment = {
@@ -38,8 +40,10 @@ export type InitiatedPayment = {
     installmentAmountCents: number;
     firstChargeAt: Date;
   };
-  /** SumUp customer ID (nuovo o riutilizzato) — da salvare su User. */
-  sumupCustomerId?: string;
+  /** Customer Revolut (nuovo o riutilizzato) — da salvare su User. */
+  revolutCustomerId?: string;
+  /** Id della subscription Revolut — da salvare su InstallmentPlan (solo rate). */
+  revolutSubscriptionId?: string;
 };
 
 /**
@@ -49,54 +53,54 @@ export type InitiatedPayment = {
  */
 export async function initiatePayment(input: InitiatePaymentInput): Promise<InitiatedPayment> {
   const tierConfig = TIER_CATALOG[input.tier];
+  const fullName = `${input.customer.firstName} ${input.customer.lastName}`.trim();
 
   if (input.payInInstallments) {
     if (!tierConfig.installments) {
       throw new Error(`[payments] Il tier ${input.tier} non supporta la rateizzazione.`);
     }
 
-    // Prima rata via SumUp con customer (salvataggio carta per rate successive)
     const firstInstallmentCents = tierConfig.installments.amountCents;
 
-    const checkout = await createCheckoutWithCustomer({
-      amountCents: firstInstallmentCents,
+    const subscription = await createInstallmentSubscription({
+      tier: input.tier,
+      installmentsCount: tierConfig.installments.count,
+      installmentAmountCents: firstInstallmentCents,
       reference: input.reference,
-      description: buildDescription(input.tier, true),
-      returnUrl: input.returnUrl,
-      customerEmail: input.customer.email,
-      customerId: input.sumupCustomerId,
-      customerFirstName: input.customer.firstName,
-      customerLastName: input.customer.lastName
+      redirectUrl: input.returnUrl,
+      customer: { email: input.customer.email, fullName },
+      revolutCustomerId: input.revolutCustomerId
     });
 
     return {
-      provider: PaymentProvider.SUMUP,
-      providerReference: checkout.id,
+      provider: PaymentProvider.REVOLUT,
+      providerReference: subscription.subscriptionId,
       amountCents: firstInstallmentCents,
-      hostedUrl: checkout.hostedUrl,
+      hostedUrl: subscription.checkoutUrl,
       installmentPlan: {
         installmentsCount: tierConfig.installments.count,
         installmentAmountCents: tierConfig.installments.amountCents,
         firstChargeAt: new Date()
       },
-      sumupCustomerId: checkout.customerId
+      revolutCustomerId: subscription.revolutCustomerId,
+      revolutSubscriptionId: subscription.subscriptionId
     };
   }
 
-  // Pagamento in unica soluzione → SumUp
-  const checkout = await createSumUpCheckout({
+  // Pagamento in unica soluzione → ordine Revolut Hosted Checkout.
+  const order = await createOrder({
     amountCents: tierConfig.oneShotCents,
     reference: input.reference,
     description: buildDescription(input.tier, false),
-    returnUrl: input.returnUrl,
-    customerEmail: input.customer.email
+    redirectUrl: input.returnUrl,
+    customer: { email: input.customer.email, fullName }
   });
 
   return {
-    provider: PaymentProvider.SUMUP,
-    providerReference: checkout.id,
+    provider: PaymentProvider.REVOLUT,
+    providerReference: order.id,
     amountCents: tierConfig.oneShotCents,
-    hostedUrl: checkout.hostedUrl
+    hostedUrl: order.checkoutUrl
   };
 }
 

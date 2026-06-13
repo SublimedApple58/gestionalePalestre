@@ -1,22 +1,26 @@
 import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
-import { getCheckout } from "@/lib/payments/sumup";
+import { getOrder } from "@/lib/payments/revolut";
 import { computeSubscriptionEndDate } from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
- * Riconciliazione pull-side di un Payment SumUp: interroga SumUp via API,
+ * Riconciliazione pull-side di un Payment Revolut: interroga Revolut via API,
  * se lo stato remoto è finale aggiorna Payment + (se PAID) la UserSubscription
  * in una singola transazione.
  *
  * Se il pagamento ha un InstallmentPlan, marca anche la prima rata come PAID.
  *
+ * NOTA rate: per i pagamenti rateali `providerReference` è l'id della subscription
+ * Revolut (non un ordine), quindi `getOrder` ritorna null → no-op. Per le rate la
+ * fonte di verità è il webhook; questo reconcile copre principalmente il one-shot.
+ *
  * Idempotente:
- *  - Payment già in stato finale (PAID / FAILED / CANCELED / REFUNDED) → no-op, ritorna il Payment.
- *  - Provider ≠ SUMUP oppure `providerReference` mancante → no-op.
- *  - Se SumUp risponde ancora PENDING → no-op, ritorna il Payment invariato.
+ *  - Payment già in stato finale (PAID / FAILED / CANCELED / REFUNDED) → no-op.
+ *  - Provider ≠ REVOLUT oppure `providerReference` mancante → no-op.
+ *  - Se Revolut risponde ancora pending → no-op, ritorna il Payment invariato.
  */
-export async function reconcileSumUpPayment(paymentId: string): Promise<Payment | null> {
+export async function reconcileRevolutPayment(paymentId: string): Promise<Payment | null> {
   const payment = await db.payment.findUnique({
     where: { id: paymentId },
     include: {
@@ -26,7 +30,7 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
   if (!payment) return null;
 
   // Provider diverso o senza reference: no-op.
-  if (payment.provider !== PaymentProvider.SUMUP || !payment.providerReference) {
+  if (payment.provider !== PaymentProvider.REVOLUT || !payment.providerReference) {
     return payment;
   }
 
@@ -40,9 +44,9 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
     return payment;
   }
 
-  const remote = await getCheckout(payment.providerReference).catch((error) => {
+  const remote = await getOrder(payment.providerReference).catch((error) => {
     console.warn(
-      `[payment-reconciliation] getCheckout fallito per payment=${payment.id} reference=${payment.providerReference}:`,
+      `[payment-reconciliation] getOrder fallito per payment=${payment.id} reference=${payment.providerReference}:`,
       error
     );
     return null;
@@ -50,7 +54,7 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
 
   if (!remote) return payment;
 
-  if (remote.status === "PAID") {
+  if (remote.state === "completed") {
     const result = await db.$transaction(async (tx) => {
       const updated = await tx.payment.update({
         where: { id: payment.id },
@@ -109,17 +113,17 @@ export async function reconcileSumUpPayment(paymentId: string): Promise<Payment 
     return result;
   }
 
-  if (remote.status === "FAILED" || remote.status === "EXPIRED") {
+  if (remote.state === "failed" || remote.state === "cancelled") {
     return await db.payment.update({
       where: { id: payment.id },
       data: {
-        status: remote.status === "EXPIRED" ? PaymentStatus.CANCELED : PaymentStatus.FAILED,
-        failureReason: `SumUp status: ${remote.status}`
+        status: remote.state === "cancelled" ? PaymentStatus.CANCELED : PaymentStatus.FAILED,
+        failureReason: `Revolut state: ${remote.state}`
       }
     });
   }
 
-  // Stato ancora PENDING — no-op, l'utente vedrà il messaggio "in elaborazione".
+  // Stato ancora pending — no-op, l'utente vedrà il messaggio "in elaborazione".
   return payment;
 }
 

@@ -27,7 +27,7 @@ export function tierLabel(tier: SubscriptionTier): string {
 
 /**
  * Listino pubblico mostrato al subscriber in /checkout.
- * Single source of truth per prezzi one-shot e rateizzazioni SumUp.
+ * Single source of truth per prezzi one-shot e rateizzazioni Revolut.
  * Importi in centesimi per evitare errori di arrotondamento.
  */
 export const TIER_CATALOG = {

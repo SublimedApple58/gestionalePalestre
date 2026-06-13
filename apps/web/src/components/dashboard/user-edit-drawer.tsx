@@ -131,8 +131,8 @@ function InstallmentStatusTag({ status }: { status: InstallmentStatus }) {
 
 function providerLabel(provider: PaymentProvider): string {
   switch (provider) {
-    case PaymentProvider.SUMUP:
-      return "SumUp";
+    case PaymentProvider.REVOLUT:
+      return "Revolut";
     case PaymentProvider.KLARNA:
       return "Klarna";
     default:

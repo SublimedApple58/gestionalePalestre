@@ -2,34 +2,27 @@ import { db, InstallmentStatus, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
-import { chargeRecurring } from "@/lib/payments/sumup";
-import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mobile/admin/installments/[id]/retry
- * 200: { ok: true }
- * 400/502: { error: string }
  *
- * Ritenta l'addebito SumUp per una rata specifica.
+ * Con le Subscriptions native di Revolut i ritenta degli addebiti falliti sono
+ * gestiti da Revolut secondo la sua policy di dunning (e notificati via webhook).
+ * Non esiste più un addebito one-off lato nostro (come avveniva con SumUp
+ * `chargeRecurring`).
+ *
+ * ⚠️ SPIKE (Fase 0): se serve un retry manuale immediato, mappare qui l'endpoint
+ * Revolut di retry pagamento subscription. In alternativa, l'admin può segnare la
+ * rata come pagata manualmente (`markInstallmentPaidActionState`).
  */
 export const POST = withMobileAuth<{ id: string }>(
   async (_request, { params }) => {
-    const installmentId = params.id;
-
     const installment = await db.installment.findUnique({
-      where: { id: installmentId },
-      include: {
-        plan: {
-          include: {
-            user: {
-              select: { id: true, sumupCustomerId: true, firstName: true, lastName: true }
-            }
-          }
-        }
-      }
+      where: { id: params.id },
+      select: { id: true, status: true }
     });
 
     if (!installment) {
@@ -40,68 +33,14 @@ export const POST = withMobileAuth<{ id: string }>(
       return NextResponse.json({ ok: true, message: "Already paid" });
     }
 
-    const { user } = installment.plan;
-    if (!user.sumupCustomerId) {
-      return NextResponse.json({ error: "NO_SUMUP_CUSTOMER" }, { status: 400 });
-    }
-
-    try {
-      const result = await chargeRecurring({
-        customerId: user.sumupCustomerId,
-        amountCents: installment.amountCents,
-        reference: `retry-inst-${installment.id}`,
-        description: `Rata ${installment.sequenceNumber}/${installment.plan.installmentsCount} — ${user.firstName} ${user.lastName}`
-      });
-
-      if (result.status === "PAID" || result.status === "PENDING") {
-        await db.installment.update({
-          where: { id: installment.id },
-          data: {
-            status: InstallmentStatus.PAID,
-            paidAt: new Date(),
-            providerReference: result.checkoutId,
-            failureReason: null
-          }
-        });
-
-        await maybeReactivateSubscription(user.id, installment.planId);
-
-        return NextResponse.json({ ok: true });
-      }
-
-      return NextResponse.json(
-        { error: "CHARGE_FAILED", detail: result.status },
-        { status: 502 }
-      );
-    } catch (error) {
-      console.error("[mobile/installments/retry]", error);
-      return NextResponse.json({ error: "GATEWAY_ERROR" }, { status: 502 });
-    }
+    return NextResponse.json(
+      {
+        error: "MANUAL_RETRY_UNSUPPORTED",
+        message:
+          "Gli addebiti delle rate sono gestiti automaticamente da Revolut. Per forzare l'incasso, segnare la rata come pagata dalla dashboard."
+      },
+      { status: 501 }
+    );
   },
   { allowedRoles: [UserRole.ADMIN] }
 );
-
-async function maybeReactivateSubscription(userId: string, planId: string): Promise<void> {
-  const remaining = await db.installment.count({
-    where: { planId, status: InstallmentStatus.FAILED }
-  });
-
-  if (remaining === 0) {
-    await db.userSubscription.updateMany({
-      where: { userId, deactivatedAt: { not: null } },
-      data: { deactivatedAt: null }
-    });
-    safeSyncPinToKeypad(db, userId);
-  }
-
-  const allInstallments = await db.installment.findMany({
-    where: { planId },
-    select: { status: true }
-  });
-  if (allInstallments.every((i) => i.status === InstallmentStatus.PAID)) {
-    await db.installmentPlan.update({
-      where: { id: planId },
-      data: { status: "COMPLETED" }
-    });
-  }
-}

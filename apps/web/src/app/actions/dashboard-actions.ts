@@ -743,6 +743,15 @@ export async function changeSubscriptionStartDateActionState(
 
 // ── Installment management (admin) ──────────────────────────────────────────
 
+/**
+ * Con le Subscriptions native di Revolut gli addebiti delle rate sono gestiti da
+ * Revolut (retry automatici via la sua policy di dunning, notificati dal webhook).
+ * Non c'è più un addebito one-off lato nostro come con SumUp `chargeRecurring`.
+ *
+ * ⚠️ SPIKE (Fase 0): se serve un retry manuale immediato, mappare l'endpoint
+ * Revolut di retry pagamento subscription. Per ora l'admin forza l'incasso
+ * segnando la rata come pagata (`markInstallmentPaidActionState`).
+ */
 export async function retryInstallmentChargeActionState(
   _prev: ActionResult,
   formData: FormData
@@ -756,16 +765,7 @@ export async function retryInstallmentChargeActionState(
 
     const installment = await db.installment.findUnique({
       where: { id: installmentId },
-      include: {
-        plan: {
-          include: {
-            user: {
-              select: { id: true, sumupCustomerId: true, firstName: true, lastName: true }
-            },
-            installments: { select: { id: true, status: true } }
-          }
-        }
-      }
+      select: { id: true, status: true }
     });
 
     if (!installment) return { ok: false, message: "Rata non trovata." };
@@ -773,38 +773,11 @@ export async function retryInstallmentChargeActionState(
       return { ok: true, message: "Rata gia' pagata." };
     }
 
-    const { user } = installment.plan;
-    if (!user.sumupCustomerId) {
-      return { ok: false, message: "Nessun customer SumUp per questo utente." };
-    }
-
-    const { chargeRecurring } = await import("@/lib/payments/sumup");
-
-    const result = await chargeRecurring({
-      customerId: user.sumupCustomerId,
-      amountCents: installment.amountCents,
-      reference: `retry-inst-${installment.id}`,
-      description: `Rata ${installment.sequenceNumber}/${installment.plan.installmentsCount} — ${user.firstName} ${user.lastName}`
-    });
-
-    if (result.status === "PAID" || result.status === "PENDING") {
-      await db.installment.update({
-        where: { id: installment.id },
-        data: {
-          status: InstallmentStatus.PAID,
-          paidAt: new Date(),
-          providerReference: result.checkoutId,
-          failureReason: null
-        }
-      });
-
-      await maybeReactivateSubscription(user.id, installment.plan.id);
-
-      revalidatePath("/dashboard");
-      return { ok: true, message: "Addebito riuscito, rata pagata." };
-    }
-
-    return { ok: false, message: `Addebito fallito: ${result.status}` };
+    return {
+      ok: false,
+      message:
+        "Gli addebiti delle rate sono gestiti automaticamente da Revolut. Per forzare l'incasso, segna la rata come pagata."
+    };
   } catch (e) {
     console.error("[retryInstallmentCharge]", e);
     return { ok: false, message: e instanceof Error ? e.message : "Errore imprevisto." };

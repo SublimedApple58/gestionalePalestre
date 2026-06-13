@@ -2,7 +2,7 @@ import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
-import { reconcileSumUpPayment } from "@/lib/services/payment-reconciliation";
+import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { mobileConfirmPaymentSchema } from "@/lib/validators/mobile";
 
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Body: { paymentId }
  * 200: { payment, subscription }
  *
- * Chiamata dall'app mobile dopo che il browser sheet di SumUp si chiude tramite
+ * Chiamata dall'app mobile dopo che il browser sheet di Revolut si chiude tramite
  * deep link `houseofmuscle://checkout/success`. Forza la riconciliazione (la
  * stessa funzione idempotente usata anche dal cron ogni 15 minuti) e
  * restituisce il nuovo stato della subscription.
@@ -40,7 +40,7 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
   }
 
-  const reconciled = await reconcileSumUpPayment(payment.id);
+  const reconciled = await reconcileRevolutPayment(payment.id);
 
   const subscription = await db.userSubscription.findUnique({
     where: { userId: user.id }
