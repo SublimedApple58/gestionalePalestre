@@ -5,6 +5,7 @@ import {
   deleteTuyaUser,
   disablePin,
   enablePin,
+  listTuyaUsers,
 } from "@/lib/tuya/access-control";
 import { isSubscriptionActive } from "@/lib/subscription";
 
@@ -23,9 +24,25 @@ export async function ensureTuyaUser(
 
   if (user.tuyaUserId) return user.tuyaUserId;
 
-  const tuyaUserId = await createTuyaUser(
-    `${user.firstName} ${user.lastName}`
-  );
+  const name = `${user.firstName} ${user.lastName}`;
+
+  let tuyaUserId: string;
+  try {
+    tuyaUserId = await createTuyaUser(name);
+  } catch (err) {
+    // Tuya `2101 "duplicate naming under the device"`: un utente Tuya con questo
+    // nome esiste già sul device (registrazione orfana il cui tuyaUserId non era
+    // mai stato salvato in DB — es. fallita a metà durante un'interruzione).
+    // Invece di fallire a ogni sync, riusiamo l'utente esistente.
+    if (err instanceof Error && err.message.includes("duplicate naming")) {
+      const existing = await listTuyaUsers();
+      const match = existing.find((u) => u.nick_name === name);
+      if (!match) throw err;
+      tuyaUserId = match.user_id;
+    } else {
+      throw err;
+    }
+  }
 
   await prisma.user.update({
     where: { id: userId },
