@@ -2058,39 +2058,88 @@ tbody tr:hover td:first-child {
   color: var(--text-muted);
 }
 
-/* View button — shown instead of file picker when document is APPROVED */
-.doc-view-btn {
+/* Documento approvato: Visualizza + Sostituisci affiancati (mobile-first).
+   Auto-fit: i due bottoni si impilano sotto i ~290px di larghezza. */
+.upload-slot-actions-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.doc-action-btn {
   all: unset;
+  box-sizing: border-box;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  gap: 8px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: #86efac;
-  padding: 8px 14px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.08);
-  transition: background 0.15s ease, color 0.15s ease;
-  width: fit-content;
+  text-align: center;
+  touch-action: manipulation;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.doc-view-btn:hover {
-  background: rgba(34, 197, 94, 0.15);
-  color: #bbf7d0;
+.doc-action-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
 }
 
-.doc-view-btn:disabled {
+.doc-action-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-/* Documento approvato: visualizza + sostituisci impilati */
-.upload-slot-approved-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.doc-action-btn--view {
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.doc-action-btn--view:not(:disabled):hover {
+  background: rgba(34, 197, 94, 0.16);
+  color: #bbf7d0;
+}
+
+.doc-action-btn--replace {
+  color: #ffc3ca;
+  border: 1px solid rgba(223, 37, 49, 0.4);
+  background: rgba(223, 37, 49, 0.1);
+}
+
+.doc-action-btn--replace:not(:disabled):hover {
+  background: rgba(223, 37, 49, 0.18);
+  color: #ffd9de;
+}
+
+/* Badge di stato con icona SVG: nasconde il pallino ::before e allinea l'icona */
+.status-badge--icon::before {
+  display: none;
+}
+
+.status-badge--icon svg {
+  flex-shrink: 0;
+}
+
+.doc-icon-spin {
+  animation: doc-icon-spin 0.9s linear infinite;
+}
+
+@keyframes doc-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-icon-spin {
+    animation: none;
+  }
 }
 
 /* ─── FILE PICKER ────────────────────────────────────────────────────────── */

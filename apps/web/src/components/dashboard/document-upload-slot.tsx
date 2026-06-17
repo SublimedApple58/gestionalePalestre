@@ -7,8 +7,16 @@ import {
   type UserDocument
 } from "@gestionale/db";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  ExternalLink,
+  Loader2,
+  Upload,
+  X
+} from "lucide-react";
 
 import {
   countRemainingAiAttempts,
@@ -49,12 +57,33 @@ type CommitResponse = {
   remainingRetries: number;
 };
 
+const ACCEPTED_FILE_TYPES = ".pdf,image/jpeg,image/jpg,image/png,image/webp";
+
 async function sha256Hex(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Array.from(new Uint8Array(digest))
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Icona coerente con lo stato del documento (badge in alto a destra). */
+function statusIcon(status?: DocumentStatus) {
+  switch (status) {
+    case DocumentStatus.APPROVED:
+      return <Check size={12} aria-hidden="true" />;
+    case DocumentStatus.REJECTED:
+      return <X size={12} aria-hidden="true" />;
+    case DocumentStatus.NEEDS_REUPLOAD:
+      return <AlertTriangle size={12} aria-hidden="true" />;
+    case DocumentStatus.AI_PROCESSING:
+      return <Loader2 size={12} aria-hidden="true" className="doc-icon-spin" />;
+    case DocumentStatus.PENDING_ADMIN_REVIEW:
+    case DocumentStatus.UPLOADED:
+      return <Clock size={12} aria-hidden="true" />;
+    default:
+      return null;
+  }
 }
 
 export function DocumentUploadSlot({
@@ -65,6 +94,7 @@ export function DocumentUploadSlot({
   maxAttempts = 3
 }: DocumentUploadSlotProps) {
   const router = useRouter();
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -112,6 +142,19 @@ export function DocumentUploadSlot({
     } finally {
       setViewLoading(false);
     }
+  }
+
+  function triggerReplace() {
+    if (uploading) {
+      return;
+    }
+    const confirmed = window.confirm(
+      "Questo documento è approvato. Sostituendolo con un nuovo file dovrà essere verificato di nuovo. Vuoi continuare?"
+    );
+    if (!confirmed) {
+      return;
+    }
+    replaceInputRef.current?.click();
   }
 
   async function handleUpload(file: File) {
@@ -205,7 +248,8 @@ export function DocumentUploadSlot({
     <div className="upload-slot">
       <div className="upload-slot-header">
         <strong>{slotTitle ?? `${documentTypeLabel(type)} - ${documentSideLabel(side)}`}</strong>
-        <span className={`status-badge ${statusTone(current?.status)}`}>
+        <span className={`status-badge status-badge--icon ${statusTone(current?.status)}`}>
+          {current ? statusIcon(current.status) : null}
           {current ? documentStatusLabel(current.status) : "Mancante"}
         </span>
       </div>
@@ -225,54 +269,58 @@ export function DocumentUploadSlot({
       {current?.rejectionReason ? <p className="status-badge missing">{current.rejectionReason}</p> : null}
 
       {isApproved ? (
-        /* Documento approvato — visualizzazione + sostituzione (con conferma) */
-        <div className="upload-slot-approved-actions">
+        /* Documento approvato — visualizza + sostituisci affiancati (mobile-first) */
+        <div className="upload-slot-actions-row">
           <button
             type="button"
-            className="doc-view-btn"
+            className="doc-action-btn doc-action-btn--view"
             onClick={() => void handleViewDocument()}
-            disabled={viewLoading}
+            disabled={viewLoading || uploading}
           >
-            <ExternalLink size={15} />
-            {viewLoading ? "Apertura..." : "Visualizza documento"}
+            <ExternalLink size={16} aria-hidden="true" />
+            {viewLoading ? "Apertura…" : "Visualizza"}
           </button>
-          <CustomFilePicker
-            label="Sostituisci documento"
-            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
-            enableCamera
-            cameraFacingMode="environment"
+
+          <button
+            type="button"
+            className="doc-action-btn doc-action-btn--replace"
+            onClick={triggerReplace}
             disabled={uploading}
-            selectedFileName={null}
-            hint="Sostituendolo, il documento dovrà essere verificato di nuovo."
-            onPickFile={(file) => {
-              const confirmed = window.confirm(
-                "Questo documento è approvato. Sostituendolo con un nuovo file dovrà essere verificato di nuovo. Vuoi continuare?"
-              );
-              if (!confirmed) {
-                return;
+          >
+            <Upload size={16} aria-hidden="true" />
+            {uploading ? "Caricamento…" : "Sostituisci"}
+          </button>
+
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept={ACCEPTED_FILE_TYPES}
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                setSelectedFileName(file.name);
+                void handleUpload(file);
               }
-              setSelectedFileName(file.name);
-              void handleUpload(file);
+              event.currentTarget.value = "";
             }}
           />
         </div>
       ) : (
-        /* Documento non approvato — permetti upload */
-        <>
-          <CustomFilePicker
-            label="Carica documento"
-            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
-            enableCamera
-            cameraFacingMode="environment"
-            disabled={uploading}
-            selectedFileName={selectedFileName}
-            hint="Dimensione massima consigliata: 12 MB"
-            onPickFile={(file) => {
-              setSelectedFileName(file.name);
-              void handleUpload(file);
-            }}
-          />
-        </>
+        /* Documento non approvato — permetti upload con dropzone/camera */
+        <CustomFilePicker
+          label="Carica documento"
+          accept={ACCEPTED_FILE_TYPES}
+          enableCamera
+          cameraFacingMode="environment"
+          disabled={uploading}
+          selectedFileName={selectedFileName}
+          hint="Dimensione massima consigliata: 12 MB"
+          onPickFile={(file) => {
+            setSelectedFileName(file.name);
+            void handleUpload(file);
+          }}
+        />
       )}
 
       {error ? <p className="error-banner">{error}</p> : null}
