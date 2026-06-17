@@ -143,6 +143,7 @@ model User {
   tuyaPinUnlockNo       String?
   tuyaPinActive         Boolean            @default(false)
   revolutCustomerId     String?
+  passwordResetCodes    PasswordResetCode[]
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -354,6 +355,24 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+/// Codice OTP a 6 cifre per il reset password (flusso "Password dimenticata"),
+/// condiviso da web e mobile. Il codice non e' mai salvato in chiaro: si salva
+/// l'hash bcrypt. Monouso (consumedAt), scadenza breve (expiresAt) e limite
+/// tentativi (attempts) per resistere a brute force.
+model PasswordResetCode {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, consumedAt])
+  @@index([expiresAt])
 }
 
 /// Audit log per tutte le azioni che un admin compie su un singolo iscritto.

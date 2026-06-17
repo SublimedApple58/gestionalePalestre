@@ -7,6 +7,7 @@ import { getSessionUser } from "@/lib/session";
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
+    reset?: string;
   }>;
 };
 
@@ -28,6 +29,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const params = await searchParams;
   const error = mapError(params.error);
+  const resetDone = params.reset === "ok";
 
   return (
     <main className="auth-shell">
@@ -39,6 +41,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="subtitle">Area role-based per admin, istruttori e iscritti.</p>
 
         {error ? <p className="error-banner">{error}</p> : null}
+        {resetDone ? (
+          <p className="success-banner">
+            Password aggiornata. Accedi con la nuova password.
+          </p>
+        ) : null}
 
         <form action={loginAction} className="grid-form">
           <label className="input-group">
@@ -56,6 +63,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </button>
         </form>
 
+        <p className="auth-footer">
+          <Link href="/forgot-password">Password dimenticata?</Link>
+        </p>
         <p className="auth-footer">
           Non hai un account? <Link href="/register">Registrati</Link>
         </p>

@@ -24,6 +24,18 @@ export const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(20)
 });
 
+/** Body POST /api/mobile/auth/forgot-password */
+export const mobileForgotPasswordSchema = z.object({
+  email: z.string().trim().email("Email non valida")
+});
+
+/** Body POST /api/mobile/auth/reset-password */
+export const mobileResetPasswordSchema = z.object({
+  email: z.string().trim().email("Email non valida"),
+  code: z.string().trim().regex(/^\d{6}$/, "Codice non valido"),
+  newPassword: z.string().min(8, "Password minimo 8 caratteri").max(128)
+});
+
 /** Body POST /api/mobile/payments/initiate */
 export const mobileInitiatePaymentSchema = z.object({
   tier: z.nativeEnum(SubscriptionTier).refine(
