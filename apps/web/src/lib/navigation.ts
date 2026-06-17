@@ -5,17 +5,21 @@ export type AppNavHref = "/dashboard" | "/utenti" | "/profilo" | "/checkout" | "
 export type AppNavItem = {
   href: AppNavHref;
   label: string;
+  /** Etichetta compatta per la bottom nav mobile (colonne strette). */
+  shortLabel: string;
   active: boolean;
 };
 
-const DASHBOARD_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/dashboard", label: "Dashboard" };
-const PROFILE_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/profilo", label: "Dati personali" };
-const USERS_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/utenti", label: "Utenti" };
-const CHECKOUT_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/checkout", label: "Abbonamento" };
-const SCHEDE_ITEM: Pick<AppNavItem, "href" | "label"> = { href: "/schede", label: "Le mie schede" };
+type NavItemDef = Pick<AppNavItem, "href" | "label" | "shortLabel">;
+
+const DASHBOARD_ITEM: NavItemDef = { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard" };
+const PROFILE_ITEM: NavItemDef = { href: "/profilo", label: "Dati personali", shortLabel: "Profilo" };
+const USERS_ITEM: NavItemDef = { href: "/utenti", label: "Utenti", shortLabel: "Utenti" };
+const CHECKOUT_ITEM: NavItemDef = { href: "/checkout", label: "Abbonamento", shortLabel: "Abbon." };
+const SCHEDE_ITEM: NavItemDef = { href: "/schede", label: "Le mie schede", shortLabel: "Schede" };
 
 export function getAppNavigationItems(currentPath: string, role?: UserRole): AppNavItem[] {
-  let items: Array<Pick<AppNavItem, "href" | "label">>;
+  let items: NavItemDef[];
 
   if (role === UserRole.ADMIN) {
     items = [DASHBOARD_ITEM, USERS_ITEM, PROFILE_ITEM];

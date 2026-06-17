@@ -195,7 +195,7 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
               aria-current={item.active ? "page" : undefined}
             >
               {BOTTOM_NAV_ICONS[item.href]}
-              <span>{item.label}</span>
+              <span>{item.shortLabel}</span>
             </Link>
           ))}
         </nav>

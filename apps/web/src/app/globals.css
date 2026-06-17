@@ -3278,7 +3278,8 @@ tbody tr:hover td:first-child {
 
 /* Bottom nav link */
 .bottom-nav-link {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3288,10 +3289,11 @@ tbody tr:hover td:first-child {
   color: rgba(255, 255, 255, 0.38);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 8px 4px;
   position: relative;
+  overflow: hidden;
   transition: color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -3350,6 +3352,10 @@ tbody tr:hover td:first-child {
 }
 
 .bottom-nav-link span {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
