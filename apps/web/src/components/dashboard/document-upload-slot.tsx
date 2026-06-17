@@ -225,16 +225,37 @@ export function DocumentUploadSlot({
       {current?.rejectionReason ? <p className="status-badge missing">{current.rejectionReason}</p> : null}
 
       {isApproved ? (
-        /* Documento approvato — solo visualizzazione, nessun upload */
-        <button
-          type="button"
-          className="doc-view-btn"
-          onClick={() => void handleViewDocument()}
-          disabled={viewLoading}
-        >
-          <ExternalLink size={15} />
-          {viewLoading ? "Apertura..." : "Visualizza documento"}
-        </button>
+        /* Documento approvato — visualizzazione + sostituzione (con conferma) */
+        <div className="upload-slot-approved-actions">
+          <button
+            type="button"
+            className="doc-view-btn"
+            onClick={() => void handleViewDocument()}
+            disabled={viewLoading}
+          >
+            <ExternalLink size={15} />
+            {viewLoading ? "Apertura..." : "Visualizza documento"}
+          </button>
+          <CustomFilePicker
+            label="Sostituisci documento"
+            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
+            enableCamera
+            cameraFacingMode="environment"
+            disabled={uploading}
+            selectedFileName={null}
+            hint="Sostituendolo, il documento dovrà essere verificato di nuovo."
+            onPickFile={(file) => {
+              const confirmed = window.confirm(
+                "Questo documento è approvato. Sostituendolo con un nuovo file dovrà essere verificato di nuovo. Vuoi continuare?"
+              );
+              if (!confirmed) {
+                return;
+              }
+              setSelectedFileName(file.name);
+              void handleUpload(file);
+            }}
+          />
+        </div>
       ) : (
         /* Documento non approvato — permetti upload */
         <>

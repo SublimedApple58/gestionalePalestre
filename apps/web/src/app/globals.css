@@ -2086,6 +2086,13 @@ tbody tr:hover td:first-child {
   cursor: not-allowed;
 }
 
+/* Documento approvato: visualizza + sostituisci impilati */
+.upload-slot-approved-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 /* ─── FILE PICKER ────────────────────────────────────────────────────────── */
 
 .file-picker {
