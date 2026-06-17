@@ -1,15 +1,12 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
-import { CalendarDays, ChevronRight, ClipboardList, User } from "lucide-react";
+import { ChevronRight, ClipboardList, User } from "lucide-react";
 
 import type { WorkoutTemplateSummary } from "@/lib/services/workout-template-service";
 
 type MemberSchedeListProps = {
   schede: WorkoutTemplateSummary[];
 };
-
-function daysLabel(days: number): string {
-  return days === 1 ? "1 giorno/sett." : `${days} giorni/sett.`;
-}
 
 export function MemberSchedeList({ schede }: MemberSchedeListProps) {
   if (schede.length === 0) {
@@ -24,11 +21,14 @@ export function MemberSchedeList({ schede }: MemberSchedeListProps) {
 
   return (
     <ul className="schede-list" role="list">
-      {schede.map((scheda) => (
-        <li key={scheda.id}>
+      {schede.map((scheda, index) => (
+        <li key={scheda.id} style={{ "--i": index } as CSSProperties}>
           <Link href={`/schede/${scheda.id}`} className="scheda-card">
-            <span className="scheda-card-icon" aria-hidden="true">
-              <ClipboardList size={20} />
+            <span className="scheda-card-stat" aria-hidden="true">
+              <span className="scheda-card-stat-num">{scheda.daysPerWeek}</span>
+              <span className="scheda-card-stat-label">
+                {scheda.daysPerWeek === 1 ? "giorno" : "giorni"}
+              </span>
             </span>
 
             <span className="scheda-card-body">
@@ -36,15 +36,9 @@ export function MemberSchedeList({ schede }: MemberSchedeListProps) {
               {scheda.description ? (
                 <span className="scheda-card-desc">{scheda.description}</span>
               ) : null}
-              <span className="scheda-card-meta">
-                <span className="scheda-card-meta-item">
-                  <CalendarDays size={13} aria-hidden="true" />
-                  {daysLabel(scheda.daysPerWeek)}
-                </span>
-                <span className="scheda-card-meta-item">
-                  <User size={13} aria-hidden="true" />
-                  {`${scheda.createdBy.firstName} ${scheda.createdBy.lastName}`}
-                </span>
+              <span className="scheda-card-author">
+                <User size={12} aria-hidden="true" />
+                {`${scheda.createdBy.firstName} ${scheda.createdBy.lastName}`}
               </span>
             </span>
 

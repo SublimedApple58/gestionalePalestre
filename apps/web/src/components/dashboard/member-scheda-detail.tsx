@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { CalendarDays, Dumbbell, User, X } from "lucide-react";
 
@@ -39,6 +40,7 @@ export function MemberSchedaDetail({ detail, photoByExerciseId }: MemberSchedaDe
   return (
     <div className="scheda-detail">
       <header className="scheda-detail-head">
+        <p className="eyebrow">Scheda di allenamento</p>
         <h1 className="scheda-detail-title">{detail.name}</h1>
         {detail.description ? (
           <p className="scheda-detail-desc">{detail.description}</p>
@@ -61,7 +63,11 @@ export function MemberSchedaDetail({ detail, photoByExerciseId }: MemberSchedaDe
 
       <div className="scheda-sessions">
         {detail.sessions.map((session, sessionIdx) => (
-          <section key={session.id} className="scheda-session">
+          <section
+            key={session.id}
+            className="scheda-session"
+            style={{ "--i": sessionIdx } as CSSProperties}
+          >
             <div className="scheda-session-head">
               <span className="scheda-session-index" aria-hidden="true">
                 {sessionIdx + 1}
