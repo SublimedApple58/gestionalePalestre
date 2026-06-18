@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/internal/tuya-pin-reassert/run",
-      "schedule": "30 3 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
