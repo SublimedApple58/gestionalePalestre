@@ -9,15 +9,15 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mobile/admin/door/open
- * Auth: bearer access token (ADMIN)
+ * Auth: bearer access token (ADMIN | INSTRUCTOR)
  *
- * Registra AccessEvent DOOR_OPEN. Stesso effetto del web (oggi è solo logging,
- * nessun hardware reale toccato).
+ * Apre fisicamente la porta (Tuya) e registra AccessEvent DOOR_OPEN.
+ * Riservata allo staff: gli iscritti entrano col PIN al tastierino.
  */
 export const POST = withMobileAuth(
   async (_request, { user }) => {
     await recordDoorOpen(db, user.id);
     return NextResponse.json({ ok: true, occurredAt: new Date().toISOString() });
   },
-  { allowedRoles: [UserRole.ADMIN] }
+  { allowedRoles: [UserRole.ADMIN, UserRole.INSTRUCTOR] }
 );

@@ -5,16 +5,6 @@ import { openDoor as openTuyaDoor } from "@/lib/tuya/access-control";
 
 import { DomainError } from "./errors";
 
-export async function recordEntrySimulation(prisma: PrismaClient, userId: string): Promise<void> {
-  await prisma.accessEvent.create({
-    data: {
-      userId,
-      eventType: AccessEventType.ENTRY_SIMULATION,
-      note: "Ingresso simulato"
-    }
-  });
-}
-
 /**
  * Apre fisicamente la porta della palestra (via Tuya cloud → keypad WiFi)
  * e poi registra l'evento DOOR_OPEN.

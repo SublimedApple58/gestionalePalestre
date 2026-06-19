@@ -33,6 +33,12 @@ type AccessLogRow = {
   };
 };
 
+const ACCESS_EVENT_LABEL: Record<AccessEventType, string> = {
+  KEYPAD_UNLOCK: "Ingresso tastierino",
+  DOOR_OPEN: "Apertura porta (remoto)",
+  ENTRY_SIMULATION: "Simulazione (storico)"
+};
+
 export type OverdueInstallmentRow = {
   id: string;
   sequenceNumber: number;
@@ -173,7 +179,7 @@ export function AdminDashboard({
                     </span>
                   </div>
                   <p className="dash-event-meta">
-                    {`${log.eventType === "DOOR_OPEN" ? "Apri porta" : "Simula ingresso"} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}
+                    {`${ACCESS_EVENT_LABEL[log.eventType] ?? log.eventType} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}
                   </p>
                   {log.note && (
                     <p className="dash-event-note">{log.note}</p>

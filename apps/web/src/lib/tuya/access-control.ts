@@ -43,6 +43,45 @@ export async function openDoor(): Promise<void> {
   );
 }
 
+// ─── Unlock logs (real keypad entries) ───────────────────────────────────────
+
+/** Tuya status.code value for a PIN entered on the keypad. */
+export const KEYPAD_PIN_UNLOCK_CODE = "unlock_password_kit";
+
+export type DoorLockOpenLog = {
+  user_id: string;
+  nick_name: string;
+  unlock_name?: string;
+  update_time: number; // epoch milliseconds
+  status?: { code: string; value: unknown };
+};
+
+/**
+ * Fetch unlock logs from the keypad via the Smart Lock Open Service.
+ *
+ * GET /v1.1/devices/{id}/door-lock/open-logs
+ * IMPORTANT: Tuya validates the HMAC signature against the query string with its
+ * parameters sorted in ASCII order — so they MUST be emitted as
+ * end_time, page_no, page_size, start_time. Any other order → "sign invalid".
+ *
+ * Returns the raw logs; callers filter by `status.code` (keypad PIN entries use
+ * KEYPAD_PIN_UNLOCK_CODE). `user_id` maps to `User.tuyaUserId`.
+ */
+export async function listDoorLockOpenLogs(params: {
+  startMs: number;
+  endMs: number;
+  pageNo: number;
+  pageSize: number;
+}): Promise<{ total: number; logs: DoorLockOpenLog[] }> {
+  const { startMs, endMs, pageNo, pageSize } = params;
+  const qs = `end_time=${endMs}&page_no=${pageNo}&page_size=${pageSize}&start_time=${startMs}`;
+  const result = await tuyaRequest<{ total?: number; logs?: DoorLockOpenLog[] }>(
+    "GET",
+    `/v1.1/devices/${DEVICE_ID}/door-lock/open-logs?${qs}`
+  );
+  return { total: result?.total ?? 0, logs: result?.logs ?? [] };
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TuyaUser = {

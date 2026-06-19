@@ -5,16 +5,12 @@ import {
   DocumentType,
   DocumentSide,
   DocumentStatus,
-  AccessEventType,
   PrismaClient,
   SubscriptionTier,
   UserRole
 } from "@gestionale/db";
 
-import {
-  ensureSubscriberCanEnter,
-  recordEntrySimulation
-} from "@/lib/services/access-event-service";
+import { ensureSubscriberCanEnter } from "@/lib/services/access-event-service";
 import {
   assignInstructorByAdmin,
   assignSubscriptionByAdmin,
@@ -147,7 +143,7 @@ describeIfDb("RBAC backend e2e", () => {
     expect(updatedSubscriber.subscription?.endsAt.toISOString()).toBe("2026-04-01T00:00:00.000Z");
   });
 
-  it("registra ingresso mock solo con abbonamento attivo", async () => {
+  it("consente l'accesso solo con abbonamento attivo e documenti validi", async () => {
     const subscriber = await prisma.user.create({
       data: {
         firstName: "Sub",
@@ -241,15 +237,9 @@ describeIfDb("RBAC backend e2e", () => {
       ]
     });
 
-    await ensureSubscriberCanEnter(prisma, subscriber.id, new Date("2026-03-15T10:00:00.000Z"));
-    await recordEntrySimulation(prisma, subscriber.id);
-
-    const latestAccess = await prisma.accessEvent.findFirst({
-      where: { userId: subscriber.id },
-      orderBy: { occurredAt: "desc" }
-    });
-
-    expect(latestAccess?.eventType).toBe(AccessEventType.ENTRY_SIMULATION);
+    await expect(
+      ensureSubscriberCanEnter(prisma, subscriber.id, new Date("2026-03-15T10:00:00.000Z"))
+    ).resolves.toBeUndefined();
   });
 
   it("impedisce l'eliminazione dell'ultimo admin", async () => {

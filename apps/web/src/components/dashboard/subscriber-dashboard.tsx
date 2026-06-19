@@ -17,7 +17,7 @@ import {
   type WorkoutPlan
 } from "@gestionale/db";
 
-import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
+import { saveWorkoutPlanAction } from "@/app/actions/dashboard-actions";
 import {
   CORE_DOCUMENT_TYPES,
   documentTypeLabel,
@@ -200,14 +200,13 @@ export function SubscriberDashboard({
               <DoorOpen size={14} className="dash-card-header-icon" />
               <div>
                 <p className="dash-card-kicker">Ingresso</p>
-                <h3 className="dash-card-title">Registra accesso</h3>
+                <h3 className="dash-card-title">Accesso abilitato</h3>
               </div>
             </div>
-            <form action={simulateEntryAction}>
-              <button type="submit" className="button button-primary" style={{ width: "100%" }}>
-                Simula ingresso
-              </button>
-            </form>
+            <p className="dash-card-note">
+              Digita il tuo codice personale sul tastierino all&apos;ingresso della
+              palestra per aprire la porta.
+            </p>
           </div>
         ) : (
           <div className="dash-card dash-card-blocked">

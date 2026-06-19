@@ -6,11 +6,7 @@ import { redirect } from "next/navigation";
 
 import { buildWorkoutPlanFromFormData } from "@/lib/workout-plan";
 import { requireRole, requireSessionUser } from "@/lib/session";
-import {
-  recordDoorOpen,
-  recordEntrySimulation,
-  ensureSubscriberCanEnter
-} from "@/lib/services/access-event-service";
+import { recordDoorOpen } from "@/lib/services/access-event-service";
 import { logAdminAction } from "@/lib/services/audit-log-service";
 import {
   approveDocumentByAdmin,
@@ -244,25 +240,16 @@ export async function saveWorkoutPlanAction(formData: FormData): Promise<void> {
   revalidatePath("/dashboard");
 }
 
-export async function simulateEntryAction(): Promise<void> {
-  const user = await requireSessionUser();
-
-  if (user.role === UserRole.SUBSCRIBER) {
-    try {
-      await ensureSubscriberCanEnter(db, user.id);
-    } catch (error) {
-      redirectWithDomainError(error);
-    }
-  }
-
-  await recordEntrySimulation(db, user.id);
-  revalidatePath("/dashboard");
-}
-
 export async function openGymDoorAction(): Promise<void> {
-  const user = await requireRole([UserRole.ADMIN]);
+  // Apertura reale della porta: riservata allo staff (admin + istruttori).
+  // Gli iscritti entrano col PIN al tastierino, non da qui.
+  const user = await requireRole([UserRole.ADMIN, UserRole.INSTRUCTOR]);
 
-  await recordDoorOpen(db, user.id);
+  try {
+    await recordDoorOpen(db, user.id);
+  } catch (error) {
+    redirectWithDomainError(error);
+  }
   revalidatePath("/dashboard");
 }
 

@@ -1,7 +1,7 @@
 import { DoorOpen, Users } from "lucide-react";
 import type { WorkoutPlan } from "@gestionale/db";
 
-import { saveWorkoutPlanAction, simulateEntryAction } from "@/app/actions/dashboard-actions";
+import { openGymDoorAction, saveWorkoutPlanAction } from "@/app/actions/dashboard-actions";
 
 import { MaskedAccessCode } from "../ui/masked-access-code";
 import { UserAvatar } from "../ui/user-avatar";
@@ -36,12 +36,12 @@ export function InstructorDashboard({
             <DoorOpen size={14} className="dash-card-header-icon" />
             <div>
               <p className="dash-card-kicker">Ingresso</p>
-              <h3 className="dash-card-title">Registra accesso</h3>
+              <h3 className="dash-card-title">Controllo porta</h3>
             </div>
           </div>
-          <form action={simulateEntryAction}>
+          <form action={openGymDoorAction}>
             <button type="submit" className="button button-primary" style={{ width: "100%" }}>
-              Simula ingresso
+              Apri porta palestra
             </button>
           </form>
         </div>

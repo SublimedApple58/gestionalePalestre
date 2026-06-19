@@ -54,6 +54,7 @@ enum InstallmentStatus {
 enum AccessEventType {
   ENTRY_SIMULATION
   DOOR_OPEN
+  KEYPAD_UNLOCK
 }
 
 enum DocumentType {
@@ -242,12 +243,13 @@ model WorkoutPlan {
 }
 
 model AccessEvent {
-  id         String          @id @default(cuid())
-  userId     String
-  eventType  AccessEventType
-  note       String?
-  occurredAt DateTime        @default(now())
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String          @id @default(cuid())
+  userId      String
+  eventType   AccessEventType
+  note        String?
+  externalRef String?         @unique
+  occurredAt  DateTime        @default(now())
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt(sort: Desc)])
   @@index([occurredAt(sort: Desc)])
