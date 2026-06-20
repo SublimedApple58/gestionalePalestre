@@ -25,7 +25,11 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const result = await runTuyaPinReassertJob(db);
+  // ?force=1 → riscrive TUTTI i PIN (emergenza: azzeramento reale del device).
+  // Default: smart — salta i PIN confermati funzionanti dagli open-logs.
+  const force = new URL(request.url).searchParams.get("force") === "1";
+
+  const result = await runTuyaPinReassertJob(db, { force });
 
   console.log("[tuya-pin-reassert] Job completed:", JSON.stringify(result));
 
