@@ -22,10 +22,6 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/internal/tuya-pin-reassert/run",
-      "schedule": "0 */6 * * *"
-    },
-    {
       "path": "/api/internal/tuya-access-log-sync/run",
       "schedule": "*/5 * * * *"
     }
