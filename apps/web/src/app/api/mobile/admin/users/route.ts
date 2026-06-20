@@ -18,7 +18,8 @@ export const dynamic = "force-dynamic";
  * GET /api/mobile/admin/users?q=&role=&cursor=&limit=
  * 200: { items: UserListRow[], nextCursor: string | null }
  *
- * Cursor-based pagination su (lastName ASC, firstName ASC, id ASC).
+ * Cursor-based pagination su (firstName ASC, lastName ASC, id ASC) — la lista
+ * mostra "Nome Cognome", quindi l'ordine alfabetico è per nome.
  * Per semplicità il cursor è solo l'id; la performance è accettabile per i
  * volumi del gestionale palestra.
  */
@@ -53,7 +54,7 @@ export const GET = withMobileAuth(
 
     const items = await db.user.findMany({
       where,
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }],
       take: limit + 1,
       ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
       select: {
