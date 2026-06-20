@@ -18,10 +18,11 @@ type ReassertResult = {
 };
 
 // Spaziatura tra scritture: il lock applica i PIN una alla volta in modo
-// asincrono. Troppo veloce → "operation in progress".
-const DELAY_MS = 1000;
-const RETRY_DELAY_MS = 3500;
-const MAX_ATTEMPTS = 6;
+// asincrono. Troppo veloce → "operation in progress". 700ms è il compromesso
+// per far stare ~165 PIN entro il limite di durata della funzione (300s).
+const DELAY_MS = 700;
+const RETRY_DELAY_MS = 3000;
+const MAX_ATTEMPTS = 5;
 
 // Finestra entro cui un'apertura col PIN negli open-logs vale come "PIN OK".
 // Chi ha aperto entro questa finestra NON viene riscritto (PIN funzionante →

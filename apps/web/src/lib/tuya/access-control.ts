@@ -181,34 +181,10 @@ export async function enablePin(
     }
   );
 
-  // After enablePin, we need to get the unlock key number.
-  // We poll the device status for the unlock_method_create DP which contains
-  // the hardware-assigned key number in bytes 6-7 (big-endian).
-  // As a simpler approach, we list the user's unlock methods to find the latest one.
-  const unlockNo = await getLatestUnlockNo(tuyaUserId);
-  return unlockNo;
-}
-
-/**
- * Get the latest password unlock key number for a user by listing their unlock records.
- * Falls back to "1" if we can't determine it (single PIN per user scenario).
- */
-async function getLatestUnlockNo(tuyaUserId: string): Promise<string> {
-  try {
-    const result = await tuyaRequest<{ records: Array<{ unlock_no: number }> }>(
-      "GET",
-      `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
-    );
-    if (result?.records?.length > 0) {
-      const latest = result.records[result.records.length - 1];
-      if (latest) return String(latest.unlock_no);
-    }
-  } catch {
-    // If this endpoint doesn't work, we'll store what we can
-    console.warn(
-      `[tuya] Could not list unlock keys for user ${tuyaUserId}, falling back`
-    );
-  }
+  // L'endpoint di lettura delle chiavi password è inaffidabile su questo device
+  // (errore 1108) → restituirebbe comunque "1" via fallback. Saltiamo la chiamata
+  // sprecata: vale ~0.3s/utente, decisivi per far stare il re-assert di massa
+  // (~165 PIN) entro il limite di durata della funzione (300s).
   return "1";
 }
 
