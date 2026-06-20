@@ -25,11 +25,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  // ?force=1 → riscrive TUTTI i PIN (emergenza: azzeramento reale del device).
-  // Default: smart — salta i PIN confermati funzionanti dagli open-logs.
-  const force = new URL(request.url).searchParams.get("force") === "1";
+  // Default (cron) = FORCE: riscrive TUTTI i PIN. È l'unico modo per guarire un
+  // azzeramento reale del device (il DB resta "attivo" ma il tastierino ha perso
+  // le password → vanno riscritte a prescindere). ?smart=1 = versione gentile
+  // (salta i confermati dagli open-logs), da NON usare per guarire un wipe.
+  const smart = new URL(request.url).searchParams.get("smart") === "1";
 
-  const result = await runTuyaPinReassertJob(db, { force });
+  const result = await runTuyaPinReassertJob(db, { force: !smart });
 
   console.log("[tuya-pin-reassert] Job completed:", JSON.stringify(result));
 
