@@ -30,6 +30,8 @@ type UserRow = {
   role: UserRole;
   accessCode: string;
   address: string | null;
+  associationMember: boolean;
+  associationExpiresAt: Date | null;
   assignedInstructorId: string | null;
   documents: UserDocument[];
   assignedInstructor: { firstName: string; lastName: string } | null;

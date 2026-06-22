@@ -2577,18 +2577,36 @@ tbody tr:hover td:first-child {
 /* ─── USER EDIT DRAWER (ora gestito da Mantine Drawer) ──────────────────── */
 /* Mantine gestisce overlay, slide-in, header, backdrop e scroll lock. */
 
+/* Sezioni come card (redesign drawer) */
 .user-drawer-section {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  transition: background 200ms ease;
-}
-
-.user-drawer-section:last-child {
-  border-bottom: none;
+  margin: 14px 18px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-lg);
+  background: rgba(20, 20, 27, 0.55);
+  transition: border-color 200ms ease, background 200ms ease;
 }
 
 .user-drawer-section:hover {
-  background: rgba(255, 255, 255, 0.012);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Sezione associazione: accento brand */
+.user-drawer-section--assoc {
+  border-color: rgba(223, 37, 49, 0.4);
+  background: linear-gradient(180deg, rgba(223, 37, 49, 0.1), rgba(20, 20, 27, 0.55));
+}
+
+.user-drawer-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.user-drawer-section-head .user-drawer-section-title {
+  margin-bottom: 0;
 }
 
 .user-drawer-section-title {
@@ -2598,6 +2616,58 @@ tbody tr:hover td:first-child {
   text-transform: uppercase;
   color: rgba(173, 173, 184, 0.7);
   margin-bottom: 14px;
+}
+
+/* Riga riassuntiva sotto l'header del drawer */
+.user-drawer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 2px;
+}
+
+.user-drawer-summary-code {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.user-drawer-summary-code strong {
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* Checkbox "Iscritto ad associazione" */
+.assoc-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: var(--text);
+  padding: 2px 0;
+}
+
+.assoc-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+.assoc-reveal {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.assoc-help {
+  font-size: 0.71875rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
 }
 
 .user-drawer-form {

@@ -32,7 +32,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   DOC_REJECTED: "Documento rifiutato",
   DOC_REUPLOAD_REQUESTED: "Reupload documento richiesto",
   WORKOUT_TEMPLATE_ASSIGNED: "Scheda assegnata",
-  WORKOUT_TEMPLATE_UNASSIGNED: "Scheda rimossa"
+  WORKOUT_TEMPLATE_UNASSIGNED: "Scheda rimossa",
+  ASSOCIATION_MEMBERSHIP_CHANGED: "Iscrizione associazione aggiornata"
 };
 
 const ACTION_COLOR: Partial<Record<AuditAction, string>> = {

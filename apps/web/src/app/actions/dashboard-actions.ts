@@ -555,6 +555,72 @@ export async function updateUserAddressActionState(
   }
 }
 
+export async function updateAssociationMembershipActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const actor = await requireRole([UserRole.ADMIN]);
+    const targetUserId = formData.get("targetUserId");
+    if (typeof targetUserId !== "string" || !targetUserId) {
+      return { ok: false, message: "Utente non trovato." };
+    }
+    const member = formData.get("associationMember") === "true";
+    const expiresRaw = formData.get("associationExpiresAt");
+    let expiresAt: Date | null = null;
+    if (member && typeof expiresRaw === "string" && expiresRaw.trim()) {
+      const parsedDate = new Date(expiresRaw);
+      if (Number.isNaN(parsedDate.valueOf())) {
+        return { ok: false, message: "Data di scadenza non valida." };
+      }
+      expiresAt = parsedDate;
+    }
+    if (member && !expiresAt) {
+      return { ok: false, message: "Inserisci la data di scadenza dell'iscrizione." };
+    }
+
+    const before = await db.user
+      .findUnique({
+        where: { id: targetUserId },
+        select: { associationMember: true, associationExpiresAt: true }
+      })
+      .catch(() => null);
+
+    await db.user.update({
+      where: { id: targetUserId },
+      data: {
+        associationMember: member,
+        associationExpiresAt: member ? expiresAt : null
+      }
+    });
+
+    await logAdminAction(db, {
+      actorId: actor.id,
+      targetUserId,
+      action: AuditAction.ASSOCIATION_MEMBERSHIP_CHANGED,
+      payload: {
+        before: {
+          associationMember: before?.associationMember ?? false,
+          associationExpiresAt: before?.associationExpiresAt?.toISOString() ?? null
+        },
+        after: {
+          associationMember: member,
+          associationExpiresAt: expiresAt?.toISOString() ?? null
+        }
+      }
+    });
+    revalidatePath("/utenti");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: member ? "Iscrizione associazione salvata." : "Iscrizione associazione rimossa."
+    };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
 export async function deleteUserActionState(
   _prev: ActionResult,
   formData: FormData

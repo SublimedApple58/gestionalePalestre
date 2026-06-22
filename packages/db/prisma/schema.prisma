@@ -116,6 +116,8 @@ model User {
   email                 String             @unique
   phoneNumber           String?
   address               String?
+  associationMember     Boolean            @default(false)
+  associationExpiresAt  DateTime?
   passwordHash          String
   role                  UserRole           @default(SUBSCRIBER)
   accessCode            String             @db.VarChar(6)
@@ -150,6 +152,7 @@ model User {
 
   @@index([role])
   @@index([assignedInstructorId])
+  @@index([associationMember, associationExpiresAt])
 }
 
 model UserDocument {
@@ -420,6 +423,7 @@ enum AuditAction {
   DOC_REUPLOAD_REQUESTED
   WORKOUT_TEMPLATE_ASSIGNED
   WORKOUT_TEMPLATE_UNASSIGNED
+  ASSOCIATION_MEMBERSHIP_CHANGED
 }
 
 /// Catalogo centrale degli esercizi. Pre-popolato via seed con i piu' comuni

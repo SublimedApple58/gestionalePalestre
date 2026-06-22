@@ -227,7 +227,9 @@ type AdminViewProps = {
 };
 
 async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
-  const [accessLogs, reviewDocumentsRaw, overdueInstallments] = await Promise.all([
+  const associationThreshold = new Date();
+  associationThreshold.setDate(associationThreshold.getDate() + 14);
+  const [accessLogs, reviewDocumentsRaw, overdueInstallments, expiringAssociations] = await Promise.all([
     db.accessEvent.findMany({
       include: {
         user: {
@@ -272,6 +274,15 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       },
       orderBy: { dueAt: "asc" },
       take: 50
+    }),
+    db.user.findMany({
+      where: {
+        associationMember: true,
+        associationExpiresAt: { not: null, lte: associationThreshold }
+      },
+      select: { id: true, firstName: true, lastName: true, associationExpiresAt: true },
+      orderBy: { associationExpiresAt: "asc" },
+      take: 100
     })
   ]);
 
@@ -299,6 +310,12 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       reviewDocuments={reviewDocuments}
       profilePhotoUrls={Object.fromEntries(photoUrlMap)}
       overdueInstallments={overdueInstallments}
+      expiringAssociations={expiringAssociations.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        associationExpiresAt: u.associationExpiresAt as Date
+      }))}
     />
   );
 }

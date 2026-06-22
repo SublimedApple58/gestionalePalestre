@@ -14,6 +14,7 @@ import {
 import { openGymDoorAction } from "@/app/actions/dashboard-actions";
 import { roleLabel } from "@/lib/roles";
 
+import { AssociationExpiringSection, type ExpiringAssociationRow } from "./association-expiring-section";
 import { BirthdayBanner } from "./birthday-banner";
 import { DocumentReviewTable } from "./document-review-table";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
@@ -77,6 +78,7 @@ type AdminDashboardProps = {
   >;
   profilePhotoUrls?: Record<string, string>;
   overdueInstallments?: OverdueInstallmentRow[];
+  expiringAssociations?: ExpiringAssociationRow[];
 };
 
 export function AdminDashboard({
@@ -84,7 +86,8 @@ export function AdminDashboard({
   accessLogs,
   reviewDocuments,
   profilePhotoUrls = {},
-  overdueInstallments = []
+  overdueInstallments = [],
+  expiringAssociations = []
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length;
 
@@ -118,6 +121,11 @@ export function AdminDashboard({
       {/* ── Rate in sofferenza ───────────────────────────────────── */}
       {overdueInstallments.length > 0 && (
         <OverdueInstallmentsSection installments={overdueInstallments} />
+      )}
+
+      {/* ── Associazioni sportive in scadenza ────────────────────── */}
+      {expiringAssociations.length > 0 && (
+        <AssociationExpiringSection items={expiringAssociations} />
       )}
 
       {/* ── Approvazioni in sospeso ─────────────────────────────── */}

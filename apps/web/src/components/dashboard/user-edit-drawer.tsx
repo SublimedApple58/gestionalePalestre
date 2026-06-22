@@ -27,13 +27,15 @@ import {
   deactivateSubscriptionActionState,
   deleteUserActionState,
   reactivateSubscriptionActionState,
+  updateAssociationMembershipActionState,
   updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
+import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
-import { formatEuroCents, tierLabel } from "@/lib/subscription";
+import { formatEuroCents, isSubscriptionActive, tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -45,7 +47,10 @@ export type DrawerUserRow = {
   lastName: string;
   email: string;
   role: UserRole;
+  accessCode: string;
   address: string | null;
+  associationMember: boolean;
+  associationExpiresAt: Date | null;
   assignedInstructorId: string | null;
   assignedInstructor: { firstName: string; lastName: string } | null;
   documents: UserDocument[];
@@ -197,6 +202,77 @@ function useActionToast(result: ActionResult) {
   }, [result, addToast]);
 }
 
+function toYmd(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function AssociationBadge({ status }: { status: AssociationState }) {
+  switch (status.kind) {
+    case "expired":
+      return <Tag color="error">Scaduta</Tag>;
+    case "soon":
+      return <Tag color="warning">{`Scade tra ${status.days} gg`}</Tag>;
+    case "valid":
+      return <Tag color="success">Valida</Tag>;
+    default:
+      return null;
+  }
+}
+
+function AssociationSection({ user }: { user: DrawerUserRow }) {
+  const [result, action, pending] = useActionState(updateAssociationMembershipActionState, null);
+  useActionToast(result);
+  const [member, setMember] = useState(user.associationMember);
+
+  const initialExpiry = user.associationExpiresAt
+    ? toYmd(new Date(user.associationExpiresAt))
+    : undefined;
+  const status = associationStatus(
+    user.associationMember,
+    user.associationExpiresAt ? new Date(user.associationExpiresAt) : null
+  );
+
+  return (
+    <section className="user-drawer-section user-drawer-section--assoc">
+      <div className="user-drawer-section-head">
+        <h4 className="user-drawer-section-title">Associazione sportiva</h4>
+        <AssociationBadge status={status} />
+      </div>
+      <form action={action} className="user-drawer-form">
+        <input type="hidden" name="targetUserId" value={user.id} />
+        <input type="hidden" name="associationMember" value={member ? "true" : "false"} />
+        <label className="assoc-check">
+          <input
+            type="checkbox"
+            checked={member}
+            onChange={(e) => setMember(e.target.checked)}
+          />
+          <span>Iscritto ad associazione</span>
+        </label>
+        {member ? (
+          <div className="assoc-reveal">
+            <CustomCalendar
+              name="associationExpiresAt"
+              label="Scadenza iscrizione"
+              defaultValue={initialExpiry}
+            />
+            <p className="assoc-help">
+              Quando manca poco (entro 14 giorni) l&apos;utente compare nell&apos;avviso in home admin.
+            </p>
+          </div>
+        ) : null}
+        <Button type="primary" htmlType="submit" loading={pending} size="small">
+          Salva iscrizione
+        </Button>
+      </form>
+    </section>
+  );
+}
+
 export function UserEditDrawer({ user, opened, onClose, instructors, profilePhotoUrl }: UserEditDrawerProps) {
   const { addToast } = useToast();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -334,6 +410,8 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
               </Button>
             </form>
           </section>
+
+          <AssociationSection user={user} />
         </div>
       )
     },
@@ -561,7 +639,7 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
       onClose={onClose}
       placement="right"
       title={drawerTitle}
-      width={420}
+      width={640}
       className="dark-drawer"
       styles={{
         wrapper: {
@@ -589,6 +667,27 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
         }
       }}
     >
+      <div className="user-drawer-summary">
+        {user.subscription ? (
+          isSubscriptionActive(user.subscription) ? (
+            <Tag color="success">Abbonamento attivo</Tag>
+          ) : (
+            <Tag color="default">Abbonamento non attivo</Tag>
+          )
+        ) : (
+          <Tag color="default">Nessun abbonamento</Tag>
+        )}
+        <AssociationBadge
+          status={associationStatus(
+            user.associationMember,
+            user.associationExpiresAt ? new Date(user.associationExpiresAt) : null
+          )}
+        />
+        <span className="user-drawer-summary-code">
+          Codice <strong>{user.accessCode}</strong>
+        </span>
+      </div>
+
       <Tabs
         defaultActiveKey="dettagli"
         items={tabItems}
