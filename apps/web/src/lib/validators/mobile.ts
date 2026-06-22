@@ -257,7 +257,9 @@ export const mobileUpdateWorkoutTemplateSchema = mobileCreateWorkoutTemplateSche
 
 /** Body POST /api/mobile/workouts/templates/[id]/assign|unassign */
 export const mobileWorkoutAssignSchema = z.object({
-  userIds: z.array(z.string().min(1)).min(1).max(200)
+  // Cap alto: "A tutti" invia l'intera anagrafica (admin) — può superare di molto
+  // le 200 unità. 5000 copre qualsiasi palestra mantenendo un limite anti-abuso.
+  userIds: z.array(z.string().min(1)).min(1).max(5000)
 });
 
 /** Body POST /api/mobile/workouts/exercises */
