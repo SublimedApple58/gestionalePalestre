@@ -1,12 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
 import { Drawer, Tabs, Tag, Button, Input, Typography, Space, Flex } from "antd";
 import {
-  DocumentSide,
-  DocumentStatus,
-  DocumentType,
   InstallmentStatus,
   PaymentProvider,
   PaymentStatus,
@@ -32,6 +28,7 @@ import {
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
 import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
@@ -86,14 +83,6 @@ const SUBSCRIPTION_OPTIONS = [
   { value: SubscriptionTier.BIENNIAL, label: "Biennale" }
 ];
 
-const DOC_SLOTS: { type: DocumentType; side: DocumentSide; label: string }[] = [
-  { type: DocumentType.TAX_CODE, side: DocumentSide.FRONT, label: "Tessera sanitaria · Fronte" },
-  { type: DocumentType.TAX_CODE, side: DocumentSide.BACK, label: "Tessera sanitaria · Retro" },
-  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.FRONT, label: "Documento d'identità · Fronte" },
-  { type: DocumentType.IDENTITY_DOCUMENT, side: DocumentSide.BACK, label: "Documento d'identità · Retro" },
-  { type: DocumentType.MEDICAL_CERTIFICATE, side: DocumentSide.SINGLE, label: "Certificato medico" }
-];
-
 const ROLE_TAG_COLOR: Record<UserRole, string> = {
   [UserRole.ADMIN]: "red",
   [UserRole.INSTRUCTOR]: "blue",
@@ -143,55 +132,6 @@ function providerLabel(provider: PaymentProvider): string {
     default:
       return provider;
   }
-}
-
-function DocStatusTag({ status }: { status: DocumentStatus | undefined }) {
-  if (!status) return <Tag color="default">Non caricato</Tag>;
-  switch (status) {
-    case DocumentStatus.APPROVED:
-      return <Tag color="success">Approvato</Tag>;
-    case DocumentStatus.PENDING_ADMIN_REVIEW:
-      return <Tag color="warning">In revisione</Tag>;
-    case DocumentStatus.AI_PROCESSING:
-      return <Tag color="warning">In elaborazione</Tag>;
-    case DocumentStatus.UPLOADED:
-      return <Tag color="processing">Caricato</Tag>;
-    case DocumentStatus.REJECTED:
-      return <Tag color="error">Rifiutato</Tag>;
-    case DocumentStatus.NEEDS_REUPLOAD:
-      return <Tag color="orange">Da ricaricare</Tag>;
-    default:
-      return <Tag>{status}</Tag>;
-  }
-}
-
-function OpenDocButton({ documentId }: { documentId: string }) {
-  const [loading, setLoading] = useState(false);
-
-  async function handleOpen() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/documents/view?documentId=${documentId}`);
-      if (!res.ok) return;
-      const { url } = await res.json() as { url: string };
-      window.open(url, "_blank", "noreferrer");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Button
-      size="small"
-      type="text"
-      icon={loading ? <Loader2 size={11} className="spin" /> : <ExternalLink size={11} />}
-      onClick={handleOpen}
-      loading={loading}
-      aria-label="Apri documento"
-    >
-      Apri
-    </Button>
-  );
 }
 
 function useActionToast(result: ActionResult) {
@@ -602,29 +542,7 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
     {
       key: "documenti",
       label: "Documenti",
-      children: (
-        <div className="drawer-tab-content">
-          <section className="user-drawer-section">
-            <h4 className="user-drawer-section-title">Documenti caricati</h4>
-            <ul className="user-drawer-doc-list">
-              {DOC_SLOTS.map((slot) => {
-                const doc = user.documents.find(
-                  (d) => d.type === slot.type && d.side === slot.side
-                );
-                return (
-                  <li key={`${slot.type}-${slot.side}`} className="user-drawer-doc-row">
-                    <span className="user-drawer-doc-label">{slot.label}</span>
-                    <div className="user-drawer-doc-actions">
-                      <DocStatusTag status={doc?.status} />
-                      {doc?.storageKey && <OpenDocButton documentId={doc.id} />}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        </div>
-      )
+      children: <AdminDocumentsTab userId={user.id} documents={user.documents} />
     },
     {
       key: "cronologia",

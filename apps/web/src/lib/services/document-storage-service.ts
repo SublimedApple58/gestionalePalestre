@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DocumentSide, DocumentType } from "@gestionale/db";
 
@@ -122,6 +122,18 @@ export async function createDocumentUploadUrl(input: {
   return getSignedUrl(client, command, {
     expiresIn: input.expiresInSeconds ?? DOC_PRESIGN_TTL_SECONDS
   });
+}
+
+export async function deleteDocumentObject(input: { storageKey: string }): Promise<void> {
+  const config = assertStorageConfigured();
+  const client = getClient(config);
+
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: config.bucket,
+      Key: input.storageKey
+    })
+  );
 }
 
 export async function createDocumentDownloadUrl(input: {

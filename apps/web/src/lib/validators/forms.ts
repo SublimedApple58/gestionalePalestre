@@ -77,6 +77,19 @@ export const commitDocumentSchema = z.object({
   medicalCertificateExpiresAt: optionalDate
 });
 
+// ── Gestione documenti da parte dell'ADMIN (per conto di un altro utente) ──
+export const adminPresignDocumentSchema = uploadDocumentSchema.extend({
+  targetUserId: z.string().min(1)
+});
+
+export const adminCommitDocumentSchema = commitDocumentSchema.extend({
+  targetUserId: z.string().min(1)
+});
+
+export const adminDeleteDocumentSchema = z.object({
+  documentId: z.string().min(1)
+});
+
 export const approveDocumentSchema = z.object({
   documentId: z.string().min(1),
   medicalCertificateExpiresAt: optionalDate

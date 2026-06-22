@@ -424,6 +424,8 @@ enum AuditAction {
   WORKOUT_TEMPLATE_ASSIGNED
   WORKOUT_TEMPLATE_UNASSIGNED
   ASSOCIATION_MEMBERSHIP_CHANGED
+  DOC_DELETED
+  DOC_ADMIN_UPLOADED
 }
 
 /// Catalogo centrale degli esercizi. Pre-popolato via seed con i piu' comuni

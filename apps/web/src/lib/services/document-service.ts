@@ -24,6 +24,7 @@ import {
   assertSupportedDocumentMimeType,
   buildDocumentStorageKey,
   createDocumentUploadUrl,
+  deleteDocumentObject,
   readDocumentBytes
 } from "./document-storage-service";
 import { DomainError } from "./errors";
@@ -465,6 +466,134 @@ export async function requestDocumentReuploadByAdmin(
       rejectionReason: input.reason?.trim() || "Serve un nuovo caricamento, immagine non leggibile."
     }
   });
+}
+
+type AdminUploadDocumentInput = {
+  targetUserId: string;
+  type: DocumentType;
+  side: DocumentSide;
+  storageKey: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  medicalCertificateExpiresAt?: Date | null;
+};
+
+/**
+ * Upload/sostituzione di un documento da parte di un ADMIN per conto di un
+ * utente. Lo stato e' APPROVED (l'admin garantisce il documento) e niente
+ * pipeline AI. Se lo slot aveva gia' un file, l'oggetto vecchio su R2 viene
+ * cancellato (best-effort).
+ */
+export async function commitDocumentForUserByAdmin(
+  prisma: PrismaClient,
+  actorRole: UserRole,
+  actorId: string,
+  input: AdminUploadDocumentInput
+): Promise<{ id: string; status: DocumentStatus }> {
+  assertAdminRole(actorRole);
+  assertSlotIsAllowed(input.type, input.side);
+  assertSupportedDocumentMimeType(input.contentType);
+  assertFileSizeWithinLimit(input.sizeBytes);
+  assertStorageOwnership(input.targetUserId, input.storageKey);
+
+  const normalizedSha = normalizeSha256(input.sha256);
+  await assertUploadObjectMatchesMime(input.storageKey, input.contentType);
+
+  const target = await prisma.user.findUnique({
+    where: { id: input.targetUserId },
+    select: { id: true }
+  });
+  if (!target) {
+    throw new DomainError("NOT_FOUND", "Utente non trovato.");
+  }
+
+  const existing = await prisma.userDocument.findUnique({
+    where: {
+      userId_type_side: { userId: input.targetUserId, type: input.type, side: input.side }
+    },
+    select: { storageKey: true }
+  });
+
+  const isMedical = input.type === DocumentType.MEDICAL_CERTIFICATE;
+  const upserted = await prisma.userDocument.upsert({
+    where: {
+      userId_type_side: { userId: input.targetUserId, type: input.type, side: input.side }
+    },
+    create: {
+      userId: input.targetUserId,
+      uploadedById: actorId,
+      reviewedById: actorId,
+      reviewedAt: new Date(),
+      type: input.type,
+      side: input.side,
+      status: DocumentStatus.APPROVED,
+      storageKey: input.storageKey,
+      fileName: input.fileName,
+      fileLabel: input.fileName,
+      mimeType: input.contentType,
+      sizeBytes: input.sizeBytes,
+      sha256: normalizedSha,
+      uploadedAt: new Date(),
+      aiLastError: null,
+      rejectionReason: null,
+      medicalCertificateExpiresAt: isMedical ? input.medicalCertificateExpiresAt ?? null : null
+    },
+    update: {
+      uploadedById: actorId,
+      reviewedById: actorId,
+      reviewedAt: new Date(),
+      status: DocumentStatus.APPROVED,
+      storageKey: input.storageKey,
+      fileName: input.fileName,
+      fileLabel: input.fileName,
+      mimeType: input.contentType,
+      sizeBytes: input.sizeBytes,
+      sha256: normalizedSha,
+      uploadedAt: new Date(),
+      aiLastError: null,
+      rejectionReason: null,
+      medicalCertificateExpiresAt: isMedical ? input.medicalCertificateExpiresAt ?? null : null
+    },
+    select: { id: true, status: true }
+  });
+
+  if (existing && existing.storageKey !== input.storageKey) {
+    await deleteDocumentObject({ storageKey: existing.storageKey }).catch((error) => {
+      console.error("[admin-doc] delete old object failed:", error);
+    });
+  }
+
+  return { id: upserted.id, status: upserted.status };
+}
+
+/**
+ * Rimozione completa di un documento (riga DB + file su R2) da parte di un admin.
+ */
+export async function deleteDocumentByAdmin(
+  prisma: PrismaClient,
+  actorRole: UserRole,
+  _actorId: string,
+  input: { documentId: string }
+): Promise<{ userId: string; type: DocumentType; side: DocumentSide }> {
+  assertAdminRole(actorRole);
+
+  const document = await prisma.userDocument.findUnique({
+    where: { id: input.documentId },
+    select: { id: true, storageKey: true, userId: true, type: true, side: true }
+  });
+  if (!document) {
+    throw new DomainError("NOT_FOUND", "Documento non trovato.");
+  }
+
+  await deleteDocumentObject({ storageKey: document.storageKey }).catch((error) => {
+    console.error("[admin-doc] delete object failed:", error);
+  });
+
+  await prisma.userDocument.delete({ where: { id: document.id } });
+
+  return { userId: document.userId, type: document.type, side: document.side };
 }
 
 async function markJobStatus(prisma: PrismaClient, jobId: string, status: DocumentJobStatus, lastError?: string) {
