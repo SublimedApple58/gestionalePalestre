@@ -10,9 +10,8 @@ Uso:
     python 04_listen.py   (Ctrl+C per uscire)
 """
 import json
-import time
 
-from _common import make_device
+from _common import make_device, record
 
 dev = make_device()
 dev.set_socketPersistent(True)
@@ -21,6 +20,6 @@ print("In ascolto… vai al tastierino e digita codici. Ctrl+C per uscire.\n")
 while True:
     data = dev.receive()
     if data:
-        print(time.strftime("%H:%M:%S"), json.dumps(data, ensure_ascii=False))
+        record(f"[04] evento = {json.dumps(data, ensure_ascii=False)}")
     else:
         dev.heartbeat()

@@ -8,17 +8,17 @@ Uso:
 """
 import json
 
-from _common import make_device
+from _common import make_device, record
 
 dev = make_device()
 print("Lettura stato (status)…")
 status = dev.status()
-print(json.dumps(status, indent=2, ensure_ascii=False))
+record(f"[02] status = {json.dumps(status, ensure_ascii=False)}")
 
 print("\nLettura completa DPS (detect_available_dps)…")
 try:
     dps = dev.detect_available_dps()
-    print(json.dumps(dps, indent=2, ensure_ascii=False))
+    record(f"[02] detect_available_dps = {json.dumps(dps, ensure_ascii=False)}")
 except Exception as e:  # noqa: BLE001
     print(f"detect_available_dps non disponibile: {e}")
 

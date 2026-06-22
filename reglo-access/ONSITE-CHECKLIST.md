@@ -25,16 +25,24 @@ questo branch; in sede si fa solo config + le prove.
 - [ ] Compila `.env`: `LOCAL_KEY`, `DEVICE_IP`, `PROTOCOL_VERSION`, `BE_BASE_URL`, `CRON_SECRET`.
 
 ## 3. Spike (Fase 1) — eseguire IN ORDINE in `reglo-access/spike`
+> Tutti gli spike salvano le scoperte in `spike/findings.log`: a fine visita
+> incolla quel file all'agente per finalizzare `keypad.py`.
+
+- [ ] `python 00_preflight.py` → verifica deps + `.env` + tastierino raggiungibile +
+      backend/CRON_SECRET. **Tutto verde prima di salire alla scala.**
 - [ ] `python 01_scan.py` → conferma IP + versione protocollo (aggiorna `.env`).
 - [ ] `python 02_status.py` → dump DP (annota DP relè, DP eventi, DP codici).
 - [ ] `python 03_open.py` → **la porta si apre?** Annota `RELAY_DP` in `.env`.
 - [ ] `python 04_listen.py` → digita un codice al tastierino; **vedi l'evento?**
       Annota il formato (slot/codice/tipo).
-- [ ] `python 05_write_code.py 778899` → **scrivi un codice e provalo al tastierino.**
+- [ ] `python 05_write_code.py` → **IL GATE.** Usa il **MODO A (cattura & replica)**:
+      crea un codice DALL'APP Tuya mentre lo script ascolta in locale → cattura il
+      payload del create-password dell'app → prova a riscriverlo in locale e provalo
+      al tastierino. (MODO B = tentativi diretti, fallback.)
       ⭐ **GATE**: rifai la prova **DI NOTTE** (20:00–08:00): se apre anche di notte → OK.
 
 ### Se il GATE passa
-- [ ] Porta il formato DP trovato in `keypad.py` (`add_code`/`list_codes`/`remove_code`).
+- [ ] Porta il payload catturato (`findings.log`) in `keypad.py` (`add_code`/`list_codes`/`remove_code`).
 - [ ] `install-service.bat` (come Amministratore; serve `nssm.exe` nella cartella).
 - [ ] Verifica: nuovo abbonamento sul gestionale → codice compare sul tastierino entro `POLL_INTERVAL`;
       sblocco reale → evento nel backend (admin/access-logs).

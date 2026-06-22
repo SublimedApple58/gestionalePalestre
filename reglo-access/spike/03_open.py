@@ -9,7 +9,7 @@ Uso:
 import os
 import time
 
-from _common import make_device
+from _common import make_device, record
 
 dev = make_device()
 relay_dp = int(os.getenv("RELAY_DP", "40"))
@@ -24,7 +24,7 @@ for dp in candidates:
         print(f"   risposta: {res}")
         ans = input(f"   La porta si è aperta con DP {dp}? [s/N] ").strip().lower()
         if ans == "s":
-            print(f"\nOK: RELAY_DP = {dp}. Imposta RELAY_DP={dp} in ../.env")
+            record(f"[03] RELAY_DP = {dp} (apre il relè). Imposta RELAY_DP={dp} in ../.env")
             break
     except Exception as e:  # noqa: BLE001
         print(f"   errore DP {dp}: {e}")
