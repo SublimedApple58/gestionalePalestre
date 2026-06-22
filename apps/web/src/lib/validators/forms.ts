@@ -6,6 +6,12 @@ const password = z
   .string()
   .min(8, "La password deve avere almeno 8 caratteri")
   .max(128, "La password e' troppo lunga");
+// Telefono obbligatorio (stesso pattern del validatore mobile): + opzionale,
+// cifre/spazi/punti/trattini/slash/parentesi, 6-40 caratteri.
+const phoneNumber = z
+  .string()
+  .trim()
+  .regex(/^[+]?[0-9 .\-/()]{6,40}$/, "Numero di telefono non valido");
 const optionalDate = z.preprocess(
   (value) => (value === null || value === undefined || value === "" ? undefined : value),
   z.coerce.date().optional()
@@ -16,6 +22,7 @@ export const registerSchema = z.object({
   lastName: z.string().trim().min(2).max(60),
   email,
   password,
+  phoneNumber,
   address: z.string().trim().min(5).max(200).optional()
 });
 
@@ -25,7 +32,10 @@ export const loginSchema = z.object({
 });
 
 export const adminCreateUserSchema = registerSchema.extend({
-  role: z.nativeEnum(UserRole)
+  role: z.nativeEnum(UserRole),
+  // L'admin puo' creare un utente senza telefono (verra' imposto poi all'utente,
+  // sul mobile dallo screen-gate). Solo la registrazione pubblica lo richiede.
+  phoneNumber: phoneNumber.optional()
 });
 
 export const adminRoleChangeSchema = z.object({
@@ -83,11 +93,8 @@ export const requestReuploadDocumentSchema = z.object({
 });
 
 export const updatePersonalInfoSchema = z.object({
-  phoneNumber: z
-    .string()
-    .trim()
-    .max(30)
-    .transform((value) => (value.length ? value : null)),
+  // Telefono obbligatorio: non puo' essere rimosso una volta richiesto.
+  phoneNumber,
   address: z
     .string()
     .trim()

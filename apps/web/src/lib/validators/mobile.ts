@@ -15,6 +15,10 @@ export const mobileRegisterSchema = z.object({
   lastName: z.string().trim().min(2, "Cognome troppo corto").max(60),
   email: z.string().trim().email("Email non valida"),
   password: z.string().min(8, "Password minimo 8 caratteri").max(128),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^[+]?[0-9 .\-/()]{6,40}$/, "Numero di telefono non valido"),
   address: z.string().trim().min(5, "Indirizzo troppo corto").max(200).optional(),
   acceptedTerms: z.literal(true)
 });

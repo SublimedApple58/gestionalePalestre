@@ -240,6 +240,7 @@ export function PersonalOverview({ user, profilePhotoUrl }: PersonalOverviewProp
               <input
                 type="tel"
                 name="phoneNumber"
+                required
                 placeholder="Es. +39 333 123 4567"
                 defaultValue={user.phoneNumber ?? ""}
                 autoComplete="tel"

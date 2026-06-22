@@ -17,10 +17,13 @@ type RegisterSubscriberInput = {
   lastName: string;
   email: string;
   password: string;
+  phoneNumber: string;
   address?: string;
 };
 
-type AdminCreateUserInput = RegisterSubscriberInput & {
+// L'admin crea utenti senza imporre il telefono (lo screen-gate mobile lo
+// richiedera' all'utente al primo accesso).
+type AdminCreateUserInput = Omit<RegisterSubscriberInput, "phoneNumber"> & {
   role: UserRole;
 };
 
@@ -101,6 +104,7 @@ export async function registerSubscriber(
       passwordHash,
       role: UserRole.SUBSCRIBER,
       accessCode: generateAccessCode(),
+      phoneNumber: input.phoneNumber,
       ...(input.address ? { address: input.address } : {})
     }
   });

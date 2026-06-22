@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       lastName: parsed.data.lastName,
       email: parsed.data.email,
       password: parsed.data.password,
+      phoneNumber: parsed.data.phoneNumber,
       address: parsed.data.address
     });
   } catch (error) {

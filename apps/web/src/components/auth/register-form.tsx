@@ -10,6 +10,7 @@ type Step1Data = {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber: string;
   password: string;
 };
 
@@ -23,6 +24,7 @@ export function RegisterForm({ error }: RegisterFormProps) {
     firstName: "",
     lastName: "",
     email: "",
+    phoneNumber: "",
     password: ""
   });
 
@@ -33,6 +35,7 @@ export function RegisterForm({ error }: RegisterFormProps) {
       firstName: (f.elements.namedItem("firstName") as HTMLInputElement).value,
       lastName: (f.elements.namedItem("lastName") as HTMLInputElement).value,
       email: (f.elements.namedItem("email") as HTMLInputElement).value,
+      phoneNumber: (f.elements.namedItem("phoneNumber") as HTMLInputElement).value,
       password: (f.elements.namedItem("password") as HTMLInputElement).value
     });
     setStep(1);
@@ -85,6 +88,19 @@ export function RegisterForm({ error }: RegisterFormProps) {
           </label>
 
           <label className="input-group">
+            <span>Cellulare</span>
+            <input
+              name="phoneNumber"
+              type="tel"
+              required
+              defaultValue={step1.phoneNumber}
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="Es. +39 333 123 4567"
+            />
+          </label>
+
+          <label className="input-group">
             <span>Password</span>
             <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>
@@ -124,6 +140,7 @@ export function RegisterForm({ error }: RegisterFormProps) {
         <input type="hidden" name="firstName" value={step1.firstName} />
         <input type="hidden" name="lastName" value={step1.lastName} />
         <input type="hidden" name="email" value={step1.email} />
+        <input type="hidden" name="phoneNumber" value={step1.phoneNumber} />
         <input type="hidden" name="password" value={step1.password} />
         {/* Indirizzo combinato — valorizzato da handleStep2Submit prima del submit */}
         <input type="hidden" name="address" />
