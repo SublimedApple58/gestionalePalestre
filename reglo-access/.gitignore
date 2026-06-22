@@ -1,0 +1,6 @@
+.env
+*.log
+nssm.exe
+__pycache__/
+*.pyc
+.venv/

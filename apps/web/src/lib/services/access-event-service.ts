@@ -1,5 +1,6 @@
 import { AccessEventType, type PrismaClient, UserRole } from "@gestionale/db";
 
+import { shouldHaveAccess } from "@/lib/access/authorization";
 import { hasRequiredDocuments } from "@/lib/documents";
 import { openDoor as openTuyaDoor } from "@/lib/tuya/access-control";
 
@@ -24,6 +25,58 @@ export async function recordDoorOpen(prisma: PrismaClient, userId: string): Prom
       note: "CTA Apri porta palestra"
     }
   });
+}
+
+export type KeypadUnlockResult = {
+  matched: boolean;
+  userId?: string;
+  ambiguous?: boolean;
+};
+
+/**
+ * Registra uno sblocco avvenuto sul tastierino locale (riportato dal servizio
+ * sul PC in palestra). Mappa il codice digitato all'utente.
+ *
+ * `accessCode` non è garantito unico: se più utenti condividono il codice si
+ * preferisce quello attualmente autorizzato; si segnala `ambiguous`.
+ */
+export async function recordKeypadUnlock(
+  prisma: PrismaClient,
+  params: { code: string; occurredAt?: Date; method?: string }
+): Promise<KeypadUnlockResult> {
+  const candidates = await prisma.user.findMany({
+    where: { accessCode: params.code },
+    select: {
+      id: true,
+      role: true,
+      subscription: {
+        select: { startsAt: true, endsAt: true, deactivatedAt: true },
+      },
+    },
+  });
+
+  if (candidates.length === 0) {
+    return { matched: false };
+  }
+
+  const chosen = candidates.find((u) => shouldHaveAccess(u)) ?? candidates[0]!;
+  const ambiguous = candidates.length > 1;
+
+  const noteParts = [`Sblocco tastierino${params.method ? ` (${params.method})` : ""}`];
+  if (ambiguous) {
+    noteParts.push(`codice condiviso da ${candidates.length} utenti`);
+  }
+
+  await prisma.accessEvent.create({
+    data: {
+      userId: chosen.id,
+      eventType: AccessEventType.KEYPAD_UNLOCK,
+      note: noteParts.join(" — "),
+      ...(params.occurredAt ? { occurredAt: params.occurredAt } : {}),
+    },
+  });
+
+  return { matched: true, userId: chosen.id, ambiguous };
 }
 
 export async function ensureSubscriberCanEnter(

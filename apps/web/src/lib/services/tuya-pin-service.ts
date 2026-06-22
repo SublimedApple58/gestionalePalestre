@@ -1,4 +1,4 @@
-import { type PrismaClient, UserRole } from "@gestionale/db";
+import { type PrismaClient } from "@gestionale/db";
 
 import {
   createTuyaUser,
@@ -7,7 +7,7 @@ import {
   enablePin,
   listTuyaUsers,
 } from "@/lib/tuya/access-control";
-import { isSubscriptionActive } from "@/lib/subscription";
+import { shouldHaveAccess } from "@/lib/access/authorization";
 
 /**
  * Ensures the user has a Tuya account on the device.
@@ -81,11 +81,7 @@ export async function syncPinToKeypad(
     },
   });
 
-  const shouldHavePin =
-    user.role === UserRole.ADMIN ||
-    user.role === UserRole.INSTRUCTOR ||
-    (user.role === UserRole.SUBSCRIBER &&
-      isSubscriptionActive(user.subscription));
+  const shouldHavePin = shouldHaveAccess(user);
 
   if (shouldHavePin) {
     // Deve avere il PIN — crea se non ce l'ha

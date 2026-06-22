@@ -1,7 +1,7 @@
-import { db, UserRole } from "@gestionale/db";
+import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
-import { isSubscriptionActive } from "@/lib/subscription";
+import { shouldHaveAccess } from "@/lib/access/authorization";
 import { ensureTuyaUser, syncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 export const runtime = "nodejs";
@@ -66,10 +66,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
 
       // Step 2: sync PIN if needed
-      const shouldHavePin =
-        user.role === UserRole.ADMIN ||
-        user.role === UserRole.INSTRUCTOR ||
-        (user.role === UserRole.SUBSCRIBER && isSubscriptionActive(user.subscription));
+      const shouldHavePin = shouldHaveAccess(user);
 
       if (shouldHavePin && !user.tuyaPinActive) {
         await syncPinToKeypad(db, user.id);

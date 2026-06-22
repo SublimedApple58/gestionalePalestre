@@ -150,6 +150,7 @@ model User {
 
   @@index([role])
   @@index([assignedInstructorId])
+  @@index([accessCode])
 }
 
 model UserDocument {
