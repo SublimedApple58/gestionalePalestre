@@ -43,6 +43,13 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "INSTALLMENTS_NOT_AVAILABLE" }, { status: 400 });
   }
 
+  // Presa visione mandato SEPA SDD obbligatoria per gli acquisti a rate (addebito
+  // ricorrente automatico). Difesa server-side: il gate UI non è bypassabile.
+  const sddAcknowledged = (raw as { sddAcknowledged?: boolean }).sddAcknowledged === true;
+  if (payInInstallments && !sddAcknowledged) {
+    return NextResponse.json({ error: "SDD_NOT_ACKNOWLEDGED" }, { status: 400 });
+  }
+
   const amountCents = payInInstallments && tierConfig.installments
     ? tierConfig.installments.amountCents
     : tierConfig.oneShotCents;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ArrowRight, Check, Crown, Info, Lock } from "lucide-react";
+import { ArrowRight, Check, Crown, FileText, Info, Lock } from "lucide-react";
 
 import { initiateCheckoutAction } from "@/app/actions/payment-actions";
 import {
@@ -9,6 +9,13 @@ import {
   formatEuroCents,
   tierLabel
 } from "@/lib/subscription";
+
+/**
+ * Informativa mandato SEPA Direct Debit (SDD): presa visione OBBLIGATORIA prima
+ * di acquistare un abbonamento con addebito ricorrente automatico (rate).
+ */
+const SDD_DISCLOSURE_TEXT =
+  "Il/la sottoscritto/a conferma di essere consapevole che avendo optato per la scelta di eseguire il pagamento dell'abbonamento tramite mandato SEPA Direct Debit – SDD autorizza la palestra ad addebitare automaticamente sul conto corrente le quote dell'abbonamento e che in caso di revoca mandato SEPA/RID alla banca, mentre risulta ancora un abbonamento attivo con la palestra, è previsto a carico dell'utente l'obbligo del pagamento immediato dell'importo corrispondente alle rate residue in favore della palestra, oltre al pagamento di una penale per recesso anticipato, pari al valore del residuo ancora insoluto, oltre al pagamento delle spese per il recupero insoluti o mancati addebiti.";
 
 type TierSummary = {
   tier: CheckoutTier;
@@ -48,6 +55,8 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
   // Default: annuale a rate (la formula promossa)
   const [selectedTier, setSelectedTier] = useState<SubscriptionTierKey>("YEARLY");
   const [payInInstallments, setPayInInstallments] = useState(true);
+  // Presa visione mandato SEPA SDD (richiesta solo per gli acquisti a rate).
+  const [sddAck, setSddAck] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const yearlyData = useMemo(
@@ -77,16 +86,19 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
   function handleSelect(tier: SubscriptionTierKey) {
     setSelectedTier(tier);
     setPayInInstallments(false);
+    setSddAck(false);
   }
 
   function selectYearlyInstallments() {
     setSelectedTier("YEARLY");
     setPayInInstallments(true);
+    setSddAck(false);
   }
 
   function handleSubmit(formData: FormData) {
     formData.set("tier", selectedTier);
     formData.set("installments", effectivePayMode === "installments" ? "true" : "false");
+    formData.set("sddAck", effectivePayMode === "installments" && sddAck ? "true" : "false");
     startTransition(async () => {
       await initiateCheckoutAction(formData);
     });
@@ -206,14 +218,20 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
             <button
               type="button"
               className={`ck-toggle-opt ${effectivePayMode === "one-shot" ? "ck-toggle-opt--active" : ""}`}
-              onClick={() => setPayInInstallments(false)}
+              onClick={() => {
+                setPayInInstallments(false);
+                setSddAck(false);
+              }}
             >
               Unica soluzione
             </button>
             <button
               type="button"
               className={`ck-toggle-opt ${effectivePayMode === "installments" ? "ck-toggle-opt--active" : ""}`}
-              onClick={() => setPayInInstallments(true)}
+              onClick={() => {
+                setPayInInstallments(true);
+                setSddAck(false);
+              }}
             >
               {selectedData.installments.count} rate da {formatEuroCents(selectedData.installments.amountCents)}
             </button>
@@ -226,12 +244,36 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
         </div>
       ) : null}
 
+      {/* ── Mandato SEPA SDD (solo acquisti a rate / addebito ricorrente) ── */}
+      {effectivePayMode === "installments" ? (
+        <div className="sdd-box">
+          <div className="sdd-head">
+            <FileText size={14} aria-hidden="true" />
+            Mandato SEPA Direct Debit (SDD)
+          </div>
+          <p className="sdd-text">{SDD_DISCLOSURE_TEXT}</p>
+          <label className="terms-check sdd-check">
+            <input
+              type="checkbox"
+              checked={sddAck}
+              onChange={(e) => setSddAck(e.target.checked)}
+            />
+            <span>Dichiaro di aver letto e preso visione delle condizioni del mandato SEPA SDD.</span>
+          </label>
+        </div>
+      ) : null}
+
       {/* ── CTA ───────────────────────────────────────────────── */}
       <form action={handleSubmit} className="ck-cta-form">
         <input type="hidden" name="tier" value={selectedTier} />
         <input type="hidden" name="installments" value={effectivePayMode === "installments" ? "true" : "false"} />
+        <input type="hidden" name="sddAck" value={effectivePayMode === "installments" && sddAck ? "true" : "false"} />
 
-        <button type="submit" className="button button-primary ck-cta" disabled={isPending}>
+        <button
+          type="submit"
+          className="button button-primary ck-cta"
+          disabled={isPending || (effectivePayMode === "installments" && !sddAck)}
+        >
           {isPending ? (
             "Reindirizzamento…"
           ) : (
@@ -246,7 +288,9 @@ export function CheckoutForm({ tiers, activeSubscription }: CheckoutFormProps) {
 
         <p className="ck-trust">
           <Lock size={11} />
-          Pagamento sicuro via SumUp · Nessun rinnovo automatico
+          {effectivePayMode === "installments"
+            ? "Pagamento sicuro · Addebito ricorrente automatico (SEPA SDD)"
+            : "Pagamento sicuro · Nessun rinnovo automatico"}
         </p>
       </form>
 

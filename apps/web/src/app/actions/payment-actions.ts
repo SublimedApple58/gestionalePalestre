@@ -49,6 +49,12 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
     redirect("/checkout/failure?reason=rate-non-disponibili-per-tier");
   }
 
+  // Presa visione mandato SEPA SDD obbligatoria per gli acquisti a rate (addebito
+  // ricorrente automatico). Difesa server-side: il gate UI non è bypassabile.
+  if (payInInstallments && formData.get("sddAck") !== "true") {
+    redirect("/checkout/failure?reason=mandato-sdd-non-accettato");
+  }
+
   const amountCents = payInInstallments && tierConfig.installments
     ? tierConfig.installments.amountCents
     : tierConfig.oneShotCents;
