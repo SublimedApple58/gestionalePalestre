@@ -146,6 +146,8 @@ model User {
   tuyaPinUnlockNo       String?
   tuyaPinActive         Boolean            @default(false)
   revolutCustomerId     String?
+  // Presa visione mandato SEPA SDD (addebito ricorrente): timestamp prima accettazione.
+  sddMandateAcceptedAt  DateTime?
   passwordResetCodes    PasswordResetCode[]
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt

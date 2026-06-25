@@ -55,6 +55,14 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
     redirect("/checkout/failure?reason=mandato-sdd-non-accettato");
   }
 
+  // Registra la presa visione (così l'acquirente non vedrà il gate bloccante).
+  if (payInInstallments) {
+    await db.user.updateMany({
+      where: { id: user.id, sddMandateAcceptedAt: null },
+      data: { sddMandateAcceptedAt: new Date() }
+    });
+  }
+
   const amountCents = payInInstallments && tierConfig.installments
     ? tierConfig.installments.amountCents
     : tierConfig.oneShotCents;

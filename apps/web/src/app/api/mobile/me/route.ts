@@ -1,4 +1,4 @@
-import { db, UserRole } from "@gestionale/db";
+import { db, InstallmentPlanStatus, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
@@ -20,21 +20,26 @@ export const dynamic = "force-dynamic";
  * Single source of truth per la home dell'app. Mantiene minimale il payload.
  */
 export const GET = withMobileAuth(async (_request, { user }) => {
-  const [profile, subscription, avatarUrl] = await Promise.all([
+  const [profile, subscription, avatarUrl, activeInstallmentPlan] = await Promise.all([
     db.user.findUnique({
       where: { id: user.id },
       select: {
         accessCode: true,
         phoneNumber: true,
         address: true,
-        dateOfBirth: true
+        dateOfBirth: true,
+        sddMandateAcceptedAt: true
       }
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
       select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
     }),
-    getProfilePhotoUrl(user.id).catch(() => null)
+    getProfilePhotoUrl(user.id).catch(() => null),
+    db.installmentPlan.findFirst({
+      where: { userId: user.id, status: InstallmentPlanStatus.ACTIVE },
+      select: { id: true }
+    })
   ]);
 
   if (!profile) {
@@ -51,6 +56,10 @@ export const GET = withMobileAuth(async (_request, { user }) => {
         )
       : 0;
 
+  // Gate bloccante mobile: chi ha un piano a rate ATTIVO (addebito ricorrente SEPA
+  // SDD) ma non ha ancora preso visione del mandato deve accettarlo per proseguire.
+  const requiresSddAcknowledgement = Boolean(activeInstallmentPlan) && !profile.sddMandateAcceptedAt;
+
   return NextResponse.json({
     user: {
       id: user.id,
@@ -64,6 +73,7 @@ export const GET = withMobileAuth(async (_request, { user }) => {
     },
     accessCode: profile.accessCode,
     avatarUrl,
+    requiresSddAcknowledgement,
     subscription: subscription
       ? {
           tier: subscription.tier,
@@ -121,7 +131,7 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
   });
 
   // Reload + same payload shape della GET per semplificare il client.
-  const [profile, subscription, avatarUrl] = await Promise.all([
+  const [profile, subscription, avatarUrl, activeInstallmentPlan] = await Promise.all([
     db.user.findUnique({
       where: { id: user.id },
       select: {
@@ -132,14 +142,19 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
         accessCode: true,
         phoneNumber: true,
         address: true,
-        dateOfBirth: true
+        dateOfBirth: true,
+        sddMandateAcceptedAt: true
       }
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
       select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
     }),
-    getProfilePhotoUrl(user.id).catch(() => null)
+    getProfilePhotoUrl(user.id).catch(() => null),
+    db.installmentPlan.findFirst({
+      where: { userId: user.id, status: InstallmentPlanStatus.ACTIVE },
+      select: { id: true }
+    })
   ]);
 
   if (!profile) {
@@ -156,6 +171,8 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
         )
       : 0;
 
+  const requiresSddAcknowledgement = Boolean(activeInstallmentPlan) && !profile.sddMandateAcceptedAt;
+
   return NextResponse.json({
     user: {
       id: user.id,
@@ -169,6 +186,7 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
     },
     accessCode: profile.accessCode,
     avatarUrl,
+    requiresSddAcknowledgement,
     subscription: subscription
       ? {
           tier: subscription.tier,

@@ -50,6 +50,14 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "SDD_NOT_ACKNOWLEDGED" }, { status: 400 });
   }
 
+  // Registra la presa visione (così l'acquirente non vedrà il gate bloccante).
+  if (payInInstallments) {
+    await db.user.updateMany({
+      where: { id: user.id, sddMandateAcceptedAt: null },
+      data: { sddMandateAcceptedAt: new Date() }
+    });
+  }
+
   const amountCents = payInInstallments && tierConfig.installments
     ? tierConfig.installments.amountCents
     : tierConfig.oneShotCents;
