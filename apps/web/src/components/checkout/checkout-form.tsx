@@ -4,18 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 import { ArrowRight, Check, Crown, FileText, Info, Lock } from "lucide-react";
 
 import { initiateCheckoutAction } from "@/app/actions/payment-actions";
+import { SDD_DISCLOSURE_TEXT } from "@/lib/sdd";
 import {
   type CheckoutTier,
   formatEuroCents,
   tierLabel
 } from "@/lib/subscription";
-
-/**
- * Informativa mandato SEPA Direct Debit (SDD): presa visione OBBLIGATORIA prima
- * di acquistare un abbonamento con addebito ricorrente automatico (rate).
- */
-const SDD_DISCLOSURE_TEXT =
-  "Il/la sottoscritto/a conferma di essere consapevole che avendo optato per la scelta di eseguire il pagamento dell'abbonamento tramite mandato SEPA Direct Debit – SDD autorizza la palestra ad addebitare automaticamente sul conto corrente le quote dell'abbonamento e che in caso di revoca mandato SEPA/RID alla banca, mentre risulta ancora un abbonamento attivo con la palestra, è previsto a carico dell'utente l'obbligo del pagamento immediato dell'importo corrispondente alle rate residue in favore della palestra, oltre al pagamento di una penale per recesso anticipato, pari al valore del residuo ancora insoluto, oltre al pagamento delle spese per il recupero insoluti o mancati addebiti.";
 
 type TierSummary = {
   tier: CheckoutTier;

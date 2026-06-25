@@ -8,6 +8,7 @@ import { MenuOutlined } from "@ant-design/icons";
 import { type UserRole } from "@gestionale/db";
 
 import { logoutAction } from "@/app/actions/auth-actions";
+import { SddMandateGate } from "@/components/sdd/sdd-mandate-gate";
 import { getAppNavigationItems } from "@/lib/navigation";
 
 const { Sider, Header, Content, Footer } = Layout;
@@ -91,6 +92,9 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
+      {/* Gate bloccante mandato SEPA SDD (abbonati a rate esistenti) */}
+      <SddMandateGate />
+
       {/* ── Desktop sidebar ──────────────────────────────── */}
       <Sider
         width={288}
