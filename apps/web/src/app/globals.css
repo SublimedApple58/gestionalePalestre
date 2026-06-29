@@ -3129,6 +3129,83 @@ tbody tr:hover td:first-child {
 }
 
 /* Meta row */
+/* Toolbar filtri utenti (ordina + associazione) */
+.utenti-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.utenti-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.utenti-filter-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border-quiet);
+}
+
+.seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 100px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.seg-btn:hover {
+  color: var(--text-soft);
+}
+
+.seg-btn.active {
+  background: var(--brand-12);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--brand-45);
+}
+
+@media (max-width: 640px) {
+  .utenti-filters {
+    gap: 12px;
+  }
+  .utenti-filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .seg {
+    flex: 1;
+    justify-content: stretch;
+  }
+  .seg-btn {
+    flex: 1;
+    text-align: center;
+    padding: 7px 8px;
+  }
+}
+
 .utenti-meta {
   margin-bottom: 10px;
 }

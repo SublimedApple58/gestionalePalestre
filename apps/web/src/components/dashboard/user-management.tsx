@@ -30,6 +30,7 @@ type UserRow = {
   role: UserRole;
   accessCode: string;
   address: string | null;
+  createdAt: Date;
   associationMember: boolean;
   associationExpiresAt: Date | null;
   assignedInstructorId: string | null;
@@ -57,8 +58,24 @@ const ROLE_OPTIONS = [
   { value: UserRole.SUBSCRIBER, label: "Iscritto" }
 ];
 
+type SortMode = "alpha" | "registration";
+type AssociationFilter = "all" | "member" | "non_member";
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "alpha", label: "Alfabetico" },
+  { value: "registration", label: "Data iscrizione" }
+];
+
+const ASSOCIATION_OPTIONS: { value: AssociationFilter; label: string }[] = [
+  { value: "all", label: "Tutti" },
+  { value: "member", label: "Iscritti" },
+  { value: "non_member", label: "Non iscritti" }
+];
+
 export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: UserManagementProps) {
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("alpha");
+  const [associationFilter, setAssociationFilter] = useState<AssociationFilter>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
@@ -71,14 +88,33 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return users;
-    return users.filter(
-      (u) =>
+
+    let list = users.filter((u) => {
+      if (associationFilter === "member" && !u.associationMember) return false;
+      if (associationFilter === "non_member" && u.associationMember) return false;
+      if (!q) return true;
+      return (
         `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         roleLabel(u.role).toLowerCase().includes(q)
-    );
-  }, [users, search]);
+      );
+    });
+
+    list = [...list].sort((a, b) => {
+      if (sortMode === "registration") {
+        // Più recenti prima (data di iscrizione = createdAt).
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      // Alfabetico per cognome, poi nome.
+      return (
+        `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, "it", {
+          sensitivity: "base"
+        })
+      );
+    });
+
+    return list;
+  }, [users, search, sortMode, associationFilter]);
 
   return (
     <>
@@ -118,6 +154,43 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         {errorMessage && (
           <p className="error-banner utenti-error-banner">{errorMessage}</p>
         )}
+
+        {/* Toolbar filtri */}
+        <div className="utenti-filters">
+          <div className="utenti-filter-group">
+            <span className="utenti-filter-label">Ordina</span>
+            <div className="seg" role="group" aria-label="Ordina utenti">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`seg-btn ${sortMode === opt.value ? "active" : ""}`}
+                  aria-pressed={sortMode === opt.value}
+                  onClick={() => setSortMode(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="utenti-filter-group">
+            <span className="utenti-filter-label">Associazione</span>
+            <div className="seg" role="group" aria-label="Filtra per iscrizione associazione">
+              {ASSOCIATION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`seg-btn ${associationFilter === opt.value ? "active" : ""}`}
+                  aria-pressed={associationFilter === opt.value}
+                  onClick={() => setAssociationFilter(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Meta riga: conteggio utenti */}
         <div className="utenti-meta">

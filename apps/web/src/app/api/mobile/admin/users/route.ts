@@ -15,13 +15,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/mobile/admin/users?q=&role=&cursor=&limit=
+ * GET /api/mobile/admin/users?q=&role=&sort=&association=&cursor=&limit=
  * 200: { items: UserListRow[], nextCursor: string | null }
  *
- * Cursor-based pagination su (firstName ASC, lastName ASC, id ASC) — la lista
- * mostra "Nome Cognome", quindi l'ordine alfabetico è per nome.
- * Per semplicità il cursor è solo l'id; la performance è accettabile per i
- * volumi del gestionale palestra.
+ * Cursor-based pagination. L'ordine è alfabetico per nome (default) oppure per
+ * data di iscrizione (createdAt DESC) se sort=registration. In entrambi i casi
+ * l'id chiude l'orderBy come tie-breaker stabile, così il cursor (solo id)
+ * resta consistente tra le pagine. La performance è accettabile per i volumi
+ * del gestionale palestra.
  */
 export const GET = withMobileAuth(
   async (request) => {
@@ -29,6 +30,8 @@ export const GET = withMobileAuth(
     const parsed = mobileAdminUsersQuerySchema.safeParse({
       q: searchParams.get("q") ?? undefined,
       role: searchParams.get("role") ?? undefined,
+      sort: searchParams.get("sort") ?? undefined,
+      association: searchParams.get("association") ?? undefined,
       cursor: searchParams.get("cursor") ?? undefined,
       limit: searchParams.get("limit") ?? undefined
     });
@@ -43,6 +46,11 @@ export const GET = withMobileAuth(
     if (parsed.data.role) {
       where.role = parsed.data.role;
     }
+    if (parsed.data.association === "member") {
+      where.associationMember = true;
+    } else if (parsed.data.association === "non_member") {
+      where.associationMember = false;
+    }
     if (parsed.data.q) {
       const q = parsed.data.q;
       where.OR = [
@@ -52,9 +60,14 @@ export const GET = withMobileAuth(
       ];
     }
 
+    const orderBy: Prisma.UserOrderByWithRelationInput[] =
+      parsed.data.sort === "registration"
+        ? [{ createdAt: "desc" }, { id: "asc" }]
+        : [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }];
+
     const items = await db.user.findMany({
       where,
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }],
+      orderBy,
       take: limit + 1,
       ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
       select: {

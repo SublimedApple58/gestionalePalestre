@@ -159,6 +159,10 @@ export const mobileExercisePhotoConfirmSchema = z.object({
 export const mobileAdminUsersQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
   role: z.nativeEnum(UserRole).optional(),
+  /** Ordinamento lista: alfabetico per nome (default) o per data di iscrizione (createdAt). */
+  sort: z.enum(["alpha", "registration"]).optional(),
+  /** Filtro iscrizione associazione sportiva. */
+  association: z.enum(["all", "member", "non_member"]).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().positive().max(50).optional()
 });
