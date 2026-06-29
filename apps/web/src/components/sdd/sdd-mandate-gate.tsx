@@ -61,9 +61,8 @@ export function SddMandateGate() {
 
         <h2 className="sdd-gate-title">Conferma il mandato SEPA</h2>
         <p className="sdd-gate-subtitle">
-          Questa conferma è richiesta perché hai un abbonamento con rinnovo automatico attivo. Per
-          continuare devi prendere visione e accettare le condizioni del mandato SEPA Direct Debit.
-          È obbligatorio.
+          Per continuare devi prendere visione e accettare le condizioni del mandato SEPA Direct
+          Debit, che si applica agli abbonamenti con rinnovo automatico. È obbligatorio.
         </p>
 
         <div className="sdd-box sdd-gate-box">

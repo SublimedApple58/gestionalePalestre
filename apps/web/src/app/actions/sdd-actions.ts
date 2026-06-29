@@ -1,31 +1,24 @@
 "use server";
 
-import { db, InstallmentPlanStatus } from "@gestionale/db";
+import { db } from "@gestionale/db";
 
 import { getSessionUser } from "@/lib/session";
 
 /**
- * Ritorna true se l'utente loggato ha un abbonamento a rate ATTIVO (addebito
- * ricorrente SEPA SDD) ma non ha ancora preso visione del mandato → deve vedere
- * il gate bloccante. False per chiunque altro (non loggato, non a rate, già
- * accettato).
+ * Ritorna true se l'utente loggato non ha ancora preso visione del mandato SEPA
+ * SDD → deve vedere il gate bloccante. Mostrato a TUTTI gli utenti (qualsiasi
+ * ruolo, qualsiasi abbonamento). False solo se non loggato o già accettato.
  */
 export async function getSddMandateStatus(): Promise<boolean> {
   const sessionUser = await getSessionUser();
   if (!sessionUser) return false;
 
-  const [user, activePlan] = await Promise.all([
-    db.user.findUnique({
-      where: { id: sessionUser.id },
-      select: { sddMandateAcceptedAt: true }
-    }),
-    db.installmentPlan.findFirst({
-      where: { userId: sessionUser.id, status: InstallmentPlanStatus.ACTIVE },
-      select: { id: true }
-    })
-  ]);
+  const user = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { sddMandateAcceptedAt: true }
+  });
 
-  return Boolean(activePlan) && !user?.sddMandateAcceptedAt;
+  return !user?.sddMandateAcceptedAt;
 }
 
 /**
