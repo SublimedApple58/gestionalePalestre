@@ -15,7 +15,7 @@ import {
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
 import { getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
-import { tierLabel } from "@/lib/subscription";
+import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
@@ -60,6 +60,7 @@ const ROLE_OPTIONS = [
 
 type SortMode = "alpha" | "registration";
 type AssociationFilter = "all" | "member" | "non_member";
+type SubscriptionFilter = "all" | "active" | "expired" | "none";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "alpha", label: "Alfabetico" },
@@ -72,10 +73,18 @@ const ASSOCIATION_OPTIONS: { value: AssociationFilter; label: string }[] = [
   { value: "non_member", label: "Non iscritti" }
 ];
 
+const SUBSCRIPTION_OPTIONS: { value: SubscriptionFilter; label: string }[] = [
+  { value: "all", label: "Tutti" },
+  { value: "active", label: "Attivi" },
+  { value: "expired", label: "Scaduti" },
+  { value: "none", label: "Senza" }
+];
+
 export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("alpha");
   const [associationFilter, setAssociationFilter] = useState<AssociationFilter>("all");
+  const [subscriptionFilter, setSubscriptionFilter] = useState<SubscriptionFilter>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
@@ -92,6 +101,13 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
     let list = users.filter((u) => {
       if (associationFilter === "member" && !u.associationMember) return false;
       if (associationFilter === "non_member" && u.associationMember) return false;
+      if (subscriptionFilter !== "all") {
+        const active = isSubscriptionActive(u.subscription);
+        if (subscriptionFilter === "active" && !active) return false;
+        // "Scaduti" = ha un abbonamento ma non è attivo (scaduto o disattivato).
+        if (subscriptionFilter === "expired" && (!u.subscription || active)) return false;
+        if (subscriptionFilter === "none" && u.subscription) return false;
+      }
       if (!q) return true;
       return (
         `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
@@ -114,7 +130,7 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
     });
 
     return list;
-  }, [users, search, sortMode, associationFilter]);
+  }, [users, search, sortMode, associationFilter, subscriptionFilter]);
 
   return (
     <>
@@ -184,6 +200,23 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
                   className={`seg-btn ${associationFilter === opt.value ? "active" : ""}`}
                   aria-pressed={associationFilter === opt.value}
                   onClick={() => setAssociationFilter(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="utenti-filter-group">
+            <span className="utenti-filter-label">Abbonamento</span>
+            <div className="seg" role="group" aria-label="Filtra per stato abbonamento">
+              {SUBSCRIPTION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`seg-btn ${subscriptionFilter === opt.value ? "active" : ""}`}
+                  aria-pressed={subscriptionFilter === opt.value}
+                  onClick={() => setSubscriptionFilter(opt.value)}
                 >
                   {opt.label}
                 </button>
