@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/internal/tuya-pin-sync/run",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/internal/installments-charge/run",
@@ -23,11 +23,11 @@
     },
     {
       "path": "/api/internal/tuya-access-log-sync/run",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/internal/tuya-pin-reassert/run",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 5 * * *"
     }
   ]
 }
