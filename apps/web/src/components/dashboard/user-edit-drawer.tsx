@@ -366,8 +366,10 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
               <div className="user-drawer-sub-current">
                 {user.subscription.deactivatedAt ? (
                   <Tag color="warning">Disattivato</Tag>
-                ) : (
+                ) : isSubscriptionActive(user.subscription) ? (
                   <Tag color="success">{tierLabel(user.subscription.tier)} attivo</Tag>
+                ) : (
+                  <Tag color="error">{tierLabel(user.subscription.tier)} scaduto</Tag>
                 )}
                 <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
                   {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
@@ -377,6 +379,10 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                 {user.subscription.deactivatedAt ? (
                   <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginTop: 4 }}>
                     Disattivato il {new Date(user.subscription.deactivatedAt).toLocaleDateString("it-IT")}
+                  </Text>
+                ) : !isSubscriptionActive(user.subscription) ? (
+                  <Text style={{ fontSize: 11, color: "#f87171", display: "block", marginTop: 4 }}>
+                    Scaduto il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
                   </Text>
                 ) : null}
               </div>

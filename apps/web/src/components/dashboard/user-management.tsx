@@ -295,12 +295,23 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
 
                         <td data-label="Abbonamento">
                           {user.subscription ? (
-                            <span className="td-subscription">
-                              <span className="td-subscription-tier">{tierLabel(user.subscription.tier)}</span>
-                              <span className="td-subscription-date">
-                                scade {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
-                              </span>
-                            </span>
+                            (() => {
+                              const sub = user.subscription;
+                              const endStr = new Date(sub.endsAt).toLocaleDateString("it-IT");
+                              const active = isSubscriptionActive(sub);
+                              return (
+                                <span className="td-subscription">
+                                  <span className="td-subscription-tier">{tierLabel(sub.tier)}</span>
+                                  {sub.deactivatedAt ? (
+                                    <span className="td-subscription-status deactivated">Disattivato</span>
+                                  ) : active ? (
+                                    <span className="td-subscription-date">scade {endStr}</span>
+                                  ) : (
+                                    <span className="td-subscription-status expired">Scaduto il {endStr}</span>
+                                  )}
+                                </span>
+                              );
+                            })()
                           ) : (
                             <span className="td-empty">—</span>
                           )}

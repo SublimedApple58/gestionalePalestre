@@ -3288,6 +3288,39 @@ tbody tr:hover td:first-child {
   color: var(--text-muted);
 }
 
+.td-subscription-status {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.td-subscription-status::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.td-subscription-status.expired {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.32);
+}
+
+.td-subscription-status.deactivated {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.3);
+}
+
 .td-empty {
   color: rgba(173, 173, 184, 0.3);
   font-size: 0.9rem;
