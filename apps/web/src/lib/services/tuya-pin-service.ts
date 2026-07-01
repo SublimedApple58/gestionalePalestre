@@ -1,4 +1,5 @@
 import { type PrismaClient, UserRole } from "@gestionale/db";
+import { after } from "next/server";
 
 import {
   createTuyaUser,
@@ -112,15 +113,29 @@ export async function syncPinToKeypad(
 }
 
 /**
- * Fire-and-forget wrapper. Logs errors but never throws.
+ * Wrapper non-bloccante. Logga gli errori ma non lancia mai.
+ *
+ * IMPORTANTE: su serverless (Vercel) un semplice fire-and-forget veniva SCARTATO
+ * quando la funzione si congelava dopo aver risposto → il codice non veniva mai
+ * scritto sul tastierino (bug: iscritto con abbonamento attivo ma senza codice).
+ * `after()` registra il sync per l'esecuzione DOPO la risposta mantenendo viva la
+ * funzione finché non completa — affidabile e comunque non-bloccante per l'utente.
+ * Fuori da un contesto request (script/job) si degrada a fire-and-forget.
  */
 export function safeSyncPinToKeypad(
   prisma: PrismaClient,
   userId: string
 ): void {
-  syncPinToKeypad(prisma, userId).catch((err) => {
-    console.error(`[tuya-pin] sync failed for ${userId}:`, err);
-  });
+  const run = () =>
+    syncPinToKeypad(prisma, userId).catch((err) => {
+      console.error(`[tuya-pin] sync failed for ${userId}:`, err);
+    });
+
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
 }
 
 /**

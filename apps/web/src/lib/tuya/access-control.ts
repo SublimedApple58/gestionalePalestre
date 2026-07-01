@@ -156,36 +156,61 @@ async function getPasswordTicket(): Promise<PasswordTicket> {
   );
 }
 
+const ENABLE_PIN_MAX_ATTEMPTS = 5;
+const ENABLE_PIN_RETRY_MS = 800;
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Register a PIN on the keypad for a given Tuya user.
  * Returns the unlock key number (needed for deletion).
+ *
+ * Il tastierino applica i PIN uno alla volta in modo asincrono: se è occupato
+ * risponde `2328 operation in progress`. È un errore TRANSITORIO, quindi qui
+ * riproviamo (nuovo ticket ogni tentativo). Senza retry, attivare un abbonamento
+ * mentre il device è occupato lasciava l'iscritto SENZA codice, in silenzio.
  */
 export async function enablePin(
   tuyaUserId: string,
   pin: string
 ): Promise<string> {
-  const ticket = await getPasswordTicket();
-  const ticketKey = decryptTicketKey(ticket.ticket_key);
-  const encryptedPin = encryptPin(pin, ticketKey);
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= ENABLE_PIN_MAX_ATTEMPTS; attempt++) {
+    try {
+      const ticket = await getPasswordTicket();
+      const ticketKey = decryptTicketKey(ticket.ticket_key);
+      const encryptedPin = encryptPin(pin, ticketKey);
 
-  await tuyaRequest<boolean>(
-    "PUT",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/actions/entry`,
-    {
-      user_id: tuyaUserId,
-      user_type: 2,
-      unlock_type: "password",
-      password_type: "ticket",
-      ticket_id: ticket.ticket_id,
-      password: encryptedPin,
+      await tuyaRequest<boolean>(
+        "PUT",
+        `/v1.0/devices/${DEVICE_ID}/door-lock/actions/entry`,
+        {
+          user_id: tuyaUserId,
+          user_type: 2,
+          unlock_type: "password",
+          password_type: "ticket",
+          ticket_id: ticket.ticket_id,
+          password: encryptedPin,
+        }
+      );
+
+      // L'endpoint di lettura delle chiavi password è inaffidabile su questo
+      // device (errore 1108) → restituirebbe comunque "1" via fallback. Saltiamo
+      // la chiamata sprecata.
+      return "1";
+    } catch (err) {
+      lastErr = err;
+      const msg = String((err as Error).message).toLowerCase();
+      const transient =
+        msg.includes("progress") || msg.includes("busy") || msg.includes("2328");
+      if (transient && attempt < ENABLE_PIN_MAX_ATTEMPTS) {
+        await sleep(ENABLE_PIN_RETRY_MS);
+        continue;
+      }
+      throw err;
     }
-  );
-
-  // L'endpoint di lettura delle chiavi password è inaffidabile su questo device
-  // (errore 1108) → restituirebbe comunque "1" via fallback. Saltiamo la chiamata
-  // sprecata: vale ~0.3s/utente, decisivi per far stare il re-assert di massa
-  // (~165 PIN) entro il limite di durata della funzione (300s).
-  return "1";
+  }
+  throw lastErr;
 }
 
 // ─── PIN removal ─────────────────────────────────────────────────────────────
