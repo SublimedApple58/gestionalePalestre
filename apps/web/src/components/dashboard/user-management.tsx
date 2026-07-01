@@ -359,6 +359,12 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
       {/* ── Drawer modifica utente ────────────────────────────────────── */}
       {drawerUserRef.current && (
         <UserEditDrawer
+          // Rimonta il drawer quando cambia iscritto: senza key l'istanza viene
+          // riusata e gli stati inizializzati da prop una volta sola (es. la lista
+          // documenti in AdminDocumentsTab) restano quelli del PRIMO utente aperto
+          // → "Apri" apriva il documento dell'iscritto precedente finché non si
+          // ricaricava la pagina.
+          key={drawerUserRef.current.id}
           user={drawerUserRef.current}
           opened={!!selectedUser}
           onClose={handleCloseDrawer}
