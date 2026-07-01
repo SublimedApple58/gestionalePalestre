@@ -123,6 +123,18 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
   return result ?? [];
 }
 
+/**
+ * DIAGNOSTICA: legge i record password registrati sul device per un utente.
+ * Restituisce il raw così vediamo eventuali fasce orarie/validità
+ * (effective_time / invalid_time / schedule / phase) attaccate al PIN.
+ */
+export async function listUserPasswords(tuyaUserId: string): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "GET",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
+  );
+}
+
 // ─── PIN crypto ──────────────────────────────────────────────────────────────
 
 function decryptTicketKey(encryptedHex: string): Buffer {

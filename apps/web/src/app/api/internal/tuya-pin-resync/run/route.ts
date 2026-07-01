@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
-import { enablePin, listTuyaUsers } from "@/lib/tuya/access-control";
+import { enablePin, listTuyaUsers, listUserPasswords } from "@/lib/tuya/access-control";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -48,6 +48,45 @@ export async function GET(request: Request): Promise<NextResponse> {
   // cloud ma il device la scarta → codice negato (rosso). Ricreando l'utente
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
+  const inspect = params.get("inspect");
+
+  // ── MODALITÀ ISPEZIONE ─────────────────────────────────────────────────
+  // ?inspect=N → per i primi N utenti idonei (con tuyaUserId), dumpa i record
+  // password dal device, così vediamo se hanno fasce orarie/validità attaccate.
+  if (inspect) {
+    const n = Math.max(1, Math.min(10, Number(inspect) || 3));
+    const candidates = await db.user.findMany({
+      where: { tuyaUserId: { not: null } },
+      select: {
+        firstName: true,
+        lastName: true,
+        accessCode: true,
+        tuyaUserId: true,
+        role: true,
+        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+      },
+      take: 200,
+    });
+    const eligible = candidates
+      .filter(
+        (u) =>
+          u.role === UserRole.ADMIN ||
+          u.role === UserRole.INSTRUCTOR ||
+          (u.role === UserRole.SUBSCRIBER && isSubscriptionActive(u.subscription))
+      )
+      .slice(0, n);
+
+    const records = [];
+    for (const u of eligible) {
+      try {
+        const raw = await listUserPasswords(u.tuyaUserId!);
+        records.push({ name: `${u.firstName} ${u.lastName}`, code: u.accessCode, tuyaUserId: u.tuyaUserId, passwords: raw });
+      } catch (err) {
+        records.push({ name: `${u.firstName} ${u.lastName}`, code: u.accessCode, error: (err as Error).message });
+      }
+    }
+    return NextResponse.json({ mode: "inspect", inspected: records.length, records });
+  }
 
   // Diagnostica: quanti utenti risultano ANCORA sul device? Se il device ha
   // svuotato la tabella, questo numero sara' molto piu' basso dell'atteso.
