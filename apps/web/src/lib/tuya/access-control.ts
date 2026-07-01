@@ -124,6 +124,18 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
 }
 
 /**
+ * DIAGNOSTICA: legge le temp-password del device, che riportano la validità
+ * reale (effective_time / invalid_time / schedule_list / phase). Serve a
+ * vedere se le nostre password hanno una finestra oraria attaccata.
+ */
+export async function listTempPasswords(): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "GET",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/temp-passwords`
+  );
+}
+
+/**
  * DIAGNOSTICA: legge le "assigned keys" (metodi di sblocco) di un utente,
  * inclusi effective_time / invalid_time / schedule → così vediamo se le
  * password create via API hanno una validità/fascia oraria attaccata.

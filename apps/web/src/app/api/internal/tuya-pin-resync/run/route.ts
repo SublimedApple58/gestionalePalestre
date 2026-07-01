@@ -8,6 +8,7 @@ import {
   getAssignedKeys,
   getDeviceStatus,
   listDeviceTimers,
+  listTempPasswords,
   listTuyaUsers,
   listUserPasswords,
 } from "@/lib/tuya/access-control";
@@ -56,6 +57,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── DIAGNOSTICA TEMP-PASSWORD (validità reale sul cloud) ───────────────
+  if (params.get("temppw") === "1") {
+    try {
+      const list = await listTempPasswords();
+      return NextResponse.json({ mode: "temppw", list });
+    } catch (err) {
+      return NextResponse.json({ mode: "temppw", error: (err as Error).message });
+    }
+  }
 
   // ── DIAGNOSTICA VALIDITÀ CHIAVI (effective/invalid/schedule) ───────────
   // ?keys=<code opzionale> → assigned-keys del device per l'utente indicato
