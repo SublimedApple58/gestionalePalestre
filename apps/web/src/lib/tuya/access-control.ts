@@ -124,6 +124,18 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
 }
 
 /**
+ * DIAGNOSTICA: legge le "assigned keys" (metodi di sblocco) di un utente,
+ * inclusi effective_time / invalid_time / schedule → così vediamo se le
+ * password create via API hanno una validità/fascia oraria attaccata.
+ */
+export async function getAssignedKeys(tuyaUserId: string): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "GET",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/assigned-keys`
+  );
+}
+
+/**
  * DIAGNOSTICA: legge TUTTI i data point (DP) correnti del device.
  * Confrontando lo stato "rotto" (sera) col "funzionante" (mattina) si isola il
  * DP che gate-a la validazione dei codici (es. child_lock / lock_mode / ecc.).

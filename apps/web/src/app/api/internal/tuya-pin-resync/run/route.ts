@@ -5,6 +5,7 @@ import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
   enablePin,
+  getAssignedKeys,
   getDeviceStatus,
   listDeviceTimers,
   listTuyaUsers,
@@ -55,6 +56,34 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── DIAGNOSTICA VALIDITÀ CHIAVI (effective/invalid/schedule) ───────────
+  // ?keys=<code opzionale> → assigned-keys del device per l'utente indicato
+  // (o il primo idoneo): mostra la validità reale della password.
+  if (params.has("keys")) {
+    const code = params.get("keys")?.trim();
+    const u = await db.user.findFirst({
+      where: code
+        ? { accessCode: code, tuyaUserId: { not: null } }
+        : { tuyaUserId: { not: null }, role: UserRole.SUBSCRIBER },
+      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u?.tuyaUserId) {
+      return NextResponse.json({ mode: "keys", error: "nessun utente con tuyaUserId" });
+    }
+    try {
+      const keys = await getAssignedKeys(u.tuyaUserId);
+      return NextResponse.json({
+        mode: "keys",
+        user: `${u.firstName} ${u.lastName}`,
+        code: u.accessCode,
+        tuyaUserId: u.tuyaUserId,
+        keys,
+      });
+    } catch (err) {
+      return NextResponse.json({ mode: "keys", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
+    }
+  }
 
   // ── DIAGNOSTICA STATO DEVICE (tutti i DP) ──────────────────────────────
   if (params.get("status") === "1") {
