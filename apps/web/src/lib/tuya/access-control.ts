@@ -124,6 +124,18 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
 }
 
 /**
+ * DIAGNOSTICA: legge i TIMER schedulati (Device Timer service) sul device.
+ * Un timer serale che manda un DP di blocco (e uno mattutino che sblocca)
+ * spiegherebbe il pattern "codici KO la sera, OK la mattina, offline sempre OK".
+ */
+export async function listDeviceTimers(): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "GET",
+    `/v2.0/cloud/timer/device/${DEVICE_ID}`
+  );
+}
+
+/**
  * DIAGNOSTICA: legge i record password registrati sul device per un utente.
  * Restituisce il raw così vediamo eventuali fasce orarie/validità
  * (effective_time / invalid_time / schedule / phase) attaccate al PIN.

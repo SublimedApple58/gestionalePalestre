@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
-import { enablePin, listTuyaUsers, listUserPasswords } from "@/lib/tuya/access-control";
+import { enablePin, listDeviceTimers, listTuyaUsers, listUserPasswords } from "@/lib/tuya/access-control";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -49,6 +49,18 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── DIAGNOSTICA TIMER ──────────────────────────────────────────────────
+  // ?timers=1 → dumpa i task schedulati (Device Timer) sul device. Cerchiamo un
+  // timer serale/mattutino che spenga/riaccenda la validazione dei codici.
+  if (params.get("timers") === "1") {
+    try {
+      const timers = await listDeviceTimers();
+      return NextResponse.json({ mode: "timers", timers });
+    } catch (err) {
+      return NextResponse.json({ mode: "timers", error: (err as Error).message });
+    }
+  }
 
   // ── MODALITÀ ISPEZIONE ─────────────────────────────────────────────────
   // ?inspect=N → per i primi N utenti idonei (con tuyaUserId), dumpa i record
