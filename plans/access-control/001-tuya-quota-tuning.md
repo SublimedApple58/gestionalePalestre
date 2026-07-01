@@ -51,6 +51,14 @@ La quota trial si rinnova gratis (form, 1/3/6 mesi). Nota: termini trial = "uso
 commerciale vietato" → rischio policy basso per singolo device, ma da tenere a mente;
 opzione futura = piano IoT Core a pagamento se si vuole azzerare il rischio.
 
+## Update 2026-06-30 (post go-live, scelta utente)
+Assetto cron FINALE, minimalista:
+- `tuya-pin-sync` → **`0 4 * * *`** (daily) — l'unico necessario: toglie i codici agli scaduti-per-data (gli altri cambi sono già event-driven via `safeSyncPinToKeypad`).
+- `tuya-access-log-sync` → **`0 * * * *`** (ogni ora, era */30) — registro ingressi, ridotto per risparmiare chiamate.
+- `tuya-pin-reassert` → **RIMOSSO dallo schedule** (era il più pesante, force-rewrite di tutti i PIN ogni giorno ~6.800 chiamate/mese). La route/job restano nel codice come valvola manuale d'emergenza, ma non gira più in automatico. Rischio accettato: perdita silenziosa di un PIN sul device = lockout finché non ci si accorge e si ri-salva l'utente.
+
+Stima nuova: **~2.000-2.500 chiamate/mese** (giù da ~3-5k).
+
 ## Stato
 - [x] Cadenze cron aggiornate (`vercel.json`)
 - [ ] Deploy in prod (protegge il trial NUOVO: i cron a 5 min consumano anche ora)
