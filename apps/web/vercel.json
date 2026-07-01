@@ -20,10 +20,6 @@
     {
       "path": "/api/internal/installments-charge/run",
       "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/internal/tuya-access-log-sync/run",
-      "schedule": "0 * * * *"
     }
   ]
 }

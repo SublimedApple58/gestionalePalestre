@@ -15,6 +15,7 @@ import {
 } from "@/lib/services/document-service";
 import { DomainError } from "@/lib/services/errors";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
+import { runTuyaAccessLogSyncJob } from "@/lib/services/tuya-access-log-sync-job";
 import {
   assignInstructorByAdmin,
   assignSubscriptionByAdmin,
@@ -911,4 +912,16 @@ async function maybeReactivateSubscription(userId: string, planId: string): Prom
       data: { status: "COMPLETED" }
     });
   }
+}
+
+/**
+ * Refresh on-demand del registro ingressi: sincronizza gli ultimi ingressi dal
+ * tastierino (Tuya) e ricarica la dashboard. Sostituisce il vecchio cron orario
+ * — le chiamate a Tuya avvengono SOLO quando un admin apre e aggiorna.
+ */
+export async function refreshAccessLogsAction(): Promise<{ created: number }> {
+  await requireRole([UserRole.ADMIN]);
+  const result = await runTuyaAccessLogSyncJob(db);
+  revalidatePath("/dashboard");
+  return { created: result.created };
 }

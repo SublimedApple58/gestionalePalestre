@@ -18,6 +18,7 @@ import { AssociationExpiringSection, type ExpiringAssociationRow } from "./assoc
 import { BirthdayBanner } from "./birthday-banner";
 import { DocumentReviewTable } from "./document-review-table";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
+import { RefreshAccessLogsButton } from "./refresh-access-logs-button";
 import { MaskedAccessCode } from "../ui/masked-access-code";
 import { UserAvatar } from "../ui/user-avatar";
 
@@ -165,6 +166,7 @@ export function AdminDashboard({
             <p className="dash-card-kicker">Ingressi</p>
             <h3 className="dash-card-title">Storico accessi recenti</h3>
           </div>
+          <RefreshAccessLogsButton />
         </div>
 
         {accessLogs.length === 0 ? (
