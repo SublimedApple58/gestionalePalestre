@@ -6,6 +6,7 @@ import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
   createTempPassword,
   enablePin,
+  syncUnlockMethods,
   getAssignedKeys,
   getDeviceStatus,
   getDeviceUser,
@@ -59,6 +60,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── FIX CANDIDATO: forza sync metodi di sblocco dal cloud → device ─────
+  if (params.get("syncmethods") === "1") {
+    try {
+      const result = await syncUnlockMethods("unlock_password");
+      return NextResponse.json({ mode: "syncmethods", result, note: "Prova un codice al tastierino." });
+    } catch (err) {
+      return NextResponse.json({ mode: "syncmethods", error: (err as Error).message });
+    }
+  }
 
   // ── TEST FIX: crea TEMP-PASSWORD (metodo cloud WiFi) per un utente ─────
   if (params.has("temptest")) {

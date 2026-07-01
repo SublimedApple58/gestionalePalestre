@@ -283,6 +283,23 @@ export async function enablePin(
 }
 
 /**
+ * FIX CANDIDATO: forza il device a ri-sincronizzare i metodi di sblocco dal
+ * cloud. Applicabile ai lock WiFi keepalive / access control (il nostro).
+ * Se il tastierino ha droppato le password al riavvio ma il cloud le ha ancora,
+ * questa chiamata gliele ri-fa scaricare → ri-abilita i codici senza ricrearli.
+ * UNA sola chiamata per tutto il device (non per-utente).
+ */
+export async function syncUnlockMethods(
+  codes = "unlock_password"
+): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "POST",
+    `/v1.0/smart-lock/devices/${DEVICE_ID}/opmodes/actions/sync`,
+    { codes }
+  );
+}
+
+/**
  * TEST FIX: crea una PASSWORD TEMPORANEA "quasi-permanente" (metodo cloud
  * ufficiale per i lock WiFi) invece del member-code via `actions/entry` (che è
  * la via Bluetooth e viene disabilitata dal cloud su questo device).
