@@ -282,6 +282,40 @@ export async function enablePin(
   throw lastErr;
 }
 
+/**
+ * TEST FIX: crea una PASSWORD TEMPORANEA "quasi-permanente" (metodo cloud
+ * ufficiale per i lock WiFi) invece del member-code via `actions/entry` (che è
+ * la via Bluetooth e viene disabilitata dal cloud su questo device).
+ *
+ * effective_time = adesso (con buffer), invalid_time = 2099 → di fatto sempre
+ * valida, type=0 = usi illimitati. Ritorna la risposta raw (contiene l'id).
+ */
+export async function createTempPassword(
+  pin: string,
+  name: string
+): Promise<unknown> {
+  const ticket = await getPasswordTicket();
+  const ticketKey = decryptTicketKey(ticket.ticket_key);
+  const encryptedPin = encryptPin(pin, ticketKey);
+
+  const nowSec = Math.floor(Date.now() / 1000) - 300; // -5min buffer clock skew
+  const invalidSec = 4070908800; // 2099-01-01
+
+  return await tuyaRequest<unknown>(
+    "POST",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/temp-password`,
+    {
+      name: name.slice(0, 30) || "HOM",
+      password: encryptedPin,
+      password_type: "ticket",
+      ticket_id: ticket.ticket_id,
+      effective_time: nowSec,
+      invalid_time: invalidSec,
+      type: 0,
+    }
+  );
+}
+
 // ─── PIN removal ─────────────────────────────────────────────────────────────
 
 export async function disablePin(

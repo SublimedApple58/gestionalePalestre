@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
+  createTempPassword,
   enablePin,
   getAssignedKeys,
   getDeviceStatus,
@@ -58,6 +59,29 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── TEST FIX: crea TEMP-PASSWORD (metodo cloud WiFi) per un utente ─────
+  if (params.has("temptest")) {
+    const code = params.get("temptest")?.trim();
+    if (!code) return NextResponse.json({ mode: "temptest", error: "manca ?temptest=<code>" });
+    const u = await db.user.findFirst({
+      where: { accessCode: code },
+      select: { firstName: true, lastName: true, accessCode: true },
+    });
+    if (!u) return NextResponse.json({ mode: "temptest", error: `nessun utente con codice ${code}` });
+    try {
+      const result = await createTempPassword(u.accessCode, `${u.firstName} ${u.lastName}`);
+      return NextResponse.json({
+        mode: "temptest",
+        user: `${u.firstName} ${u.lastName}`,
+        code: u.accessCode,
+        result,
+        note: "Vai al tastierino e prova questo codice.",
+      });
+    } catch (err) {
+      return NextResponse.json({ mode: "temptest", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
+    }
+  }
 
   // ── DIAGNOSTICA DETTAGLIO MEMBER (validità sull'utente) ────────────────
   if (params.has("userinfo")) {
