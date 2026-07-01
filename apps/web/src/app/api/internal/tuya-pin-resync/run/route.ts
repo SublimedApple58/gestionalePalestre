@@ -63,6 +63,38 @@ export async function GET(request: Request): Promise<NextResponse> {
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
 
+  // ── FIX BATCH: rendi PERMANENTI tutti gli aventi diritto ───────────────
+  if (params.get("permanentall") === "1") {
+    const users = await db.user.findMany({
+      where: { tuyaUserId: { not: null } },
+      select: {
+        firstName: true,
+        lastName: true,
+        accessCode: true,
+        tuyaUserId: true,
+        role: true,
+        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+      },
+    });
+    const eligible = users.filter(
+      (u) =>
+        u.role === UserRole.ADMIN ||
+        u.role === UserRole.INSTRUCTOR ||
+        (u.role === UserRole.SUBSCRIBER && isSubscriptionActive(u.subscription))
+    );
+    const summary = { total: eligible.length, ok: 0, errors: [] as string[] };
+    for (const u of eligible) {
+      try {
+        await setUserPermanent(u.tuyaUserId!);
+        summary.ok++;
+      } catch (err) {
+        summary.errors.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${(err as Error).message}`);
+      }
+      await delay(250);
+    }
+    return NextResponse.json({ mode: "permanentall", ...summary });
+  }
+
   // ── FIX CANDIDATO: imposta il MEMBER a validità PERMANENTE ─────────────
   if (params.has("permanent")) {
     const code = params.get("permanent")?.trim();

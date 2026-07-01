@@ -7,6 +7,7 @@ import {
   disablePin,
   enablePin,
   listTuyaUsers,
+  setUserPermanent,
 } from "@/lib/tuya/access-control";
 import { isSubscriptionActive } from "@/lib/subscription";
 
@@ -48,6 +49,15 @@ export async function ensureTuyaUser(
   await prisma.user.update({
     where: { id: userId },
     data: { tuyaUserId },
+  });
+
+  // I non-home user Tuya nascono con una validità LIMITATA di default che
+  // gate-a i loro PIN a tempo (codici funzionanti di giorno, KO di notte).
+  // Impostiamo subito il member a PERMANENTE, altrimenti i codici smettono di
+  // funzionare al primo riavvio del tastierino. Best-effort: non deve far
+  // fallire la creazione utente.
+  await setUserPermanent(tuyaUserId).catch((err) => {
+    console.error(`[tuya] setUserPermanent fallito per ${tuyaUserId}:`, err);
   });
 
   return tuyaUserId;
