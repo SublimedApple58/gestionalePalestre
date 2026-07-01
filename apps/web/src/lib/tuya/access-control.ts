@@ -292,14 +292,16 @@ export async function enablePin(
  */
 export async function createTempPassword(
   pin: string,
-  name: string
+  name: string,
+  opts?: { days?: number }
 ): Promise<unknown> {
   const ticket = await getPasswordTicket();
   const ticketKey = decryptTicketKey(ticket.ticket_key);
   const encryptedPin = encryptPin(pin, ticketKey);
 
-  const nowSec = Math.floor(Date.now() / 1000) - 300; // -5min buffer clock skew
-  const invalidSec = 4070908800; // 2099-01-01
+  const nowSec = Math.floor(Date.now() / 1000);
+  const days = opts?.days ?? 365;
+  const invalidSec = nowSec + days * 86400;
 
   return await tuyaRequest<unknown>(
     "POST",

@@ -69,12 +69,14 @@ export async function GET(request: Request): Promise<NextResponse> {
       select: { firstName: true, lastName: true, accessCode: true },
     });
     if (!u) return NextResponse.json({ mode: "temptest", error: `nessun utente con codice ${code}` });
+    const days = Number(params.get("days")) || 365;
     try {
-      const result = await createTempPassword(u.accessCode, `${u.firstName} ${u.lastName}`);
+      const result = await createTempPassword(u.accessCode, `${u.firstName} ${u.lastName}`, { days });
       return NextResponse.json({
         mode: "temptest",
         user: `${u.firstName} ${u.lastName}`,
         code: u.accessCode,
+        days,
         result,
         note: "Vai al tastierino e prova questo codice.",
       });
