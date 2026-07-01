@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
-import { enablePin } from "@/lib/tuya/access-control";
+import { enablePin, listTuyaUsers } from "@/lib/tuya/access-control";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -40,7 +40,23 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const only = new URL(request.url).searchParams.get("only")?.trim();
+  const params = new URL(request.url).searchParams;
+  const only = params.get("only")?.trim();
+  // fresh=1 → ricrea da zero l'utente sul device (azzera il tuyaUserId fantasma
+  // in DB). Serve quando il tastierino ha svuotato la sua tabella utenti locale
+  // (es. dopo un riavvio): riusare il vecchio id fa accettare la scrittura al
+  // cloud ma il device la scarta → codice negato (rosso). Ricreando l'utente
+  // pulito, il PIN viene realmente registrato sul device.
+  const fresh = params.get("fresh") === "1";
+
+  // Diagnostica: quanti utenti risultano ANCORA sul device? Se il device ha
+  // svuotato la tabella, questo numero sara' molto piu' basso dell'atteso.
+  let deviceUserCount = -1;
+  try {
+    deviceUserCount = (await listTuyaUsers()).length;
+  } catch {
+    /* best-effort */
+  }
 
   const users = await db.user.findMany({
     where: only ? { accessCode: only } : undefined,
@@ -59,6 +75,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const summary = {
     scope: only ? `only:${only}` : "all-eligible",
+    fresh,
+    deviceUserCount,
     candidates: users.length,
     resynced: 0,
     skipped: 0,
@@ -78,6 +96,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     try {
+      // fresh: scarta il tuyaUserId fantasma così ensureTuyaUser ricrea l'utente
+      // sul device da zero (il vecchio id non esiste più sul tastierino).
+      if (fresh && user.tuyaUserId) {
+        await db.user.update({
+          where: { id: user.id },
+          data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null },
+        });
+      }
       const tuyaUserId = await ensureTuyaUser(db, user.id);
       const unlockNo = await enablePin(tuyaUserId, user.accessCode);
       await db.user.update({
