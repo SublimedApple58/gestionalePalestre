@@ -7,6 +7,7 @@ import {
   enablePin,
   getAssignedKeys,
   getDeviceStatus,
+  getDeviceUser,
   listDeviceTimers,
   listTempPasswords,
   listTuyaUsers,
@@ -57,6 +58,24 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── DIAGNOSTICA DETTAGLIO MEMBER (validità sull'utente) ────────────────
+  if (params.has("userinfo")) {
+    const code = params.get("userinfo")?.trim();
+    const u = await db.user.findFirst({
+      where: code
+        ? { accessCode: code, tuyaUserId: { not: null } }
+        : { tuyaUserId: { not: null }, role: UserRole.SUBSCRIBER },
+      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u?.tuyaUserId) return NextResponse.json({ mode: "userinfo", error: "no tuyaUserId" });
+    try {
+      const detail = await getDeviceUser(u.tuyaUserId);
+      return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, code: u.accessCode, detail });
+    } catch (err) {
+      return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
+    }
+  }
 
   // ── DIAGNOSTICA TEMP-PASSWORD (validità reale sul cloud) ───────────────
   if (params.get("temppw") === "1") {

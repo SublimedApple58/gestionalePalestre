@@ -124,6 +124,18 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
 }
 
 /**
+ * DIAGNOSTICA: legge il dettaglio di un singolo device-user. Cerchiamo un
+ * eventuale periodo di validità (effective_time/expire) sul MEMBER, che
+ * gate-erebbe tutte le sue password.
+ */
+export async function getDeviceUser(tuyaUserId: string): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "GET",
+    `/v1.0/devices/${DEVICE_ID}/users/${tuyaUserId}`
+  );
+}
+
+/**
  * DIAGNOSTICA: legge le temp-password del device, che riportano la validità
  * reale (effective_time / invalid_time / schedule_list / phase). Serve a
  * vedere se le nostre password hanno una finestra oraria attaccata.
