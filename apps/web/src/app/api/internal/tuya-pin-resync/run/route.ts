@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
-import { enablePin, listDeviceTimers, listTuyaUsers, listUserPasswords } from "@/lib/tuya/access-control";
+import {
+  enablePin,
+  getDeviceStatus,
+  listDeviceTimers,
+  listTuyaUsers,
+  listUserPasswords,
+} from "@/lib/tuya/access-control";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -49,6 +55,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── DIAGNOSTICA STATO DEVICE (tutti i DP) ──────────────────────────────
+  if (params.get("status") === "1") {
+    try {
+      const status = await getDeviceStatus();
+      return NextResponse.json({ mode: "status", status });
+    } catch (err) {
+      return NextResponse.json({ mode: "status", error: (err as Error).message });
+    }
+  }
 
   // ── DIAGNOSTICA TIMER ──────────────────────────────────────────────────
   // ?timers=1 → dumpa i task schedulati (Device Timer) sul device. Cerchiamo un

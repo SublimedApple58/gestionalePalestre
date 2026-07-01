@@ -124,6 +124,15 @@ export async function listTuyaUsers(): Promise<TuyaUser[]> {
 }
 
 /**
+ * DIAGNOSTICA: legge TUTTI i data point (DP) correnti del device.
+ * Confrontando lo stato "rotto" (sera) col "funzionante" (mattina) si isola il
+ * DP che gate-a la validazione dei codici (es. child_lock / lock_mode / ecc.).
+ */
+export async function getDeviceStatus(): Promise<unknown> {
+  return await tuyaRequest<unknown>("GET", `/v1.0/devices/${DEVICE_ID}/status`);
+}
+
+/**
  * DIAGNOSTICA: legge i TIMER schedulati (Device Timer service) sul device.
  * Un timer serale che manda un DP di blocco (e uno mattutino che sblocca)
  * spiegherebbe il pattern "codici KO la sera, OK la mattina, offline sempre OK".
