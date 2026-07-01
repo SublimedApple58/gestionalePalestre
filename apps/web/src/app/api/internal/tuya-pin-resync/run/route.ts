@@ -5,6 +5,7 @@ import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
   allocateUnlockMethods,
+  setUserPermanent,
   createTempPassword,
   enablePin,
   syncUnlockMethods,
@@ -61,6 +62,28 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── FIX CANDIDATO: imposta il MEMBER a validità PERMANENTE ─────────────
+  if (params.has("permanent")) {
+    const code = params.get("permanent")?.trim();
+    const u = await db.user.findFirst({
+      where: { accessCode: code },
+      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u?.tuyaUserId) return NextResponse.json({ mode: "permanent", error: "no tuyaUserId" });
+    try {
+      const result = await setUserPermanent(u.tuyaUserId);
+      return NextResponse.json({
+        mode: "permanent",
+        user: `${u.firstName} ${u.lastName}`,
+        code: u.accessCode,
+        result,
+        note: "Prova il codice al tastierino.",
+      });
+    } catch (err) {
+      return NextResponse.json({ mode: "permanent", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
+    }
+  }
 
   // ── FIX CANDIDATO: ALLOCA i metodi password all'utente ────────────────
   if (params.has("allocate")) {

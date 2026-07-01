@@ -283,6 +283,25 @@ export async function enablePin(
 }
 
 /**
+ * FIX CANDIDATO (il più promettente): imposta la validità del MEMBER a
+ * PERMANENTE. Se i non-home user sono stati creati con una finestra di validità
+ * di default (day-only), i loro PIN vengono gate-ati a tempo → giorno OK/notte
+ * KO. `permanent: true` = sempre valido.
+ */
+export async function setUserPermanent(tuyaUserId: string): Promise<unknown> {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return await tuyaRequest<unknown>(
+    "PUT",
+    `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}/schedule`,
+    {
+      permanent: true,
+      effective_time: nowSec,
+      expired_time: nowSec + 100 * 365 * 86400, // +100 anni (fallback se richiesto)
+    }
+  );
+}
+
+/**
  * FIX CANDIDATO: ALLOCA (assegna/attiva) uno o più metodi di sblocco già
  * presenti a un utente. Passo che potrebbe mancare a `actions/entry`: creare il
  * metodo non basta, va "allocato" all'utente per essere onorato in modo stabile.
