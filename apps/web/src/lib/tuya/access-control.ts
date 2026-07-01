@@ -283,6 +283,22 @@ export async function enablePin(
 }
 
 /**
+ * FIX CANDIDATO: ALLOCA (assegna/attiva) uno o più metodi di sblocco già
+ * presenti a un utente. Passo che potrebbe mancare a `actions/entry`: creare il
+ * metodo non basta, va "allocato" all'utente per essere onorato in modo stabile.
+ */
+export async function allocateUnlockMethods(
+  tuyaUserId: string,
+  unlockList: Array<{ dp_code: string; unlock_sn: number }>
+): Promise<unknown> {
+  return await tuyaRequest<unknown>(
+    "POST",
+    `/v1.0/devices/${DEVICE_ID}/door-lock/opmodes/actions/allocate`,
+    { user_id: tuyaUserId, unlock_list: unlockList }
+  );
+}
+
+/**
  * FIX CANDIDATO: forza il device a ri-sincronizzare i metodi di sblocco dal
  * cloud. Applicabile ai lock WiFi keepalive / access control (il nostro).
  * Se il tastierino ha droppato le password al riavvio ma il cloud le ha ancora,

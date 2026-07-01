@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
+  allocateUnlockMethods,
   createTempPassword,
   enablePin,
   syncUnlockMethods,
@@ -60,6 +61,36 @@ export async function GET(request: Request): Promise<NextResponse> {
   // pulito, il PIN viene realmente registrato sul device.
   const fresh = params.get("fresh") === "1";
   const inspect = params.get("inspect");
+
+  // ── FIX CANDIDATO: ALLOCA i metodi password all'utente ────────────────
+  if (params.has("allocate")) {
+    const code = params.get("allocate")?.trim();
+    const u = await db.user.findFirst({
+      where: { accessCode: code },
+      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u?.tuyaUserId) return NextResponse.json({ mode: "allocate", error: "no tuyaUserId" });
+    try {
+      const keys = (await getAssignedKeys(u.tuyaUserId)) as {
+        unlock_keys?: Array<{ unlock_no: number; unlock_type: string }>;
+      };
+      const list = (keys.unlock_keys ?? [])
+        .filter((k) => k.unlock_type === "password")
+        .map((k) => ({ dp_code: "unlock_password", unlock_sn: k.unlock_no }));
+      if (!list.length) return NextResponse.json({ mode: "allocate", error: "nessuna password key sul device" });
+      const result = await allocateUnlockMethods(u.tuyaUserId, list);
+      return NextResponse.json({
+        mode: "allocate",
+        user: `${u.firstName} ${u.lastName}`,
+        code: u.accessCode,
+        allocated: list,
+        result,
+        note: "Prova il codice al tastierino.",
+      });
+    } catch (err) {
+      return NextResponse.json({ mode: "allocate", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
+    }
+  }
 
   // ── FIX CANDIDATO: forza sync metodi di sblocco dal cloud → device ─────
   if (params.get("syncmethods") === "1") {
