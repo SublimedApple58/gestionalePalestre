@@ -61,16 +61,21 @@ export function PolicyGate() {
   }
 
   function handleAccept() {
+    // Il narrowing esterno di `policy` non è preservato in questa funzione
+    // annidata (noUncheckedIndexedAccess): lo ri-affermiamo qui.
+    if (!policy) return;
     if (!readToEnd) return;
     if (!checked) {
       setError("Spunta la casella per continuare.");
       return;
     }
     setError(null);
+    const key = policy.key;
+    const isLast = index + 1 >= total;
     startTransition(async () => {
       try {
-        await acceptPolicyAction(policy.key);
-        if (index + 1 >= total) {
+        await acceptPolicyAction(key);
+        if (isLast) {
           setPolicies([]); // tutte accettate → sblocca l'app
         } else {
           setIndex((i) => i + 1);
