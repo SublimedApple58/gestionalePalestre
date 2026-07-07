@@ -8,6 +8,7 @@ import { MenuOutlined } from "@ant-design/icons";
 import { type UserRole } from "@gestionale/db";
 
 import { logoutAction } from "@/app/actions/auth-actions";
+import { PolicyGate } from "@/components/policies/policy-gate";
 import { SddMandateGate } from "@/components/sdd/sdd-mandate-gate";
 import { getAppNavigationItems } from "@/lib/navigation";
 
@@ -94,6 +95,9 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
     <Layout style={{ minHeight: "100vh" }}>
       {/* Gate bloccante mandato SEPA SDD (abbonati a rate esistenti) */}
       <SddMandateGate />
+
+      {/* Gate bloccante generico multi-step: policy/regolamenti obbligatori (tutti i ruoli) */}
+      <PolicyGate />
 
       {/* ── Desktop sidebar ──────────────────────────────── */}
       <Sider

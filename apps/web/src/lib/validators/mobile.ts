@@ -210,6 +210,11 @@ export const mobileAdminMedicalCertExpirySchema = z.object({
   medicalCertificateExpiresAt: z.string().datetime({ offset: true })
 });
 
+/** Body POST /api/mobile/me/policies/accept */
+export const mobileAcceptPolicySchema = z.object({
+  key: z.string().trim().min(1).max(64)
+});
+
 /** Body POST /api/mobile/admin/documents/[id]/reject */
 export const mobileAdminDocumentRejectSchema = z.object({
   reason: z.string().trim().min(4).max(400)

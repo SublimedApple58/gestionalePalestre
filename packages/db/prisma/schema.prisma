@@ -149,12 +149,29 @@ model User {
   // Presa visione mandato SEPA SDD (addebito ricorrente): timestamp prima accettazione.
   sddMandateAcceptedAt  DateTime?
   passwordResetCodes    PasswordResetCode[]
+  policyAcceptances     PolicyAcceptance[]
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
   @@index([role])
   @@index([assignedInstructorId])
   @@index([associationMember, associationExpiresAt])
+}
+
+/// Accettazione di una policy/regolamento obbligatorio da parte dell'utente.
+/// Il gate bloccante generico mostra come step tutte le policy richieste
+/// (REQUIRED_POLICIES lato backend) non ancora accettate alla versione corrente.
+/// Ri-accettazione su nuova versione = update della riga (una per userId+policyKey).
+model PolicyAcceptance {
+  id         String   @id @default(cuid())
+  userId     String
+  policyKey  String
+  version    Int
+  acceptedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policyKey])
+  @@index([userId])
 }
 
 model UserDocument {
