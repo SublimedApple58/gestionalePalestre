@@ -164,7 +164,7 @@ export const mobileAdminUsersQuerySchema = z.object({
   /** Filtro iscrizione associazione sportiva. */
   association: z.enum(["all", "member", "non_member"]).optional(),
   /** Filtro stato certificato medico (solo iscritti). */
-  certificate: z.enum(["all", "soon", "expired", "missing"]).optional(),
+  certificate: z.enum(["all", "valid", "soon", "expired", "missing"]).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().positive().max(50).optional()
 });

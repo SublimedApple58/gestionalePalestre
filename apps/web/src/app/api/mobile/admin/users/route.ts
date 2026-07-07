@@ -81,7 +81,11 @@ export const GET = withMobileAuth(
         type: DocumentType.MEDICAL_CERTIFICATE,
         status: DocumentStatus.APPROVED
       };
-      if (parsed.data.certificate === "expired") {
+      if (parsed.data.certificate === "valid") {
+        where.documents = {
+          some: { ...approvedCert, medicalCertificateExpiresAt: { gt: soonEnd } }
+        };
+      } else if (parsed.data.certificate === "expired") {
         where.documents = {
           some: { ...approvedCert, medicalCertificateExpiresAt: { lt: startToday } }
         };

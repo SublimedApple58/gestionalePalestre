@@ -62,7 +62,7 @@ const ROLE_OPTIONS = [
 type SortMode = "alpha" | "registration";
 type AssociationFilter = "all" | "member" | "non_member";
 type SubscriptionFilter = "all" | "active" | "expired" | "none";
-type CertificateFilter = "all" | "soon" | "expired" | "missing";
+type CertificateFilter = "all" | "valid" | "soon" | "expired" | "missing";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "alpha", label: "Alfabetico" },
@@ -84,6 +84,7 @@ const SUBSCRIPTION_OPTIONS: { value: SubscriptionFilter; label: string }[] = [
 
 const CERTIFICATE_OPTIONS: { value: CertificateFilter; label: string }[] = [
   { value: "all", label: "Tutti" },
+  { value: "valid", label: "Valido" },
   { value: "soon", label: "In scadenza" },
   { value: "expired", label: "Scaduto" },
   { value: "missing", label: "Senza scadenza" }
@@ -123,6 +124,7 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         // considera solo loro (admin/istruttori esclusi per non fare rumore).
         if (u.role !== UserRole.SUBSCRIBER) return false;
         const cert = medicalCertificateStatus(u.documents);
+        if (certificateFilter === "valid" && cert.kind !== "valid") return false;
         if (certificateFilter === "soon" && cert.kind !== "soon") return false;
         if (certificateFilter === "expired" && cert.kind !== "expired") return false;
         if (certificateFilter === "missing" && cert.kind !== "missing") return false;
