@@ -52,12 +52,17 @@ export const GET = withMobileAuth(
       where.associationMember = false;
     }
     if (parsed.data.q) {
-      const q = parsed.data.q;
-      where.OR = [
-        { firstName: { contains: q, mode: "insensitive" } },
-        { lastName: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } }
-      ];
+      // Tokenizza la query su spazi: ogni token deve matchare almeno un campo
+      // (AND tra token, OR tra campi). Così "Mario Rossi" e "Rossi Mario"
+      // funzionano, non solo il match dell'intera stringa su un singolo campo.
+      const tokens = parsed.data.q.split(/\s+/).filter(Boolean);
+      where.AND = tokens.map((token) => ({
+        OR: [
+          { firstName: { contains: token, mode: "insensitive" as const } },
+          { lastName: { contains: token, mode: "insensitive" as const } },
+          { email: { contains: token, mode: "insensitive" as const } }
+        ]
+      }));
     }
 
     const orderBy: Prisma.UserOrderByWithRelationInput[] =

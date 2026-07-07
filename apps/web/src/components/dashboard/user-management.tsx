@@ -109,11 +109,12 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         if (subscriptionFilter === "none" && u.subscription) return false;
       }
       if (!q) return true;
-      return (
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        roleLabel(u.role).toLowerCase().includes(q)
-      );
+      // Tokenizza la query su spazi: ogni token deve matchare almeno un campo
+      // (AND tra token, OR tra campi). Così "Mario Rossi", "Rossi Mario" e i
+      // parziali funzionano tutti, non solo l'ordine esatto "Nome Cognome".
+      const haystack =
+        `${u.firstName} ${u.lastName} ${u.email} ${roleLabel(u.role)}`.toLowerCase();
+      return q.split(/\s+/).every((token) => haystack.includes(token));
     });
 
     list = [...list].sort((a, b) => {
