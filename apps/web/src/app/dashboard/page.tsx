@@ -1,4 +1,4 @@
-import { db, DocumentStatus, InstallmentStatus, UserRole } from "@gestionale/db";
+import { db, DocumentStatus, DocumentType, InstallmentStatus, UserRole } from "@gestionale/db";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -229,7 +229,15 @@ type AdminViewProps = {
 async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
   const associationThreshold = new Date();
   associationThreshold.setDate(associationThreshold.getDate() + 14);
-  const [accessLogs, reviewDocumentsRaw, overdueInstallments, expiringAssociations] = await Promise.all([
+  const certificateThreshold = new Date();
+  certificateThreshold.setDate(certificateThreshold.getDate() + 30);
+  const [
+    accessLogs,
+    reviewDocumentsRaw,
+    overdueInstallments,
+    expiringAssociations,
+    expiringCertificatesRaw
+  ] = await Promise.all([
     db.accessEvent.findMany({
       include: {
         user: {
@@ -283,6 +291,22 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       select: { id: true, firstName: true, lastName: true, associationExpiresAt: true },
       orderBy: { associationExpiresAt: "asc" },
       take: 100
+    }),
+    // Certificati medici APPROVATI in scadenza (entro 30 gg) o già scaduti.
+    // La scadenza vive sul documento; il certificato è unico per iscritto.
+    db.userDocument.findMany({
+      where: {
+        type: DocumentType.MEDICAL_CERTIFICATE,
+        status: DocumentStatus.APPROVED,
+        medicalCertificateExpiresAt: { not: null, lte: certificateThreshold },
+        user: { role: UserRole.SUBSCRIBER }
+      },
+      select: {
+        medicalCertificateExpiresAt: true,
+        user: { select: { id: true, firstName: true, lastName: true } }
+      },
+      orderBy: { medicalCertificateExpiresAt: "asc" },
+      take: 100
     })
   ]);
 
@@ -315,6 +339,12 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
         firstName: u.firstName,
         lastName: u.lastName,
         associationExpiresAt: u.associationExpiresAt as Date
+      }))}
+      expiringCertificates={expiringCertificatesRaw.map((d) => ({
+        id: d.user.id,
+        firstName: d.user.firstName,
+        lastName: d.user.lastName,
+        medicalCertificateExpiresAt: d.medicalCertificateExpiresAt as Date
       }))}
     />
   );

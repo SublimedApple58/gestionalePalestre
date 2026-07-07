@@ -14,6 +14,7 @@ import {
 
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
 import { getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
+import { medicalCertificateStatus } from "@/lib/medical-certificate";
 import { roleLabel } from "@/lib/roles";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -61,6 +62,7 @@ const ROLE_OPTIONS = [
 type SortMode = "alpha" | "registration";
 type AssociationFilter = "all" | "member" | "non_member";
 type SubscriptionFilter = "all" | "active" | "expired" | "none";
+type CertificateFilter = "all" | "soon" | "expired" | "missing";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "alpha", label: "Alfabetico" },
@@ -80,11 +82,19 @@ const SUBSCRIPTION_OPTIONS: { value: SubscriptionFilter; label: string }[] = [
   { value: "none", label: "Senza" }
 ];
 
+const CERTIFICATE_OPTIONS: { value: CertificateFilter; label: string }[] = [
+  { value: "all", label: "Tutti" },
+  { value: "soon", label: "In scadenza" },
+  { value: "expired", label: "Scaduto" },
+  { value: "missing", label: "Senza scadenza" }
+];
+
 export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("alpha");
   const [associationFilter, setAssociationFilter] = useState<AssociationFilter>("all");
   const [subscriptionFilter, setSubscriptionFilter] = useState<SubscriptionFilter>("all");
+  const [certificateFilter, setCertificateFilter] = useState<CertificateFilter>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
@@ -107,6 +117,15 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         // "Scaduti" = ha un abbonamento ma non è attivo (scaduto o disattivato).
         if (subscriptionFilter === "expired" && (!u.subscription || active)) return false;
         if (subscriptionFilter === "none" && u.subscription) return false;
+      }
+      if (certificateFilter !== "all") {
+        // Il certificato medico è un requisito degli iscritti: il filtro
+        // considera solo loro (admin/istruttori esclusi per non fare rumore).
+        if (u.role !== UserRole.SUBSCRIBER) return false;
+        const cert = medicalCertificateStatus(u.documents);
+        if (certificateFilter === "soon" && cert.kind !== "soon") return false;
+        if (certificateFilter === "expired" && cert.kind !== "expired") return false;
+        if (certificateFilter === "missing" && cert.kind !== "missing") return false;
       }
       if (!q) return true;
       // Tokenizza la query su spazi: ogni token deve matchare almeno un campo
@@ -131,7 +150,7 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
     });
 
     return list;
-  }, [users, search, sortMode, associationFilter, subscriptionFilter]);
+  }, [users, search, sortMode, associationFilter, subscriptionFilter, certificateFilter]);
 
   return (
     <>
@@ -218,6 +237,23 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
                   className={`seg-btn ${subscriptionFilter === opt.value ? "active" : ""}`}
                   aria-pressed={subscriptionFilter === opt.value}
                   onClick={() => setSubscriptionFilter(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="utenti-filter-group">
+            <span className="utenti-filter-label">Certificato</span>
+            <div className="seg" role="group" aria-label="Filtra per stato certificato medico">
+              {CERTIFICATE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`seg-btn ${certificateFilter === opt.value ? "active" : ""}`}
+                  aria-pressed={certificateFilter === opt.value}
+                  onClick={() => setCertificateFilter(opt.value)}
                 >
                   {opt.label}
                 </button>

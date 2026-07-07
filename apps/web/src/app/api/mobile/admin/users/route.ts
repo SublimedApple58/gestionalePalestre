@@ -1,4 +1,4 @@
-import { AuditAction, db, UserRole, type Prisma } from "@gestionale/db";
+import { AuditAction, db, DocumentStatus, DocumentType, UserRole, type Prisma } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
@@ -63,6 +63,41 @@ export const GET = withMobileAuth(
           { email: { contains: token, mode: "insensitive" as const } }
         ]
       }));
+    }
+
+    if (parsed.data.certificate && parsed.data.certificate !== "all") {
+      // Il certificato medico è un requisito degli iscritti: se non è già stato
+      // scelto un ruolo, limitiamo il filtro agli iscritti (altrimenti "senza
+      // scadenza" matcherebbe anche admin/istruttori che un certificato non
+      // devono averlo). La scadenza vive sul documento MEDICAL_CERTIFICATE
+      // approvato, unico per iscritto.
+      if (!parsed.data.role) where.role = UserRole.SUBSCRIBER;
+      const now = new Date();
+      const startToday = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      );
+      const soonEnd = new Date(startToday.getTime() + 30 * 86_400_000);
+      const approvedCert = {
+        type: DocumentType.MEDICAL_CERTIFICATE,
+        status: DocumentStatus.APPROVED
+      };
+      if (parsed.data.certificate === "expired") {
+        where.documents = {
+          some: { ...approvedCert, medicalCertificateExpiresAt: { lt: startToday } }
+        };
+      } else if (parsed.data.certificate === "soon") {
+        where.documents = {
+          some: {
+            ...approvedCert,
+            medicalCertificateExpiresAt: { gte: startToday, lte: soonEnd }
+          }
+        };
+      } else if (parsed.data.certificate === "missing") {
+        // Nessun certificato approvato con scadenza segnata.
+        where.documents = {
+          none: { ...approvedCert, medicalCertificateExpiresAt: { not: null } }
+        };
+      }
     }
 
     const orderBy: Prisma.UserOrderByWithRelationInput[] =

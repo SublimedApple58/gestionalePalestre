@@ -163,6 +163,8 @@ export const mobileAdminUsersQuerySchema = z.object({
   sort: z.enum(["alpha", "registration"]).optional(),
   /** Filtro iscrizione associazione sportiva. */
   association: z.enum(["all", "member", "non_member"]).optional(),
+  /** Filtro stato certificato medico (solo iscritti). */
+  certificate: z.enum(["all", "soon", "expired", "missing"]).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().positive().max(50).optional()
 });
@@ -201,6 +203,11 @@ export const mobileAdminUserSubscriptionSchema = z.object({
 /** Body POST /api/mobile/admin/users/[id]/address */
 export const mobileAdminUserAddressSchema = z.object({
   address: z.string().trim().max(240).or(z.literal("")).nullable().optional()
+});
+
+/** Body POST /api/mobile/admin/users/[id]/medical-certificate-expiry */
+export const mobileAdminMedicalCertExpirySchema = z.object({
+  medicalCertificateExpiresAt: z.string().datetime({ offset: true })
 });
 
 /** Body POST /api/mobile/admin/documents/[id]/reject */

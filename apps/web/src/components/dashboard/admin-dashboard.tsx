@@ -16,6 +16,7 @@ import { roleLabel } from "@/lib/roles";
 
 import { AssociationExpiringSection, type ExpiringAssociationRow } from "./association-expiring-section";
 import { BirthdayBanner } from "./birthday-banner";
+import { CertificateExpiringSection, type ExpiringCertificateRow } from "./certificate-expiring-section";
 import { DocumentReviewTable } from "./document-review-table";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
 import { RefreshAccessLogsButton } from "./refresh-access-logs-button";
@@ -80,6 +81,7 @@ type AdminDashboardProps = {
   profilePhotoUrls?: Record<string, string>;
   overdueInstallments?: OverdueInstallmentRow[];
   expiringAssociations?: ExpiringAssociationRow[];
+  expiringCertificates?: ExpiringCertificateRow[];
 };
 
 export function AdminDashboard({
@@ -88,7 +90,8 @@ export function AdminDashboard({
   reviewDocuments,
   profilePhotoUrls = {},
   overdueInstallments = [],
-  expiringAssociations = []
+  expiringAssociations = [],
+  expiringCertificates = []
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length;
 
@@ -127,6 +130,11 @@ export function AdminDashboard({
       {/* ── Associazioni sportive in scadenza ────────────────────── */}
       {expiringAssociations.length > 0 && (
         <AssociationExpiringSection items={expiringAssociations} />
+      )}
+
+      {/* ── Certificati medici in scadenza ───────────────────────── */}
+      {expiringCertificates.length > 0 && (
+        <CertificateExpiringSection items={expiringCertificates} />
       )}
 
       {/* ── Approvazioni in sospeso ─────────────────────────────── */}

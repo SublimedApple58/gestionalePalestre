@@ -1,6 +1,6 @@
 "use server";
 
-import { AuditAction, db, InstallmentStatus, UserRole } from "@gestionale/db";
+import { AuditAction, db, DocumentType, InstallmentStatus, UserRole } from "@gestionale/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -616,6 +616,54 @@ export async function updateAssociationMembershipActionState(
       ok: true,
       message: member ? "Iscrizione associazione salvata." : "Iscrizione associazione rimossa."
     };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function updateMedicalCertificateExpiryActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await requireRole([UserRole.ADMIN]);
+    const targetUserId = formData.get("targetUserId");
+    if (typeof targetUserId !== "string" || !targetUserId) {
+      return { ok: false, message: "Utente non trovato." };
+    }
+    const expiresRaw = formData.get("medicalCertificateExpiresAt");
+    let expiresAt: Date | null = null;
+    if (typeof expiresRaw === "string" && expiresRaw.trim()) {
+      const parsed = new Date(expiresRaw);
+      if (Number.isNaN(parsed.valueOf())) {
+        return { ok: false, message: "Data di scadenza non valida." };
+      }
+      expiresAt = parsed;
+    }
+    if (!expiresAt) {
+      return { ok: false, message: "Inserisci la data di scadenza del certificato." };
+    }
+
+    // La scadenza vive sul documento certificato medico, unico per iscritto
+    // (@@unique([userId, type, side])). Se non è stato caricato, non c'è nulla
+    // su cui scrivere la data.
+    const cert = await db.userDocument.findFirst({
+      where: { userId: targetUserId, type: DocumentType.MEDICAL_CERTIFICATE },
+      select: { id: true }
+    });
+    if (!cert) {
+      return { ok: false, message: "Nessun certificato medico caricato per questo iscritto." };
+    }
+
+    await db.userDocument.update({
+      where: { id: cert.id },
+      data: { medicalCertificateExpiresAt: expiresAt }
+    });
+
+    revalidatePath("/utenti");
+    revalidatePath("/dashboard");
+    return { ok: true, message: "Scadenza certificato medico aggiornata." };
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
     return { ok: false, message: "Errore imprevisto." };
