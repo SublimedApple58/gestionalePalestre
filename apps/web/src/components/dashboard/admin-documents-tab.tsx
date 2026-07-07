@@ -2,7 +2,7 @@
 
 import { Button, Tag } from "antd";
 import { ExternalLink, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   DocumentSide,
   DocumentStatus,
@@ -10,7 +10,74 @@ import {
   type UserDocument
 } from "@gestionale/db";
 
+import { updateMedicalCertificateExpiryActionState } from "@/app/actions/dashboard-actions";
+import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { useToast } from "@/components/ui/toast-provider";
+import { daysUntil } from "@/lib/association";
+import { MEDICAL_CERT_EXPIRY_THRESHOLD_DAYS } from "@/lib/medical-certificate";
+
+function toYmd(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function MedicalCertExpiryBadge({ expiresAt }: { expiresAt: Date | null }) {
+  if (!expiresAt) return <Tag color="default">Scadenza da impostare</Tag>;
+  const days = daysUntil(new Date(expiresAt));
+  if (days < 0) return <Tag color="error">Certificato scaduto</Tag>;
+  if (days <= MEDICAL_CERT_EXPIRY_THRESHOLD_DAYS) return <Tag color="warning">{`Scade tra ${days} gg`}</Tag>;
+  return <Tag color="success">Valido</Tag>;
+}
+
+/**
+ * Editor della scadenza del certificato medico, mostrato sotto la voce del
+ * certificato nel tab Documenti. Scrive sul documento tramite la server action
+ * e aggiorna il badge in modo ottimistico dopo il salvataggio.
+ */
+function MedicalCertExpiryEditor({ userId, doc }: { userId: string; doc: UserDocument }) {
+  const { addToast } = useToast();
+  const [result, action, pending] = useActionState(updateMedicalCertificateExpiryActionState, null);
+  const [expiry, setExpiry] = useState<Date | null>(
+    doc.medicalCertificateExpiresAt ? new Date(doc.medicalCertificateExpiresAt) : null
+  );
+
+  useEffect(() => {
+    if (result) addToast(result.message, result.ok ? "success" : "error");
+  }, [result, addToast]);
+
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        // Aggiorna il badge in modo ottimistico dalla data appena scelta:
+        // la scrittura va quasi sempre a buon fine (il certificato esiste e la
+        // data è validata dal calendario). In caso di errore il toast avvisa.
+        const value = new FormData(e.currentTarget).get("medicalCertificateExpiresAt");
+        if (typeof value === "string" && value.trim()) setExpiry(new Date(value));
+      }}
+      className="user-drawer-form"
+      style={{ marginTop: 4, gap: 8 }}
+    >
+      <input type="hidden" name="targetUserId" value={userId} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>Scadenza</span>
+        <MedicalCertExpiryBadge expiresAt={expiry} />
+      </div>
+      <CustomCalendar
+        name="medicalCertificateExpiresAt"
+        label="Scadenza certificato"
+        hideLabel
+        defaultValue={expiry ? toYmd(new Date(expiry)) : undefined}
+      />
+      <Button type="primary" htmlType="submit" loading={pending} size="small">
+        Salva scadenza
+      </Button>
+    </form>
+  );
+}
 
 const SLOTS: { type: DocumentType; side: DocumentSide; label: string }[] = [
   { type: DocumentType.TAX_CODE, side: DocumentSide.FRONT, label: "Tessera sanitaria · Fronte" },
@@ -231,6 +298,9 @@ export function AdminDocumentsTab({
                     </Button>
                   ) : null}
                 </div>
+                {slot.type === DocumentType.MEDICAL_CERTIFICATE && doc ? (
+                  <MedicalCertExpiryEditor key={`exp-${doc.id}`} userId={userId} doc={doc} />
+                ) : null}
               </li>
             );
           })}

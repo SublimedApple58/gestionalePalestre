@@ -3,7 +3,6 @@
 import { useActionState, useEffect, useState } from "react";
 import { Drawer, Tabs, Tag, Button, Input, Typography, Space, Flex } from "antd";
 import {
-  DocumentType,
   InstallmentStatus,
   PaymentProvider,
   PaymentStatus,
@@ -25,15 +24,13 @@ import {
   deleteUserActionState,
   reactivateSubscriptionActionState,
   updateAssociationMembershipActionState,
-  updateMedicalCertificateExpiryActionState,
   updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
-import { associationStatus, daysUntil, type AssociationState } from "@/lib/association";
-import { MEDICAL_CERT_EXPIRY_THRESHOLD_DAYS } from "@/lib/medical-certificate";
+import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
 import { formatEuroCents, isSubscriptionActive, tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
@@ -216,53 +213,6 @@ function AssociationSection({ user }: { user: DrawerUserRow }) {
   );
 }
 
-function MedicalCertificateBadge({ expiresAt }: { expiresAt: Date | null }) {
-  if (!expiresAt) return <Tag color="default">Da impostare</Tag>;
-  const days = daysUntil(new Date(expiresAt));
-  if (days < 0) return <Tag color="error">Scaduto</Tag>;
-  if (days <= MEDICAL_CERT_EXPIRY_THRESHOLD_DAYS) return <Tag color="warning">{`Scade tra ${days} gg`}</Tag>;
-  return <Tag color="success">Valido</Tag>;
-}
-
-function MedicalCertificateSection({ user }: { user: DrawerUserRow }) {
-  const [result, action, pending] = useActionState(updateMedicalCertificateExpiryActionState, null);
-  useActionToast(result);
-
-  // Il certificato medico è unico per iscritto (@@unique userId,type,side).
-  const cert = user.documents.find((d) => d.type === DocumentType.MEDICAL_CERTIFICATE);
-  const currentExpiry = cert?.medicalCertificateExpiresAt ?? null;
-  const initialExpiry = currentExpiry ? toYmd(new Date(currentExpiry)) : undefined;
-
-  return (
-    <section className="user-drawer-section">
-      <div className="user-drawer-section-head">
-        <h4 className="user-drawer-section-title">Certificato medico</h4>
-        <MedicalCertificateBadge expiresAt={currentExpiry} />
-      </div>
-      {cert ? (
-        <form action={action} className="user-drawer-form">
-          <input type="hidden" name="targetUserId" value={user.id} />
-          <CustomCalendar
-            name="medicalCertificateExpiresAt"
-            label="Scadenza certificato"
-            defaultValue={initialExpiry}
-          />
-          <p className="assoc-help">
-            Quando manca poco (entro 30 giorni) o è già scaduto, l&apos;iscritto compare nell&apos;avviso in home admin.
-          </p>
-          <Button type="primary" htmlType="submit" loading={pending} size="small">
-            Salva scadenza
-          </Button>
-        </form>
-      ) : (
-        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-          Nessun certificato medico caricato: l&apos;iscritto deve caricarlo prima di poter impostare la scadenza.
-        </Text>
-      )}
-    </section>
-  );
-}
-
 export function UserEditDrawer({ user, opened, onClose, instructors, profilePhotoUrl }: UserEditDrawerProps) {
   const { addToast } = useToast();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -402,8 +352,6 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
           </section>
 
           <AssociationSection user={user} />
-
-          {user.role === UserRole.SUBSCRIBER && <MedicalCertificateSection user={user} />}
         </div>
       )
     },
