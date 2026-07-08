@@ -45,6 +45,7 @@ export type DrawerUserRow = {
   email: string;
   role: UserRole;
   accessCode: string;
+  phoneNumber: string | null;
   address: string | null;
   associationMember: boolean;
   associationExpiresAt: Date | null;
@@ -610,6 +611,11 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
         <span className="user-drawer-summary-code">
           Codice <strong>{user.accessCode}</strong>
         </span>
+        {user.phoneNumber ? (
+          <span className="user-drawer-summary-code">
+            Tel <strong>{user.phoneNumber}</strong>
+          </span>
+        ) : null}
       </div>
 
       <Tabs

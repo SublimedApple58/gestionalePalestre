@@ -30,6 +30,7 @@ type UserRow = {
   email: string;
   role: UserRole;
   accessCode: string;
+  phoneNumber: string | null;
   address: string | null;
   createdAt: Date;
   associationMember: boolean;
