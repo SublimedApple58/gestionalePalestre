@@ -11,9 +11,40 @@ import {
 } from "@/lib/tuya/access-control";
 import { isSubscriptionActive } from "@/lib/subscription";
 
+const PERMANENT_MAX_ATTEMPTS = 3;
+const PERMANENT_RETRY_MS = 1500;
+
+/**
+ * Assicura che il member Tuya sia PERMANENTE. I non-home user nascono con una
+ * validità LIMITATA di default che gate-a i loro PIN a tempo (codici funzionanti
+ * di giorno, KO di notte). Idempotente e con retry: un fallimento TRANSITORIO
+ * (rete/blip API) non deve lasciare il member limitato per sempre — era il bug
+ * dei "nuovi utenti il cui codice muore di notte", perché prima veniva chiamata
+ * una sola volta alla creazione, best-effort e senza retry. Best-effort finale:
+ * non lancia (non deve far fallire la creazione/sync del PIN).
+ */
+async function assertUserPermanent(tuyaUserId: string): Promise<void> {
+  for (let attempt = 1; attempt <= PERMANENT_MAX_ATTEMPTS; attempt++) {
+    try {
+      await setUserPermanent(tuyaUserId);
+      return;
+    } catch (err) {
+      if (attempt === PERMANENT_MAX_ATTEMPTS) {
+        console.error(
+          `[tuya] setUserPermanent fallito dopo ${attempt} tentativi per ${tuyaUserId}:`,
+          err
+        );
+        return;
+      }
+      await new Promise((r) => setTimeout(r, PERMANENT_RETRY_MS));
+    }
+  }
+}
+
 /**
  * Ensures the user has a Tuya account on the device.
  * Creates one if missing and persists the tuyaUserId in the DB.
+ * In ogni caso RI-AFFERMA la validità permanente del member (self-healing).
  */
 export async function ensureTuyaUser(
   prisma: PrismaClient,
@@ -24,7 +55,14 @@ export async function ensureTuyaUser(
     select: { id: true, tuyaUserId: true, firstName: true, lastName: true },
   });
 
-  if (user.tuyaUserId) return user.tuyaUserId;
+  if (user.tuyaUserId) {
+    // Utente già presente: ri-affermiamo comunque la validità PERMANENTE. Così
+    // chi era rimasto limitato (setUserPermanent fallita alla creazione) si
+    // auto-guarisce alla prossima (ri)attivazione del PIN. A bassa frequenza:
+    // ensureTuyaUser gira solo quando si attiva un PIN, non a ogni sync.
+    await assertUserPermanent(user.tuyaUserId);
+    return user.tuyaUserId;
+  }
 
   const name = `${user.firstName} ${user.lastName}`;
 
@@ -51,14 +89,7 @@ export async function ensureTuyaUser(
     data: { tuyaUserId },
   });
 
-  // I non-home user Tuya nascono con una validità LIMITATA di default che
-  // gate-a i loro PIN a tempo (codici funzionanti di giorno, KO di notte).
-  // Impostiamo subito il member a PERMANENTE, altrimenti i codici smettono di
-  // funzionare al primo riavvio del tastierino. Best-effort: non deve far
-  // fallire la creazione utente.
-  await setUserPermanent(tuyaUserId).catch((err) => {
-    console.error(`[tuya] setUserPermanent fallito per ${tuyaUserId}:`, err);
-  });
+  await assertUserPermanent(tuyaUserId);
 
   return tuyaUserId;
 }
