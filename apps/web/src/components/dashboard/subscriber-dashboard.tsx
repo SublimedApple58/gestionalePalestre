@@ -26,7 +26,7 @@ import {
   getUploadSlotsForType,
   hasRequiredDocuments
 } from "@/lib/documents";
-import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
+import { isSubscriptionActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { BirthdayCelebration } from "./birthday-celebration";
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -64,6 +64,7 @@ export function SubscriberDashboard({
   isBirthdayToday
 }: SubscriberDashboardProps) {
   const subscriptionActive = isSubscriptionActive(subscription);
+  const subStatus = subscriptionStatus(subscription);
   const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents);
   const missingDocuments = getMissingDocumentTypes(UserRole.SUBSCRIBER, documents);
   const canEnterGym = subscriptionActive && documentsReady;
@@ -104,11 +105,27 @@ export function SubscriberDashboard({
           </div>
 
           <h1 className="sub-empty-hero-title">
-            {subscription ? "Abbonamento scaduto" : "Nessun abbonamento attivo"}
+            {subStatus === "pending"
+              ? "Abbonamento in arrivo"
+              : subStatus === "deactivated"
+              ? "Abbonamento disattivato"
+              : subscription
+              ? "Abbonamento scaduto"
+              : "Nessun abbonamento attivo"}
           </h1>
 
           <p className="sub-empty-hero-sub">
-            {subscription
+            {subStatus === "pending" && subscription
+              ? `Il tuo abbonamento ${tierLabel(subscription.tier)} parte il ${new Date(
+                  subscription.startsAt
+                ).toLocaleDateString("it-IT", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric"
+                })}. Potrai accedere alla palestra da quel giorno.`
+              : subStatus === "deactivated"
+              ? "Il tuo abbonamento è stato disattivato. Contatta la reception per riattivarlo."
+              : subscription
               ? `Il tuo abbonamento ${tierLabel(subscription.tier)} è scaduto il ${new Date(
                   subscription.endsAt
                 ).toLocaleDateString("it-IT", {
@@ -119,14 +136,18 @@ export function SubscriberDashboard({
               : "Attiva un piano per accedere alla palestra e alle tue schede di allenamento."}
           </p>
 
-          <Link href="/checkout" className="button button-primary sub-empty-hero-cta">
-            {subscription ? "Rinnova ora" : "Scegli il piano"}
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
+          {subStatus === "pending" || subStatus === "deactivated" ? null : (
+            <>
+              <Link href="/checkout" className="button button-primary sub-empty-hero-cta">
+                {subscription ? "Rinnova ora" : "Scegli il piano"}
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
 
-          <p className="sub-empty-hero-reassure">
-            Da 70€/mese · Nessun rinnovo automatico · Pagamento sicuro
-          </p>
+              <p className="sub-empty-hero-reassure">
+                Da 70€/mese · Nessun rinnovo automatico · Pagamento sicuro
+              </p>
+            </>
+          )}
         </section>
       </div>
     );

@@ -120,3 +120,28 @@ export function isSubscriptionActive(
 
   return now >= subscription.startsAt && now <= subscription.endsAt;
 }
+
+export type SubscriptionStatus =
+  | "none" // nessun abbonamento
+  | "deactivated" // disattivato manualmente
+  | "pending" // deve ancora iniziare (startsAt nel futuro)
+  | "active" // in corso
+  | "expired"; // periodo terminato (endsAt nel passato)
+
+/**
+ * Stato dettagliato dell'abbonamento. A differenza di `isSubscriptionActive`
+ * (booleano) distingue "programmato/futuro" da "scaduto": un abbonamento che
+ * deve ancora iniziare NON è scaduto → evita l'assurdo "scaduto il <data futura>".
+ */
+export function subscriptionStatus(
+  subscription:
+    | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+    | null,
+  now: Date = new Date()
+): SubscriptionStatus {
+  if (!subscription) return "none";
+  if (subscription.deactivatedAt) return "deactivated";
+  if (now < subscription.startsAt) return "pending";
+  if (now > subscription.endsAt) return "expired";
+  return "active";
+}

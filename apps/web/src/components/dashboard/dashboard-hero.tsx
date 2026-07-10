@@ -1,7 +1,7 @@
 import { SubscriptionTier, UserRole } from "@gestionale/db";
 
 import { roleLabel } from "@/lib/roles";
-import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
+import { subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { UserAvatar } from "../ui/user-avatar";
 
@@ -24,7 +24,7 @@ export function DashboardHero({
   profilePhotoUrl,
   subscription
 }: DashboardHeroProps) {
-  const subscriptionActive = isSubscriptionActive(subscription);
+  const subStatus = subscriptionStatus(subscription);
 
   const greeting = getGreeting();
 
@@ -47,8 +47,18 @@ export function DashboardHero({
               {roleLabel(role)}
             </span>
             {subscription && (
-              <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
-                {subscriptionActive ? "Attivo" : "Scaduto"}
+              <span
+                className={`status-badge ${
+                  subStatus === "active" ? "ok" : subStatus === "pending" ? "warning" : "missing"
+                }`}
+              >
+                {subStatus === "active"
+                  ? "Attivo"
+                  : subStatus === "pending"
+                  ? "Programmato"
+                  : subStatus === "deactivated"
+                  ? "Disattivato"
+                  : "Scaduto"}
               </span>
             )}
           </div>

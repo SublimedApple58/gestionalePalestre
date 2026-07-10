@@ -32,7 +32,7 @@ import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
 import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
-import { formatEuroCents, isSubscriptionActive, tierLabel } from "@/lib/subscription";
+import { formatEuroCents, isSubscriptionActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -364,29 +364,40 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Stato attuale</h4>
             {user.subscription ? (
-              <div className="user-drawer-sub-current">
-                {user.subscription.deactivatedAt ? (
-                  <Tag color="warning">Disattivato</Tag>
-                ) : isSubscriptionActive(user.subscription) ? (
-                  <Tag color="success">{tierLabel(user.subscription.tier)} attivo</Tag>
-                ) : (
-                  <Tag color="error">{tierLabel(user.subscription.tier)} scaduto</Tag>
-                )}
-                <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                  {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
-                  {" → "}
-                  {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
-                </Text>
-                {user.subscription.deactivatedAt ? (
-                  <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginTop: 4 }}>
-                    Disattivato il {new Date(user.subscription.deactivatedAt).toLocaleDateString("it-IT")}
-                  </Text>
-                ) : !isSubscriptionActive(user.subscription) ? (
-                  <Text style={{ fontSize: 11, color: "#f87171", display: "block", marginTop: 4 }}>
-                    Scaduto il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
-                  </Text>
-                ) : null}
-              </div>
+              (() => {
+                const subStatus = subscriptionStatus(user.subscription);
+                return (
+                  <div className="user-drawer-sub-current">
+                    {subStatus === "deactivated" ? (
+                      <Tag color="warning">Disattivato</Tag>
+                    ) : subStatus === "active" ? (
+                      <Tag color="success">{tierLabel(user.subscription.tier)} attivo</Tag>
+                    ) : subStatus === "pending" ? (
+                      <Tag color="processing">{tierLabel(user.subscription.tier)} programmato</Tag>
+                    ) : (
+                      <Tag color="error">{tierLabel(user.subscription.tier)} scaduto</Tag>
+                    )}
+                    <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                      {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
+                      {" → "}
+                      {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                    </Text>
+                    {subStatus === "deactivated" && user.subscription.deactivatedAt ? (
+                      <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginTop: 4 }}>
+                        Disattivato il {new Date(user.subscription.deactivatedAt).toLocaleDateString("it-IT")}
+                      </Text>
+                    ) : subStatus === "pending" ? (
+                      <Text style={{ fontSize: 11, color: "#60a5fa", display: "block", marginTop: 4 }}>
+                        Inizia il {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
+                      </Text>
+                    ) : subStatus === "expired" ? (
+                      <Text style={{ fontSize: 11, color: "#f87171", display: "block", marginTop: 4 }}>
+                        Scaduto il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                      </Text>
+                    ) : null}
+                  </div>
+                );
+              })()
             ) : (
               <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Nessun abbonamento attivo.</Text>
             )}

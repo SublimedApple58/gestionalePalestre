@@ -115,9 +115,16 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
       if (associationFilter === "non_member" && u.associationMember) return false;
       if (subscriptionFilter !== "all") {
         const active = isSubscriptionActive(u.subscription);
+        // Programmato = ha un abbonamento non disattivato che deve ancora iniziare.
+        const notStarted =
+          !!u.subscription &&
+          !u.subscription.deactivatedAt &&
+          new Date(u.subscription.startsAt) > new Date();
         if (subscriptionFilter === "active" && !active) return false;
-        // "Scaduti" = ha un abbonamento ma non è attivo (scaduto o disattivato).
-        if (subscriptionFilter === "expired" && (!u.subscription || active)) return false;
+        // "Scaduti" = ha un abbonamento non attivo E NON futuro (un abbonamento
+        // che deve ancora partire non è scaduto).
+        if (subscriptionFilter === "expired" && (!u.subscription || active || notStarted))
+          return false;
         if (subscriptionFilter === "none" && u.subscription) return false;
       }
       if (certificateFilter !== "all") {
@@ -338,7 +345,12 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
                             (() => {
                               const sub = user.subscription;
                               const endStr = new Date(sub.endsAt).toLocaleDateString("it-IT");
+                              const startStr = new Date(sub.startsAt).toLocaleDateString("it-IT");
                               const active = isSubscriptionActive(sub);
+                              // Non ancora iniziato (startsAt nel futuro): NON è scaduto,
+                              // è programmato → altrimenti si vede "scaduto" con data futura.
+                              const notStarted =
+                                !sub.deactivatedAt && new Date(sub.startsAt) > new Date();
                               return (
                                 <span className="td-subscription">
                                   <span className="td-subscription-tier">{tierLabel(sub.tier)}</span>
@@ -346,6 +358,8 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
                                     <span className="td-subscription-status deactivated">Disattivato</span>
                                   ) : active ? (
                                     <span className="td-subscription-date">scade {endStr}</span>
+                                  ) : notStarted ? (
+                                    <span className="td-subscription-status pending">Inizia il {startStr}</span>
                                   ) : (
                                     <span className="td-subscription-status expired">Scaduto il {endStr}</span>
                                   )}

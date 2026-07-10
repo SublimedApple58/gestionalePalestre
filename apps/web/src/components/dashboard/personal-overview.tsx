@@ -12,7 +12,7 @@ import {
   hasRequiredDocuments
 } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
-import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
+import { subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { UserAvatar } from "../ui/user-avatar";
 import { DocumentUploadCard } from "./document-upload-card";
@@ -39,7 +39,7 @@ type PersonalOverviewProps = {
 export function PersonalOverview({ user, profilePhotoUrl }: PersonalOverviewProps) {
   const missingSlots = getMissingDocumentSlots(user.role, user.documents);
   const documentsReady = hasRequiredDocuments(user.role, user.documents);
-  const subscriptionActive = isSubscriptionActive(user.subscription);
+  const subStatus = subscriptionStatus(user.subscription);
   const requiredSlots = getRequiredDocumentSlots(user.role);
 
   const profilePhoto = getDocumentSlot(user.documents, {
@@ -77,8 +77,18 @@ export function PersonalOverview({ user, profilePhotoUrl }: PersonalOverviewProp
                 {roleLabel(user.role)}
               </span>
               {user.subscription && (
-                <span className={`status-badge ${subscriptionActive ? "ok" : "missing"}`}>
-                  {subscriptionActive ? "Attivo" : "Scaduto"}
+                <span
+                  className={`status-badge ${
+                    subStatus === "active" ? "ok" : subStatus === "pending" ? "warning" : "missing"
+                  }`}
+                >
+                  {subStatus === "active"
+                    ? "Attivo"
+                    : subStatus === "pending"
+                    ? "Programmato"
+                    : subStatus === "deactivated"
+                    ? "Disattivato"
+                    : "Scaduto"}
                 </span>
               )}
             </div>
