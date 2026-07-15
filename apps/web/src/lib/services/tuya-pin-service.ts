@@ -9,7 +9,7 @@ import {
   listTuyaUsers,
   setUserPermanent,
 } from "@/lib/tuya/access-control";
-import { isSubscriptionActive } from "@/lib/subscription";
+import { isEligibleForDoorAccess } from "@/lib/subscription";
 
 const PERMANENT_MAX_ATTEMPTS = 3;
 const PERMANENT_RETRY_MS = 1500;
@@ -127,7 +127,7 @@ export async function syncPinToKeypad(
     user.role === UserRole.ADMIN ||
     user.role === UserRole.INSTRUCTOR ||
     (user.role === UserRole.SUBSCRIBER &&
-      isSubscriptionActive(user.subscription));
+      isEligibleForDoorAccess(user.subscription));
 
   if (shouldHavePin) {
     // Deve avere il PIN — crea se non ce l'ha

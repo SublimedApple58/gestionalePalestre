@@ -121,6 +121,35 @@ export function isSubscriptionActive(
   return now >= subscription.startsAt && now <= subscription.endsAt;
 }
 
+/**
+ * Giorni di grazia sull'ACCESSO ALLA PORTA dopo `endsAt`. Il rinnovo automatico
+ * (webhook Revolut) è asincrono e non coincide con l'istante di scadenza: senza
+ * grazia, tra la scadenza e l'arrivo del rinnovo il cron `tuya-pin-sync` toglie
+ * il PIN e il pagante resta chiuso fuori senza colpa. La grazia copre quel ritardo
+ * (incl. retry di dunning su rata fallita) mantenendo valido il codice.
+ */
+export const ACCESS_GRACE_DAYS = 2;
+const ACCESS_GRACE_MS = ACCESS_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+/**
+ * Idoneità all'ACCESSO FISICO (PIN sul tastierino) — NON allo stato di billing.
+ * A differenza di `isSubscriptionActive` (netto su `endsAt`, usato per UI/billing),
+ * concede una finestra di grazia di `ACCESS_GRACE_DAYS` oltre `endsAt` per assorbire
+ * il ritardo del rinnovo automatico. La disattivazione MANUALE (`deactivatedAt`)
+ * resta immediata: la grazia vale solo per la scadenza naturale per data.
+ */
+export function isEligibleForDoorAccess(
+  subscription:
+    | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+    | null,
+  now: Date = new Date()
+): boolean {
+  if (!subscription) return false;
+  if (subscription.deactivatedAt) return false;
+  if (now < subscription.startsAt) return false;
+  return now.getTime() <= subscription.endsAt.getTime() + ACCESS_GRACE_MS;
+}
+
 export type SubscriptionStatus =
   | "none" // nessun abbonamento
   | "deactivated" // disattivato manualmente

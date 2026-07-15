@@ -5,7 +5,7 @@ import {
   enablePin,
   listDoorLockOpenLogs
 } from "@/lib/tuya/access-control";
-import { isSubscriptionActive } from "@/lib/subscription";
+import { isEligibleForDoorAccess } from "@/lib/subscription";
 
 import { ensureTuyaUser } from "./tuya-pin-service";
 
@@ -132,7 +132,7 @@ export async function runTuyaPinReassertJob(
     (u) =>
       u.role === UserRole.ADMIN ||
       u.role === UserRole.INSTRUCTOR ||
-      (u.role === UserRole.SUBSCRIBER && isSubscriptionActive(u.subscription))
+      (u.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(u.subscription))
   );
 
   result.total = targets.length;

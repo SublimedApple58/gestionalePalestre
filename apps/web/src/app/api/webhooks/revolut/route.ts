@@ -254,9 +254,16 @@ async function handleInstallmentPaid(
 }
 
 /**
- * Ciclo rata fallito → rata FAILED + sospensione abbonamento (deactivatedAt).
- * Revolut ritenta secondo la sua policy; alla ripresa di un ciclo riuscito la
- * subscription viene riattivata da `handleInstallmentPaid`.
+ * Ciclo rata fallito → rata FAILED + scadenza dell'accesso portata a ORA.
+ *
+ * NON usiamo `deactivatedAt` (che è lockout IMMEDIATO, scavalca la grazia ed è
+ * riservato alla disattivazione manuale). Impostiamo `endsAt = now`: così la
+ * finestra di grazia `ACCESS_GRACE_DAYS` sull'accesso alla porta copre i retry di
+ * dunning di Revolut senza chiudere fuori un pagante per un decline transitorio.
+ * Se un retry riesce, `handleInstallmentPaid` ripristina `endsAt` al termine pieno
+ * (ricalcolato da `payment.paidAt`); se nessun retry riesce entro la grazia, il
+ * sync giornaliero toglie il PIN. Non tocchiamo le subscription già disattivate a
+ * mano (`deactivatedAt: null` nel where).
  */
 async function handleInstallmentFailed(
   payment: ResolvedPayment,
@@ -282,7 +289,7 @@ async function handleInstallmentFailed(
     }
     await tx.userSubscription.updateMany({
       where: { userId: payment.userId, deactivatedAt: null },
-      data: { deactivatedAt: new Date() }
+      data: { endsAt: new Date() }
     });
     await tx.payment.update({
       where: { id: payment.id },
