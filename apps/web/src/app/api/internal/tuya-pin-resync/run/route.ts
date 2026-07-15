@@ -355,6 +355,10 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
       const tuyaUserId = await ensureTuyaUser(db, user.id);
       const unlockNo = await enablePin(tuyaUserId, user.accessCode);
+      // Ri-afferma la validità permanente DOPO aver registrato il PIN: la
+      // password appena creata non eredita in modo affidabile lo schedule del
+      // member impostato prima che esistesse (→ codice limitato/notturno-KO).
+      await setUserPermanent(tuyaUserId).catch(() => {});
       await db.user.update({
         where: { id: user.id },
         data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },

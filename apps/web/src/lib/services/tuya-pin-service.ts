@@ -134,6 +134,14 @@ export async function syncPinToKeypad(
     if (!user.tuyaPinActive) {
       const tuyaUserId = await ensureTuyaUser(prisma, userId);
       const unlockNo = await enablePin(tuyaUserId, user.accessCode);
+      // CRUCIALE: ri-affermare la validità PERMANENTE *dopo* aver registrato il
+      // PIN. `ensureTuyaUser` la imposta PRIMA di `enablePin`, ma su questo device
+      // la password appena creata non eredita in modo affidabile lo schedule del
+      // member impostato prima che esistesse → il codice nasceva LIMITATO
+      // (funziona di giorno, muore di notte) anche per i nuovi utenti. Riasserire
+      // qui — quando la password esiste già — replica il fix manuale `?permanent`
+      // che risolveva sempre. Costo: 1 chiamata Tuya solo alla (ri)attivazione.
+      await assertUserPermanent(tuyaUserId);
       await prisma.user.update({
         where: { id: userId },
         data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
