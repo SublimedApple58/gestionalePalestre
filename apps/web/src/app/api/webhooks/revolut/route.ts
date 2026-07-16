@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   db,
+  InstallmentPlanStatus,
   InstallmentStatus,
   PaymentStatus,
   type Prisma
@@ -167,6 +168,46 @@ async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promi
       data: { subscriptionId: subscription.id }
     });
   });
+
+  // Chi paga in UNICA SOLUZIONE non deve avere rate: elimina eventuali piani
+  // rateali residui (checkout precedenti/abbandonati sullo stesso utente).
+  await cancelStrayInstallmentPlans(payment.userId, null);
+}
+
+/**
+ * Dedup auto-guarente. Quando un pagamento REALE va a buon fine, annulla gli
+ * ALTRI piani rateali attivi dello stesso utente (residui di checkout ripetuti/
+ * abbandonati) cancellando anche la subscription Revolut così non addebita più.
+ * È ciò che impedisce il riformarsi dei duplicati/rate-fantasma alla radice.
+ * `keepPlanId=null` (one-shot) → nessun piano resta. Un ciclo rata passa il proprio.
+ */
+async function cancelStrayInstallmentPlans(
+  userId: string,
+  keepPlanId: string | null
+): Promise<void> {
+  const strays = await db.installmentPlan.findMany({
+    where: {
+      status: { in: [InstallmentPlanStatus.ACTIVE, InstallmentPlanStatus.DEFAULTED] },
+      payment: { userId },
+      ...(keepPlanId ? { id: { not: keepPlanId } } : {})
+    },
+    select: { id: true, revolutSubscriptionId: true, paymentId: true }
+  });
+  for (const s of strays) {
+    if (s.revolutSubscriptionId) {
+      await cancelSubscription(s.revolutSubscriptionId).catch((e) =>
+        console.error(`[webhook/revolut] cancel piano residuo ${s.revolutSubscriptionId}:`, e)
+      );
+    }
+    await db.installmentPlan.update({
+      where: { id: s.id },
+      data: { status: InstallmentPlanStatus.CANCELED }
+    });
+    await db.payment.updateMany({
+      where: { id: s.paymentId, status: PaymentStatus.PENDING },
+      data: { status: PaymentStatus.CANCELED, failureReason: "Piano superato da un nuovo pagamento" }
+    });
+  }
 }
 
 /**
@@ -251,6 +292,9 @@ async function handleInstallmentPaid(
       );
     });
   }
+
+  // Tieni SOLO questo piano: annulla eventuali duplicati residui dello stesso utente.
+  await cancelStrayInstallmentPlans(payment.userId, plan.id);
 }
 
 /**

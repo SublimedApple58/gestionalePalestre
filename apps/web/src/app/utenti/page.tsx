@@ -46,6 +46,9 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
           take: 20
         },
         installmentPlans: {
+          // I piani annullati (duplicati/fantasma bonificati) non devono sporcare
+          // il pannello admin: mostriamo solo quelli reali.
+          where: { status: { not: "CANCELED" } },
           include: {
             installments: {
               orderBy: { sequenceNumber: "asc" }
