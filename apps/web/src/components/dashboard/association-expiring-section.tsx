@@ -2,6 +2,8 @@ import { CalendarClock } from "lucide-react";
 
 import { daysUntil } from "@/lib/association";
 
+import { DashSeeAll } from "./dash-see-all";
+
 export type ExpiringAssociationRow = {
   id: string;
   firstName: string;
@@ -12,7 +14,17 @@ export type ExpiringAssociationRow = {
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
 
-export function AssociationExpiringSection({ items }: { items: ExpiringAssociationRow[] }) {
+export function AssociationExpiringSection({
+  items,
+  limit,
+  href
+}: {
+  items: ExpiringAssociationRow[];
+  limit?: number;
+  href?: string;
+}) {
+  const visible = typeof limit === "number" ? items.slice(0, limit) : items;
+
   return (
     <div className="dash-card-full">
       <div className="dash-card-header">
@@ -27,7 +39,7 @@ export function AssociationExpiringSection({ items }: { items: ExpiringAssociati
       </div>
 
       <ul className="dash-event-list">
-        {items.map((u) => {
+        {visible.map((u) => {
           const days = daysUntil(new Date(u.associationExpiresAt));
           const expired = days < 0;
           return (
@@ -56,6 +68,10 @@ export function AssociationExpiringSection({ items }: { items: ExpiringAssociati
           );
         })}
       </ul>
+
+      {typeof limit === "number" && href && (
+        <DashSeeAll total={items.length} shown={limit} href={href} />
+      )}
     </div>
   );
 }

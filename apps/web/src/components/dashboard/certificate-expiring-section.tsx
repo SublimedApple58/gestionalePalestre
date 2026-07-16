@@ -2,6 +2,8 @@ import { HeartPulse } from "lucide-react";
 
 import { daysUntil } from "@/lib/association";
 
+import { DashSeeAll } from "./dash-see-all";
+
 export type ExpiringCertificateRow = {
   id: string;
   firstName: string;
@@ -12,7 +14,17 @@ export type ExpiringCertificateRow = {
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
 
-export function CertificateExpiringSection({ items }: { items: ExpiringCertificateRow[] }) {
+export function CertificateExpiringSection({
+  items,
+  limit,
+  href
+}: {
+  items: ExpiringCertificateRow[];
+  limit?: number;
+  href?: string;
+}) {
+  const visible = typeof limit === "number" ? items.slice(0, limit) : items;
+
   return (
     <div className="dash-card-full">
       <div className="dash-card-header">
@@ -27,7 +39,7 @@ export function CertificateExpiringSection({ items }: { items: ExpiringCertifica
       </div>
 
       <ul className="dash-event-list">
-        {items.map((u) => {
+        {visible.map((u) => {
           const days = daysUntil(new Date(u.medicalCertificateExpiresAt));
           const expired = days < 0;
           return (
@@ -56,6 +68,10 @@ export function CertificateExpiringSection({ items }: { items: ExpiringCertifica
           );
         })}
       </ul>
+
+      {typeof limit === "number" && href && (
+        <DashSeeAll total={items.length} shown={limit} href={href} />
+      )}
     </div>
   );
 }

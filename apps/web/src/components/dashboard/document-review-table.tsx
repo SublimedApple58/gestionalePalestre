@@ -11,6 +11,8 @@ import {
   documentTypeLabel
 } from "@/lib/documents";
 
+import { DashSeeAll } from "./dash-see-all";
+
 type ReviewDocumentRow = UserDocument & {
   user: {
     firstName: string;
@@ -24,14 +26,19 @@ type DocumentReviewTableProps = {
   documents: ReviewDocumentRow[];
   /** Render senza wrapper panel (es. quando già dentro un panel) */
   embedded?: boolean;
+  /** Se impostato, mostra al massimo N righe + footer "Vedi tutti". */
+  limit?: number;
+  seeAllHref?: string;
 };
 
-export function DocumentReviewTable({ documents, embedded }: DocumentReviewTableProps) {
+export function DocumentReviewTable({ documents, embedded, limit, seeAllHref }: DocumentReviewTableProps) {
+  const visible = typeof limit === "number" ? documents.slice(0, limit) : documents;
   const inner = (
     <>
       {documents.length === 0 ? (
         <div className="empty-state">Nessun documento in revisione.</div>
       ) : (
+        <>
         <div className="table-wrapper responsive-table">
           <table>
             <thead>
@@ -45,7 +52,7 @@ export function DocumentReviewTable({ documents, embedded }: DocumentReviewTable
               </tr>
             </thead>
             <tbody>
-              {documents.map((document) => (
+              {visible.map((document) => (
                 <tr key={document.id}>
                   <td data-label="Utente">
                     <div>
@@ -128,6 +135,10 @@ export function DocumentReviewTable({ documents, embedded }: DocumentReviewTable
             </tbody>
           </table>
         </div>
+        {typeof limit === "number" && seeAllHref && (
+          <DashSeeAll total={documents.length} shown={limit} href={seeAllHref} />
+        )}
+        </>
       )}
     </>
   );

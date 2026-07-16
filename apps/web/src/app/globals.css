@@ -907,6 +907,57 @@ p {
   padding-top: 2px;
 }
 
+/* ── "Vedi tutti" footer (card-anteprima home) ───────────────────────────── */
+.dash-see-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 12px 4px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+}
+.dash-see-all-more {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.dash-see-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #f09ca3;
+  transition: color 150ms ease;
+}
+.dash-see-all-link svg {
+  transition: transform 160ms ease;
+}
+.dash-see-all:hover .dash-see-all-link {
+  color: #fff;
+}
+.dash-see-all:hover .dash-see-all-link svg {
+  transform: translateX(3px);
+}
+
+/* ── Header pagina "vedi tutti" completa ─────────────────────────────────── */
+.dash-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 14px;
+  transition: color 150ms ease;
+}
+.dash-back-link:hover {
+  color: var(--text);
+}
+
 .dash-event-info {
   display: grid;
   gap: 2px;

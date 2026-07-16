@@ -12,9 +12,12 @@ import {
 import { formatEuroCents } from "@/lib/subscription";
 
 import type { OverdueInstallmentRow } from "./admin-dashboard";
+import { DashSeeAll } from "./dash-see-all";
 
 type Props = {
   installments: OverdueInstallmentRow[];
+  limit?: number;
+  href?: string;
 };
 
 function InstallmentActionRow({ installment }: { installment: OverdueInstallmentRow }) {
@@ -87,7 +90,9 @@ function InstallmentActionRow({ installment }: { installment: OverdueInstallment
   );
 }
 
-export function OverdueInstallmentsSection({ installments }: Props) {
+export function OverdueInstallmentsSection({ installments, limit, href }: Props) {
+  const visible = typeof limit === "number" ? installments.slice(0, limit) : installments;
+
   return (
     <div className="dash-card-full">
       <div className="dash-card-header">
@@ -104,10 +109,14 @@ export function OverdueInstallmentsSection({ installments }: Props) {
       </div>
 
       <ul className="dash-event-list">
-        {installments.map((inst) => (
+        {visible.map((inst) => (
           <InstallmentActionRow key={inst.id} installment={inst} />
         ))}
       </ul>
+
+      {typeof limit === "number" && href && (
+        <DashSeeAll total={installments.length} shown={limit} href={href} />
+      )}
     </div>
   );
 }

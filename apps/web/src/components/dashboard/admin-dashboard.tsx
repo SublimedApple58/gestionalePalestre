@@ -5,15 +5,13 @@ import {
   History
 } from "lucide-react";
 import {
-  type UserRole,
-  type AccessEventType,
   type UserDocument,
   type InstallmentStatus
 } from "@gestionale/db";
 
 import { openGymDoorAction } from "@/app/actions/dashboard-actions";
-import { roleLabel } from "@/lib/roles";
 
+import { AccessLogList, type AccessLogRow } from "./access-log-list";
 import { AssociationExpiringSection, type ExpiringAssociationRow } from "./association-expiring-section";
 import { BirthdayBanner } from "./birthday-banner";
 import { CertificateExpiringSection, type ExpiringCertificateRow } from "./certificate-expiring-section";
@@ -21,26 +19,9 @@ import { DocumentReviewTable } from "./document-review-table";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
 import { RefreshAccessLogsButton } from "./refresh-access-logs-button";
 import { MaskedAccessCode } from "../ui/masked-access-code";
-import { UserAvatar } from "../ui/user-avatar";
 
-type AccessLogRow = {
-  id: string;
-  eventType: AccessEventType;
-  note: string | null;
-  occurredAt: Date;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    role: UserRole;
-  };
-};
-
-const ACCESS_EVENT_LABEL: Record<AccessEventType, string> = {
-  KEYPAD_UNLOCK: "Ingresso tastierino",
-  DOOR_OPEN: "Apertura porta (remoto)",
-  ENTRY_SIMULATION: "Simulazione (storico)"
-};
+/** Quanti elementi mostrare in anteprima nella home (il resto in "Vedi tutti"). */
+const HOME_PREVIEW = 3;
 
 export type OverdueInstallmentRow = {
   id: string;
@@ -124,17 +105,17 @@ export function AdminDashboard({
 
       {/* ── Rate in sofferenza ───────────────────────────────────── */}
       {overdueInstallments.length > 0 && (
-        <OverdueInstallmentsSection installments={overdueInstallments} />
+        <OverdueInstallmentsSection installments={overdueInstallments} limit={HOME_PREVIEW} href="/rate" />
       )}
 
       {/* ── Associazioni sportive in scadenza ────────────────────── */}
       {expiringAssociations.length > 0 && (
-        <AssociationExpiringSection items={expiringAssociations} />
+        <AssociationExpiringSection items={expiringAssociations} limit={HOME_PREVIEW} href="/associazioni" />
       )}
 
       {/* ── Certificati medici in scadenza ───────────────────────── */}
       {expiringCertificates.length > 0 && (
-        <CertificateExpiringSection items={expiringCertificates} />
+        <CertificateExpiringSection items={expiringCertificates} limit={HOME_PREVIEW} href="/certificati" />
       )}
 
       {/* ── Approvazioni in sospeso ─────────────────────────────── */}
@@ -161,7 +142,12 @@ export function AdminDashboard({
           {reviewDocuments.length === 0 ? (
             <div className="empty-state">Nessun documento in coda.</div>
           ) : (
-            <DocumentReviewTable documents={reviewDocuments} embedded />
+            <DocumentReviewTable
+              documents={reviewDocuments}
+              embedded
+              limit={HOME_PREVIEW}
+              seeAllHref="/documenti"
+            />
           )}
         </div>
       </div>
@@ -180,32 +166,12 @@ export function AdminDashboard({
         {accessLogs.length === 0 ? (
           <div className="empty-state">Nessun ingresso registrato.</div>
         ) : (
-          <ul className="dash-event-list">
-            {accessLogs.map((log) => (
-              <li key={log.id} className="dash-event-item">
-                <div className="dash-event-avatar">
-                  <UserAvatar
-                    firstName={log.user.firstName}
-                    profilePhotoUrl={profilePhotoUrls[log.user.id]}
-                  />
-                </div>
-                <div className="dash-event-info">
-                  <div className="dash-event-name">
-                    {`${log.user.firstName} ${log.user.lastName}`}
-                    <span className="td-role-badge" data-role={log.user.role} style={{ marginLeft: 6 }}>
-                      {roleLabel(log.user.role)}
-                    </span>
-                  </div>
-                  <p className="dash-event-meta">
-                    {`${ACCESS_EVENT_LABEL[log.eventType] ?? log.eventType} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}
-                  </p>
-                  {log.note && (
-                    <p className="dash-event-note">{log.note}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <AccessLogList
+            logs={accessLogs}
+            profilePhotoUrls={profilePhotoUrls}
+            limit={HOME_PREVIEW}
+            href="/accessi"
+          />
         )}
       </div>
     </div>
