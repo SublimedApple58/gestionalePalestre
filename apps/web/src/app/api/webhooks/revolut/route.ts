@@ -254,16 +254,21 @@ async function handleInstallmentPaid(
 }
 
 /**
- * Ciclo rata fallito → rata FAILED + scadenza dell'accesso portata a ORA.
+ * Ciclo rata fallito → rata FAILED (per il pannello admin "Rate in sofferenza").
  *
- * NON usiamo `deactivatedAt` (che è lockout IMMEDIATO, scavalca la grazia ed è
- * riservato alla disattivazione manuale). Impostiamo `endsAt = now`: così la
- * finestra di grazia `ACCESS_GRACE_DAYS` sull'accesso alla porta copre i retry di
- * dunning di Revolut senza chiudere fuori un pagante per un decline transitorio.
- * Se un retry riesce, `handleInstallmentPaid` ripristina `endsAt` al termine pieno
- * (ricalcolato da `payment.paidAt`); se nessun retry riesce entro la grazia, il
- * sync giornaliero toglie il PIN. Non tocchiamo le subscription già disattivate a
- * mano (`deactivatedAt: null` nel where).
+ * L'accesso NON viene toccato se l'utente ha una BASE DI PAGAMENTO VALIDA: una
+ * rata già pagata su questo piano, oppure un altro pagamento PAID (annuale
+ * one-shot, o un altro piano). Motivo: un utente ha UNA sola UserSubscription ma
+ * può avere PIÙ piani rateali (checkout ripetuti/abbandonati); una retry Revolut
+ * su un piano-fantasma NON deve azzerare l'abbonamento di chi ha davvero pagato
+ * (era il bug "annuali pagati che risultano scaduti"). Per un pagante, la rata
+ * insoluta si recupera A MANO dal pannello "Rate in sofferenza".
+ *
+ * Solo se l'utente non ha MAI pagato nulla (checkout puramente abbandonato/fallito)
+ * portiamo `endsAt = now`: la grazia `ACCESS_GRACE_DAYS` lascia comunque 2 giorni,
+ * poi il sync toglie il PIN. Non usiamo `deactivatedAt` (riservato alla
+ * disattivazione manuale, che è immediata). Un retry riuscito → `handleInstallmentPaid`
+ * ripristina `endsAt` al termine pieno.
  */
 async function handleInstallmentFailed(
   payment: ResolvedPayment,
@@ -277,6 +282,15 @@ async function handleInstallmentFailed(
     .filter((i) => i.status === InstallmentStatus.SCHEDULED)
     .sort((a, b) => a.sequenceNumber - b.sequenceNumber)[0];
 
+  // Base di pagamento valida? → non tocchiamo l'accesso (solo recupero manuale).
+  const planHasPaidInstallment = plan.installments.some(
+    (i) => i.status === InstallmentStatus.PAID
+  );
+  const otherPaidPayments = await db.payment.count({
+    where: { userId: payment.userId, status: PaymentStatus.PAID, id: { not: payment.id } }
+  });
+  const hasValidCoverage = planHasPaidInstallment || otherPaidPayments > 0;
+
   await db.$transaction(async (tx) => {
     if (nextScheduled) {
       await tx.installment.update({
@@ -287,10 +301,12 @@ async function handleInstallmentFailed(
         }
       });
     }
-    await tx.userSubscription.updateMany({
-      where: { userId: payment.userId, deactivatedAt: null },
-      data: { endsAt: new Date() }
-    });
+    if (!hasValidCoverage) {
+      await tx.userSubscription.updateMany({
+        where: { userId: payment.userId, deactivatedAt: null },
+        data: { endsAt: new Date() }
+      });
+    }
     await tx.payment.update({
       where: { id: payment.id },
       data: { rawWebhookPayload: body as Prisma.InputJsonValue }
