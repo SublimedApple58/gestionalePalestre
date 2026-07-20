@@ -50,6 +50,7 @@ const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
 };
 
 const dateFormatter = new Intl.DateTimeFormat("it-IT", {
+  timeZone: "Europe/Rome",
   day: "2-digit",
   month: "short",
   year: "numeric",

@@ -6,6 +6,7 @@ import { db } from "@gestionale/db";
 import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
 import { requireSessionUser } from "@/lib/session";
 import { formatEuroCents, tierLabel } from "@/lib/subscription";
+import { formatRomeDateTime } from "@/lib/datetime";
 
 type SuccessPageProps = {
   searchParams: Promise<{ pid?: string }>;
@@ -92,7 +93,7 @@ export default async function CheckoutSuccessPage({ searchParams }: SuccessPageP
           {payment.paidAt ? (
             <div>
               <dt>Data</dt>
-              <dd>{new Date(payment.paidAt).toLocaleString("it-IT")}</dd>
+              <dd>{formatRomeDateTime(payment.paidAt)}</dd>
             </div>
           ) : null}
         </dl>

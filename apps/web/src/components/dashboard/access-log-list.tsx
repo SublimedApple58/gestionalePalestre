@@ -1,6 +1,7 @@
 import { type AccessEventType, type UserRole } from "@gestionale/db";
 
 import { roleLabel } from "@/lib/roles";
+import { formatRomeDateTime } from "@/lib/datetime";
 
 import { DashSeeAll } from "./dash-see-all";
 import { UserAvatar } from "../ui/user-avatar";
@@ -56,7 +57,7 @@ export function AccessLogList({
                 </span>
               </div>
               <p className="dash-event-meta">
-                {`${ACCESS_EVENT_LABEL[log.eventType] ?? log.eventType} — ${new Date(log.occurredAt).toLocaleString("it-IT")}`}
+                {`${ACCESS_EVENT_LABEL[log.eventType] ?? log.eventType} — ${formatRomeDateTime(log.occurredAt)}`}
               </p>
               {log.note && <p className="dash-event-note">{log.note}</p>}
             </div>
