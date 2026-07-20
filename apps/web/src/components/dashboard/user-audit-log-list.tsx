@@ -28,6 +28,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   SUBSCRIPTION_DEACTIVATED: "Abbonamento disattivato",
   SUBSCRIPTION_REACTIVATED: "Abbonamento riattivato",
   SUBSCRIPTION_DATE_CHANGED: "Data abbonamento modificata",
+  ENTRY_PACKAGE_ASSIGNED: "Pacchetto ingressi assegnato",
+  ENTRY_PACKAGE_REMOVED: "Pacchetto ingressi rimosso",
   DOC_APPROVED: "Documento approvato",
   DOC_REJECTED: "Documento rifiutato",
   DOC_REUPLOAD_REQUESTED: "Reupload documento richiesto",
@@ -44,6 +46,8 @@ const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
   SUBSCRIPTION_DEACTIVATED: "warning",
   SUBSCRIPTION_REACTIVATED: "success",
   SUBSCRIPTION_ASSIGNED: "success",
+  ENTRY_PACKAGE_ASSIGNED: "success",
+  ENTRY_PACKAGE_REMOVED: "warning",
   DOC_APPROVED: "success",
   DOC_REJECTED: "error",
   DOC_REUPLOAD_REQUESTED: "warning"

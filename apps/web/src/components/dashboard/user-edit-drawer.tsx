@@ -16,6 +16,7 @@ import {
 
 import {
   type ActionResult,
+  assignEntryPackageActionState,
   assignInstructorActionState,
   assignSubscriptionActionState,
   changeSubscriptionStartDateActionState,
@@ -23,6 +24,7 @@ import {
   deactivateSubscriptionActionState,
   deleteUserActionState,
   reactivateSubscriptionActionState,
+  removeEntryPackageActionState,
   updateAssociationMembershipActionState,
   updateUserAddressActionState
 } from "@/app/actions/dashboard-actions";
@@ -32,7 +34,14 @@ import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
 import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
-import { formatEuroCents, isSubscriptionActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
+import {
+  formatEuroCents,
+  isEligibleForDoorAccess,
+  isEntryPackageActive,
+  isSubscriptionActive,
+  subscriptionStatus,
+  tierLabel
+} from "@/lib/subscription";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { CustomSelect } from "@/components/ui/custom-select";
 
@@ -56,6 +65,11 @@ export type DrawerUserRow = {
     tier: SubscriptionTier;
     startsAt: Date;
     endsAt: Date;
+    deactivatedAt: Date | null;
+  } | null;
+  entryPackage: {
+    totalEntries: number;
+    remainingEntries: number;
     deactivatedAt: Date | null;
   } | null;
   payments: Payment[];
@@ -235,6 +249,14 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
     changeSubscriptionStartDateActionState,
     null
   );
+  const [entryAssignResult, entryAssignAction, entryAssignPending] = useActionState(
+    assignEntryPackageActionState,
+    null
+  );
+  const [entryRemoveResult, entryRemoveAction, entryRemovePending] = useActionState(
+    removeEntryPackageActionState,
+    null
+  );
 
   useActionToast(roleResult);
   useActionToast(instrResult);
@@ -243,6 +265,8 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
   useActionToast(deactivateResult);
   useActionToast(reactivateResult);
   useActionToast(startDateResult);
+  useActionToast(entryAssignResult);
+  useActionToast(entryRemoveResult);
 
   useEffect(() => {
     if (!deleteResult) return;
@@ -401,6 +425,13 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
             ) : (
               <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Nessun abbonamento attivo.</Text>
             )}
+            {isEntryPackageActive(user.entryPackage) && user.entryPackage ? (
+              <div style={{ marginTop: 8 }}>
+                <Tag color="cyan">
+                  Pacchetto ingressi: {user.entryPackage.remainingEntries}/{user.entryPackage.totalEntries} rimasti
+                </Tag>
+              </div>
+            ) : null}
           </section>
 
           {user.subscription ? (
@@ -472,6 +503,48 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                 Aggiorna abbonamento
               </Button>
             </form>
+          </section>
+
+          <section className="user-drawer-section">
+            <h4 className="user-drawer-section-title">Pacchetto ingressi</h4>
+            <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "block", marginBottom: 8 }}>
+              Alternativa all'abbonamento per chi non ce l'ha: N ingressi a consumo. A 0 il codice si disabilita.
+            </Text>
+            {user.role !== UserRole.SUBSCRIBER ? (
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "block" }}>
+                Solo gli iscritti possono avere un pacchetto ingressi.
+              </Text>
+            ) : isEligibleForDoorAccess(user.subscription) ? (
+              <Text style={{ fontSize: 12, color: "#f59e0b", display: "block" }}>
+                Questo utente ha un abbonamento attivo. Rimuovilo prima di assegnare un pacchetto ingressi.
+              </Text>
+            ) : (
+              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                {isEntryPackageActive(user.entryPackage) ? (
+                  <form action={entryRemoveAction}>
+                    <input type="hidden" name="targetUserId" value={user.id} />
+                    <Button danger htmlType="submit" loading={entryRemovePending} size="small">
+                      Rimuovi pacchetto ingressi
+                    </Button>
+                  </form>
+                ) : null}
+                <form action={entryAssignAction} className="user-drawer-form">
+                  <input type="hidden" name="targetUserId" value={user.id} />
+                  <Input
+                    name="totalEntries"
+                    type="number"
+                    min={1}
+                    max={500}
+                    placeholder="Numero di ingressi (es. 10)"
+                    defaultValue={user.entryPackage?.totalEntries ?? 10}
+                    required
+                  />
+                  <Button type="primary" htmlType="submit" loading={entryAssignPending} size="small">
+                    {isEntryPackageActive(user.entryPackage) ? "Riassegna pacchetto" : "Assegna pacchetto"}
+                  </Button>
+                </form>
+              </Space>
+            )}
           </section>
         </div>
       )

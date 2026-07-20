@@ -126,6 +126,7 @@ model User {
   assignedInstructor    User?              @relation("InstructorAssignments", fields: [assignedInstructorId], references: [id], onDelete: SetNull)
   assignedSubscribers   User[]             @relation("InstructorAssignments")
   subscription          UserSubscription?
+  entryPackage          UserEntryPackage?
   workoutPlan           WorkoutPlan?
   accessEvents          AccessEvent[]
   documents             UserDocument[]     @relation("UserDocuments")
@@ -135,6 +136,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   subscriptionsAssigned UserSubscription[] @relation("AdminAssignedSubscriptions")
+  entryPackagesAssigned UserEntryPackage[] @relation("AdminAssignedEntryPackages")
   payments              Payment[]
   installmentPlans      InstallmentPlan[]
   auditLogsAsTarget     UserAuditLog[]     @relation("UserAuditTargets")
@@ -246,6 +248,30 @@ model UserSubscription {
   updatedAt     DateTime         @updatedAt
 
   @@index([startsAt, endsAt])
+  @@index([assignedById])
+}
+
+/// Pacchetto ingressi a consumo (admin-only). Alternativa all'abbonamento per chi
+/// non ce l'ha: l'admin assegna N ingressi; ogni ingresso col codice al tastierino
+/// scala `remainingEntries`; a 0 il PIN porta viene disabilitato (via syncPinToKeypad).
+/// 1:1 con User (come UserSubscription). Assegnare un abbonamento lo annulla
+/// (deactivatedAt + remainingEntries=0). Il conteggio consumato = eventi
+/// KEYPAD_UNLOCK con occurredAt >= startsAt (ricalcolo idempotente nel sync).
+model UserEntryPackage {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  totalEntries     Int
+  remainingEntries Int
+  assignedById     String?
+  /// Base temporale per contare gli ingressi consumati (reset a ogni assegnazione).
+  startsAt         DateTime  @default(now())
+  /// Se valorizzato, il pacchetto è annullato (es. sovrascritto da un abbonamento).
+  deactivatedAt    DateTime?
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy       User?     @relation("AdminAssignedEntryPackages", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   @@index([assignedById])
 }
 
@@ -437,6 +463,8 @@ enum AuditAction {
   SUBSCRIPTION_DEACTIVATED
   SUBSCRIPTION_REACTIVATED
   SUBSCRIPTION_DATE_CHANGED
+  ENTRY_PACKAGE_ASSIGNED
+  ENTRY_PACKAGE_REMOVED
   DOC_APPROVED
   DOC_REJECTED
   DOC_REUPLOAD_REQUESTED

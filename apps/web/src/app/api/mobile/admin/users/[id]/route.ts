@@ -20,6 +20,7 @@ export const GET = withMobileAuth<{ id: string }>(
       where: { id: params.id },
       include: {
         subscription: true,
+        entryPackage: true,
         documents: {
           select: {
             id: true,
@@ -103,6 +104,16 @@ export const GET = withMobileAuth<{ id: string }>(
             endsAt: userRow.subscription.endsAt.toISOString(),
             deactivatedAt: userRow.subscription.deactivatedAt
               ? userRow.subscription.deactivatedAt.toISOString()
+              : null
+          }
+        : null,
+      entryPackage: userRow.entryPackage
+        ? {
+            totalEntries: userRow.entryPackage.totalEntries,
+            remainingEntries: userRow.entryPackage.remainingEntries,
+            startsAt: userRow.entryPackage.startsAt.toISOString(),
+            deactivatedAt: userRow.entryPackage.deactivatedAt
+              ? userRow.entryPackage.deactivatedAt.toISOString()
               : null
           }
         : null,

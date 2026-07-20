@@ -4,6 +4,7 @@ import {
   KEYPAD_PIN_UNLOCK_CODE,
   listDoorLockOpenLogs
 } from "@/lib/tuya/access-control";
+import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 // Re-fetch a small overlap before the last synced entry so a missed log between
 // runs is still picked up; the unique `externalRef` prevents duplicates.
@@ -20,6 +21,8 @@ export type AccessLogSyncResult = {
   keypadEntries: number;
   created: number;
   unmatchedUserIds: string[];
+  entryPackagesUpdated: number;
+  entryPackagesExhausted: number;
 };
 
 /**
@@ -76,7 +79,9 @@ export async function runTuyaAccessLogSyncJob(
     fetched,
     keypadEntries: raw.length,
     created: 0,
-    unmatchedUserIds: []
+    unmatchedUserIds: [],
+    entryPackagesUpdated: 0,
+    entryPackagesExhausted: 0
   };
 
   if (raw.length === 0) {
@@ -122,6 +127,42 @@ export async function runTuyaAccessLogSyncJob(
       skipDuplicates: true
     });
     result.created = created.count;
+  }
+
+  // ── Pacchetti ingressi: ricalcolo idempotente ──────────────────────────────
+  // Per i soli utenti entrati in questa finestra e con un pacchetto ATTIVO,
+  // ricalcoliamo `remainingEntries` dagli eventi immutabili (KEYPAD_UNLOCK dopo
+  // `startsAt`). Derivare dal conteggio — invece di decrementare per riga — è
+  // idempotente: le finestre sovrapposte (`skipDuplicates`) non doppio-contano.
+  // A 0 disabilitiamo il PIN via safeSyncPinToKeypad.
+  const affectedUserIds = [...new Set(data.map((d) => d.userId))];
+  if (affectedUserIds.length > 0) {
+    const packages = await prisma.userEntryPackage.findMany({
+      where: { userId: { in: affectedUserIds }, deactivatedAt: null },
+      select: { id: true, userId: true, totalEntries: true, remainingEntries: true, startsAt: true }
+    });
+    for (const pkg of packages) {
+      const usedCount = await prisma.accessEvent.count({
+        where: {
+          userId: pkg.userId,
+          eventType: AccessEventType.KEYPAD_UNLOCK,
+          occurredAt: { gte: pkg.startsAt }
+        }
+      });
+      const newRemaining = Math.max(0, pkg.totalEntries - usedCount);
+      if (newRemaining !== pkg.remainingEntries) {
+        await prisma.userEntryPackage.update({
+          where: { id: pkg.id },
+          data: { remainingEntries: newRemaining }
+        });
+        result.entryPackagesUpdated++;
+        if (newRemaining === 0) {
+          result.entryPackagesExhausted++;
+          // Ingressi finiti → disabilita il codice porta.
+          safeSyncPinToKeypad(prisma, pkg.userId);
+        }
+      }
+    }
   }
 
   result.unmatchedUserIds = [...unmatched];

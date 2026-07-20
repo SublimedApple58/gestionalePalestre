@@ -1,4 +1,4 @@
-import { type PrismaClient, UserRole } from "@gestionale/db";
+import { type PrismaClient } from "@gestionale/db";
 import { after } from "next/server";
 
 import {
@@ -9,7 +9,7 @@ import {
   listTuyaUsers,
   setUserPermanent,
 } from "@/lib/tuya/access-control";
-import { isEligibleForDoorAccess } from "@/lib/subscription";
+import { shouldHaveDoorPin } from "@/lib/subscription";
 
 const PERMANENT_MAX_ATTEMPTS = 3;
 const PERMANENT_RETRY_MS = 1500;
@@ -120,14 +120,17 @@ export async function syncPinToKeypad(
       subscription: {
         select: { startsAt: true, endsAt: true, deactivatedAt: true },
       },
+      entryPackage: {
+        select: { deactivatedAt: true, remainingEntries: true },
+      },
     },
   });
 
-  const shouldHavePin =
-    user.role === UserRole.ADMIN ||
-    user.role === UserRole.INSTRUCTOR ||
-    (user.role === UserRole.SUBSCRIBER &&
-      isEligibleForDoorAccess(user.subscription));
+  const shouldHavePin = shouldHaveDoorPin({
+    role: user.role,
+    subscription: user.subscription,
+    entryPackage: user.entryPackage,
+  });
 
   if (shouldHavePin) {
     // Deve avere il PIN — crea se non ce l'ha

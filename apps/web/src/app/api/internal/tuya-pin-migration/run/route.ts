@@ -1,7 +1,7 @@
-import { db, UserRole } from "@gestionale/db";
+import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
-import { isEligibleForDoorAccess } from "@/lib/subscription";
+import { shouldHaveDoorPin } from "@/lib/subscription";
 import { ensureTuyaUser, syncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 export const runtime = "nodejs";
@@ -45,6 +45,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       subscription: {
         select: { startsAt: true, endsAt: true, deactivatedAt: true },
       },
+      entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },
   });
 
@@ -66,10 +67,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
 
       // Step 2: sync PIN if needed
-      const shouldHavePin =
-        user.role === UserRole.ADMIN ||
-        user.role === UserRole.INSTRUCTOR ||
-        (user.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(user.subscription));
+      const shouldHavePin = shouldHaveDoorPin({
+        role: user.role,
+        subscription: user.subscription,
+        entryPackage: user.entryPackage,
+      });
 
       if (shouldHavePin && !user.tuyaPinActive) {
         await syncPinToKeypad(db, user.id);
