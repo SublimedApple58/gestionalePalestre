@@ -322,6 +322,18 @@ async function handleInstallmentFailed(
   const plan = payment.installmentPlan;
   if (!plan) return;
 
+  // Un piano non più ACTIVE (annullato, abbandonato, defaultato o completato) non
+  // deve MAI toccare l'abbonamento: un webhook Revolut tardivo su un piano fantasma
+  // (es. tentativo di acquisto a rate mai completato) non può spegnere un
+  // abbonamento valido. Registriamo solo il payload e usciamo.
+  if (plan.status !== InstallmentPlanStatus.ACTIVE) {
+    await db.payment.update({
+      where: { id: payment.id },
+      data: { rawWebhookPayload: body as Prisma.InputJsonValue }
+    });
+    return;
+  }
+
   const nextScheduled = plan.installments
     .filter((i) => i.status === InstallmentStatus.SCHEDULED)
     .sort((a, b) => a.sequenceNumber - b.sequenceNumber)[0];
@@ -333,7 +345,17 @@ async function handleInstallmentFailed(
   const otherPaidPayments = await db.payment.count({
     where: { userId: payment.userId, status: PaymentStatus.PAID, id: { not: payment.id } }
   });
-  const hasValidCoverage = planHasPaidInstallment || otherPaidPayments > 0;
+  // L'abbonamento attivo dell'utente è di un tier DIVERSO da questo piano a rate?
+  // Allora è copertura reale e scollegata da questa rata (es. mensile assegnato a
+  // mano dalla reception → nessun Payment PAID, ma non c'entra nulla con l'annuale
+  // a rate fallito). Non deve essere spento da una rata di un altro tier.
+  const activeSub = await db.userSubscription.findUnique({
+    where: { userId: payment.userId }
+  });
+  const subIsUnrelatedTier =
+    activeSub != null && activeSub.deactivatedAt == null && activeSub.tier !== payment.tier;
+  const hasValidCoverage =
+    planHasPaidInstallment || otherPaidPayments > 0 || subIsUnrelatedTier;
 
   await db.$transaction(async (tx) => {
     if (nextScheduled) {
