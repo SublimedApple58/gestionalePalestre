@@ -37,6 +37,7 @@ export default async function UtentiPage({ searchParams }: UtentiPageProps) {
     db.user.findMany({
       include: {
         subscription: true,
+        entryPackage: true,
         documents: true,
         assignedInstructor: {
           select: { firstName: true, lastName: true }

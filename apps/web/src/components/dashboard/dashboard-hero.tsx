@@ -1,7 +1,7 @@
 import { SubscriptionTier, UserRole } from "@gestionale/db";
 
 import { roleLabel } from "@/lib/roles";
-import { subscriptionStatus, tierLabel } from "@/lib/subscription";
+import { isEntryPackageActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { UserAvatar } from "../ui/user-avatar";
 
@@ -15,6 +15,11 @@ type DashboardHeroProps = {
     startsAt: Date;
     endsAt: Date;
   } | null;
+  entryPackage?: {
+    totalEntries: number;
+    remainingEntries: number;
+    deactivatedAt: Date | null;
+  } | null;
 };
 
 export function DashboardHero({
@@ -22,9 +27,12 @@ export function DashboardHero({
   lastName,
   role,
   profilePhotoUrl,
-  subscription
+  subscription,
+  entryPackage
 }: DashboardHeroProps) {
   const subStatus = subscriptionStatus(subscription);
+  // Il pacchetto ingressi si mostra AL POSTO dell'abbonamento (mutuamente esclusivi).
+  const showEntryPackage = !subscription && isEntryPackageActive(entryPackage);
 
   const greeting = getGreeting();
 
@@ -61,6 +69,9 @@ export function DashboardHero({
                   : "Scaduto"}
               </span>
             )}
+            {showEntryPackage && (
+              <span className="status-badge ok">Ingressi</span>
+            )}
           </div>
         </div>
       </div>
@@ -84,6 +95,15 @@ export function DashboardHero({
               </span>
             </div>
           </>
+        )}
+
+        {showEntryPackage && entryPackage && (
+          <div className="dash-hero-stat">
+            <span className="dash-hero-stat-label">Ingressi rimasti</span>
+            <span className="dash-hero-stat-value">
+              {entryPackage.remainingEntries}/{entryPackage.totalEntries}
+            </span>
+          </div>
         )}
       </div>
     </div>

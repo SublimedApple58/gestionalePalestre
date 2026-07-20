@@ -44,6 +44,11 @@ type UserRow = {
     endsAt: Date;
     deactivatedAt: Date | null;
   } | null;
+  entryPackage: {
+    totalEntries: number;
+    remainingEntries: number;
+    deactivatedAt: Date | null;
+  } | null;
   payments: Payment[];
   installmentPlans: (InstallmentPlan & { installments: Installment[] })[];
 };

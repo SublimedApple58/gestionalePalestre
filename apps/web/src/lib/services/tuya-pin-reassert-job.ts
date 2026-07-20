@@ -1,11 +1,11 @@
-import { type PrismaClient, UserRole } from "@gestionale/db";
+import { type PrismaClient } from "@gestionale/db";
 
 import {
   KEYPAD_PIN_UNLOCK_CODE,
   enablePin,
   listDoorLockOpenLogs
 } from "@/lib/tuya/access-control";
-import { isEligibleForDoorAccess } from "@/lib/subscription";
+import { shouldHaveDoorPin } from "@/lib/subscription";
 
 import { ensureTuyaUser } from "./tuya-pin-service";
 
@@ -124,15 +124,13 @@ export async function runTuyaPinReassertJob(
       tuyaPinUnlockNo: true,
       subscription: {
         select: { startsAt: true, endsAt: true, deactivatedAt: true }
-      }
+      },
+      entryPackage: { select: { deactivatedAt: true, remainingEntries: true } }
     }
   });
 
-  const targets = users.filter(
-    (u) =>
-      u.role === UserRole.ADMIN ||
-      u.role === UserRole.INSTRUCTOR ||
-      (u.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(u.subscription))
+  const targets = users.filter((u) =>
+    shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
   );
 
   result.total = targets.length;

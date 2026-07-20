@@ -200,6 +200,11 @@ export const mobileAdminUserSubscriptionSchema = z.object({
   startsAt: z.string().datetime({ offset: true }).optional()
 });
 
+/** Body POST /api/mobile/admin/users/[id]/entry-package */
+export const mobileAdminUserEntryPackageSchema = z.object({
+  totalEntries: z.coerce.number().int().min(1).max(500)
+});
+
 /** Body POST /api/mobile/admin/users/[id]/address */
 export const mobileAdminUserAddressSchema = z.object({
   address: z.string().trim().max(240).or(z.literal("")).nullable().optional()

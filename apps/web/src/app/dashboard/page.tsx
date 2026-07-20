@@ -54,6 +54,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     where: { id: sessionUser.id },
     include: {
       subscription: true,
+      entryPackage: true,
       workoutPlan: true,
       documents: true,
       assignedInstructor: {
@@ -97,6 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           role={currentUser.role}
           profilePhotoUrl={profilePhotoUrl}
           subscription={currentUser.subscription}
+          entryPackage={currentUser.entryPackage}
         />
 
         {params.error && ERROR_MAP[params.error] ? (
@@ -122,6 +124,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             assignedInstructor={currentUser.assignedInstructor}
             documents={currentUser.documents}
             subscription={currentUser.subscription}
+            entryPackage={currentUser.entryPackage}
             workoutPlan={currentUser.workoutPlan}
             isBirthdayToday={isSameMonthDay(currentUser.dateOfBirth, new Date())}
           />
@@ -144,6 +147,7 @@ type SubscriberViewProps = {
   } | null;
   documents: Parameters<typeof SubscriberDashboard>[0]["documents"];
   subscription: Parameters<typeof SubscriberDashboard>[0]["subscription"];
+  entryPackage: Parameters<typeof SubscriberDashboard>[0]["entryPackage"];
   workoutPlan: Parameters<typeof SubscriberDashboard>[0]["workoutPlan"];
   isBirthdayToday: boolean;
 };
@@ -154,6 +158,7 @@ async function SubscriberView({
   assignedInstructor,
   documents,
   subscription,
+  entryPackage,
   workoutPlan,
   isBirthdayToday
 }: SubscriberViewProps) {
@@ -170,6 +175,7 @@ async function SubscriberView({
         instructorPhotoUrl={instructorPhotoUrl}
         documents={documents}
         subscription={subscription}
+        entryPackage={entryPackage}
         workoutPlan={workoutPlan}
         isBirthdayToday={isBirthdayToday}
       />

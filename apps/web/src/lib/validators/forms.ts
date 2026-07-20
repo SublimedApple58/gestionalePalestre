@@ -53,6 +53,15 @@ export const assignSubscriptionSchema = z.object({
   startsAt: z.coerce.date()
 });
 
+export const assignEntryPackageSchema = z.object({
+  targetUserId: z.string().min(1),
+  totalEntries: z.coerce.number().int().min(1).max(500)
+});
+
+export const removeEntryPackageSchema = z.object({
+  targetUserId: z.string().min(1)
+});
+
 export const assignInstructorSchema = z.object({
   subscriberId: z.string().min(1),
   instructorId: z.string().min(1)

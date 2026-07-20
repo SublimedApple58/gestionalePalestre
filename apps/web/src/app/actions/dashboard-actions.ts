@@ -17,10 +17,12 @@ import { DomainError } from "@/lib/services/errors";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 import { runTuyaAccessLogSyncJob } from "@/lib/services/tuya-access-log-sync-job";
 import {
+  assignEntryPackageByAdmin,
   assignInstructorByAdmin,
   assignSubscriptionByAdmin,
   createUserByAdmin,
   deleteUserByAdmin,
+  removeEntryPackageByAdmin,
   updatePersonalInfo,
   updateUserRoleByAdmin
 } from "@/lib/services/user-service";
@@ -31,8 +33,10 @@ import {
   adminDeleteUserSchema,
   adminRoleChangeSchema,
   approveDocumentSchema,
+  assignEntryPackageSchema,
   assignInstructorSchema,
   assignSubscriptionSchema,
+  removeEntryPackageSchema,
   rejectDocumentSchema,
   requestReuploadDocumentSchema,
   updatePersonalInfoSchema
@@ -517,6 +521,57 @@ export async function assignSubscriptionActionState(
     });
     revalidatePath("/utenti");
     return { ok: true, message: "Abbonamento aggiornato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function assignEntryPackageActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = assignEntryPackageSchema.safeParse({
+      targetUserId: formData.get("targetUserId"),
+      totalEntries: formData.get("totalEntries")
+    });
+    if (!parsed.success) return { ok: false, message: "Numero di ingressi non valido." };
+    await assignEntryPackageByAdmin(db, user.role, user.id, parsed.data);
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: parsed.data.targetUserId,
+      action: AuditAction.ENTRY_PACKAGE_ASSIGNED,
+      payload: { totalEntries: parsed.data.totalEntries }
+    });
+    revalidatePath("/utenti");
+    return { ok: true, message: `Pacchetto di ${parsed.data.totalEntries} ingressi assegnato.` };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+export async function removeEntryPackageActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole([UserRole.ADMIN]);
+    const parsed = removeEntryPackageSchema.safeParse({
+      targetUserId: formData.get("targetUserId")
+    });
+    if (!parsed.success) return { ok: false, message: "Dati non validi." };
+    await removeEntryPackageByAdmin(db, user.role, user.id, parsed.data);
+    await logAdminAction(db, {
+      actorId: user.id,
+      targetUserId: parsed.data.targetUserId,
+      action: AuditAction.ENTRY_PACKAGE_REMOVED,
+      payload: {}
+    });
+    revalidatePath("/utenti");
+    return { ok: true, message: "Pacchetto ingressi rimosso." };
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
     return { ok: false, message: "Errore imprevisto." };

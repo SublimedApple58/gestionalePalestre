@@ -26,7 +26,12 @@ import {
   getUploadSlotsForType,
   hasRequiredDocuments
 } from "@/lib/documents";
-import { isSubscriptionActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
+import {
+  isEntryPackageActive,
+  isSubscriptionActive,
+  subscriptionStatus,
+  tierLabel
+} from "@/lib/subscription";
 
 import { BirthdayCelebration } from "./birthday-celebration";
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -41,6 +46,11 @@ type SubscriberDashboardProps = {
     tier: SubscriptionTier;
     startsAt: Date;
     endsAt: Date;
+  } | null;
+  entryPackage: {
+    totalEntries: number;
+    remainingEntries: number;
+    deactivatedAt: Date | null;
   } | null;
   assignedInstructor: {
     firstName: string;
@@ -58,6 +68,7 @@ export function SubscriberDashboard({
   firstName,
   workoutPlan,
   subscription,
+  entryPackage,
   assignedInstructor,
   instructorPhotoUrl,
   documents,
@@ -65,9 +76,12 @@ export function SubscriberDashboard({
 }: SubscriberDashboardProps) {
   const subscriptionActive = isSubscriptionActive(subscription);
   const subStatus = subscriptionStatus(subscription);
+  // Il pacchetto ingressi dà accesso AL POSTO dell'abbonamento (mutuamente esclusivi).
+  const entryActive = isEntryPackageActive(entryPackage);
+  const hasAccess = subscriptionActive || entryActive;
   const documentsReady = hasRequiredDocuments(UserRole.SUBSCRIBER, documents);
   const missingDocuments = getMissingDocumentTypes(UserRole.SUBSCRIBER, documents);
-  const canEnterGym = subscriptionActive && documentsReady;
+  const canEnterGym = hasAccess && documentsReady;
 
   const pendingTypes = CORE_DOCUMENT_TYPES.filter((type) => {
     const sides = getUploadSlotsForType(type);
@@ -91,10 +105,11 @@ export function SubscriberDashboard({
     missingDocuments.length > 0 &&
     missingDocuments.every((type) => pendingTypes.includes(type));
 
-  // Empty-state: subscriber senza abbonamento attivo (null o scaduto).
+  // Empty-state: subscriber senza NESSUN accesso (né abbonamento né pacchetto
+  // ingressi). Chi ha un pacchetto ingressi attivo vede la dashboard normale.
   // Saltiamo la dashboard "normale" e spingiamo diretto all'acquisto:
   // nessuna card metrica vuota, niente noise — solo l'azione da fare.
-  if (!subscriptionActive) {
+  if (!hasAccess) {
     return (
       <div className="dash-content">
         {isBirthdayToday ? <BirthdayCelebration firstName={firstName} /> : null}
@@ -159,25 +174,43 @@ export function SubscriberDashboard({
 
       {/* ── Quick stats row ───────────────────────────────────────── */}
       <div className="dash-stats-row">
-        <QuickStat
-          icon={Star}
-          label="Abbonamento"
-          value={subscription ? tierLabel(subscription.tier) : "—"}
-          badge={
-            subscription
-              ? { text: subscriptionActive ? "Attivo" : "Scaduto", variant: subscriptionActive ? "ok" : "missing" }
-              : undefined
-          }
-        />
-        <QuickStat
-          icon={Calendar}
-          label="Scadenza"
-          value={
-            subscription
-              ? new Date(subscription.endsAt).toLocaleDateString("it-IT")
-              : "—"
-          }
-        />
+        {entryActive && !subscription && entryPackage ? (
+          <>
+            <QuickStat
+              icon={Star}
+              label="Accesso"
+              value="Pacchetto ingressi"
+              badge={{ text: "Attivo", variant: "ok" }}
+            />
+            <QuickStat
+              icon={Calendar}
+              label="Ingressi rimasti"
+              value={`${entryPackage.remainingEntries}/${entryPackage.totalEntries}`}
+            />
+          </>
+        ) : (
+          <>
+            <QuickStat
+              icon={Star}
+              label="Abbonamento"
+              value={subscription ? tierLabel(subscription.tier) : "—"}
+              badge={
+                subscription
+                  ? { text: subscriptionActive ? "Attivo" : "Scaduto", variant: subscriptionActive ? "ok" : "missing" }
+                  : undefined
+              }
+            />
+            <QuickStat
+              icon={Calendar}
+              label="Scadenza"
+              value={
+                subscription
+                  ? new Date(subscription.endsAt).toLocaleDateString("it-IT")
+                  : "—"
+              }
+            />
+          </>
+        )}
         <QuickStat
           icon={ShieldCheck}
           label="Documenti"
@@ -239,8 +272,8 @@ export function SubscriberDashboard({
               </div>
             </div>
             <p className="dash-card-note">
-              {!subscriptionActive
-                ? "Il codice di accesso viene mostrato solo con abbonamento attivo."
+              {!hasAccess
+                ? "Il codice di accesso viene mostrato solo con abbonamento o pacchetto ingressi attivo."
                 : blockedByPendingReview
                 ? `Documenti in verifica: ${pendingTypes.map((type) => documentTypeLabel(type)).join(", ")}.`
                 : `Accesso bloccato: mancano ${missingDocuments

@@ -7,7 +7,7 @@ import {
 import { hash } from "bcryptjs";
 
 import { generateAccessCode } from "@/lib/access-code";
-import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { computeSubscriptionEndDate, isEligibleForDoorAccess } from "@/lib/subscription";
 
 import { DomainError } from "./errors";
 import { removeTuyaUserCompletely, safeSyncPinToKeypad } from "./tuya-pin-service";
@@ -40,6 +40,11 @@ type AssignSubscriptionInput = {
   targetUserId: string;
   tier: SubscriptionTier;
   startsAt: Date;
+};
+
+type AssignEntryPackageInput = {
+  targetUserId: string;
+  totalEntries: number;
 };
 
 type AssignInstructorInput = {
@@ -232,6 +237,96 @@ export async function assignSubscriptionByAdmin(
       endsAt,
       assignedById: actorId
     }
+  });
+
+  // Assegnare un abbonamento SOVRASCRIVE/annulla un eventuale pacchetto ingressi
+  // (mutuamente esclusivi). No-op se non esiste. Il successivo safeSyncPinToKeypad
+  // riconcilia il PIN in base al nuovo abbonamento.
+  await prisma.userEntryPackage.updateMany({
+    where: { userId: input.targetUserId, deactivatedAt: null },
+    data: { deactivatedAt: new Date(), remainingEntries: 0 }
+  });
+
+  safeSyncPinToKeypad(prisma, input.targetUserId);
+}
+
+/**
+ * Assegna (admin-only) un pacchetto ingressi a consumo a un iscritto SENZA
+ * abbonamento attivo. Reset totale su riassegnazione (nuova finestra `startsAt`).
+ * Blocca se l'utente ha già un abbonamento door-eligible (mutua esclusività).
+ */
+export async function assignEntryPackageByAdmin(
+  prisma: PrismaClient,
+  actorRole: UserRole,
+  actorId: string,
+  input: AssignEntryPackageInput
+): Promise<void> {
+  assertAdminRole(actorRole);
+
+  const user = await prisma.user.findUnique({
+    where: { id: input.targetUserId },
+    select: {
+      role: true,
+      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } }
+    }
+  });
+
+  if (!user) {
+    throw new DomainError("NOT_FOUND", "Utente non trovato.");
+  }
+
+  if (user.role !== UserRole.SUBSCRIBER) {
+    throw new DomainError(
+      "INVALID_ROLE",
+      "Il pacchetto ingressi puo' essere assegnato solo agli iscritti."
+    );
+  }
+
+  if (isEligibleForDoorAccess(user.subscription)) {
+    throw new DomainError(
+      "HAS_ACTIVE_SUBSCRIPTION",
+      "Questo utente ha un abbonamento attivo: rimuovilo prima di assegnare un pacchetto ingressi."
+    );
+  }
+
+  if (!Number.isInteger(input.totalEntries) || input.totalEntries < 1) {
+    throw new DomainError("INVALID_ENTRIES", "Il numero di ingressi deve essere almeno 1.");
+  }
+
+  const now = new Date();
+  await prisma.userEntryPackage.upsert({
+    where: { userId: input.targetUserId },
+    create: {
+      userId: input.targetUserId,
+      totalEntries: input.totalEntries,
+      remainingEntries: input.totalEntries,
+      startsAt: now,
+      assignedById: actorId
+    },
+    update: {
+      totalEntries: input.totalEntries,
+      remainingEntries: input.totalEntries,
+      startsAt: now,
+      deactivatedAt: null,
+      assignedById: actorId
+    }
+  });
+
+  safeSyncPinToKeypad(prisma, input.targetUserId);
+}
+
+/** Rimuove/annulla (admin-only) il pacchetto ingressi di un utente. No-op se assente. */
+export async function removeEntryPackageByAdmin(
+  prisma: PrismaClient,
+  actorRole: UserRole,
+  _actorId: string,
+  input: { targetUserId: string }
+): Promise<void> {
+  assertAdminRole(actorRole);
+
+  await prisma.userEntryPackage.updateMany({
+    where: { userId: input.targetUserId, deactivatedAt: null },
+    data: { deactivatedAt: new Date(), remainingEntries: 0 }
   });
 
   safeSyncPinToKeypad(prisma, input.targetUserId);

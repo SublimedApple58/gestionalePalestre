@@ -1,4 +1,4 @@
-import { SubscriptionTier, type UserSubscription } from "@gestionale/db";
+import { SubscriptionTier, UserRole, type UserSubscription } from "@gestionale/db";
 
 const TIER_MONTHS: Record<SubscriptionTier, number> = {
   DAILY: 0,
@@ -167,6 +167,42 @@ export function isEligibleForDoorAccess(
   if (subscription.deactivatedAt) return false;
   if (now < subscription.startsAt) return false;
   return now.getTime() <= subscription.endsAt.getTime() + ACCESS_GRACE_MS;
+}
+
+/**
+ * Idoneità all'ACCESSO FISICO tramite PACCHETTO INGRESSI (alternativa admin-only
+ * all'abbonamento). Attivo finché non annullato e con ingressi residui > 0.
+ * A differenza dell'abbonamento non è a tempo: è a consumo (nessuna grazia).
+ */
+export function isEntryPackageActive(
+  entryPackage: { deactivatedAt?: Date | null; remainingEntries: number } | null | undefined
+): boolean {
+  if (!entryPackage) return false;
+  if (entryPackage.deactivatedAt) return false;
+  return entryPackage.remainingEntries > 0;
+}
+
+/**
+ * DECISIONE UNICA per l'accesso porta (PIN sul tastierino), condivisa da tutte le
+ * repliche (syncPinToKeypad, resync/migration/reassert). ADMIN/INSTRUCTOR hanno
+ * sempre il PIN; il SUBSCRIBER lo ha se ha un abbonamento door-eligible OPPURE un
+ * pacchetto ingressi attivo. Chi non è nessuno dei tre non ha PIN.
+ */
+export function shouldHaveDoorPin(
+  input: {
+    role: UserRole;
+    subscription:
+      | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+      | null;
+    entryPackage: { deactivatedAt?: Date | null; remainingEntries: number } | null | undefined;
+  },
+  now: Date = new Date()
+): boolean {
+  if (input.role === UserRole.ADMIN || input.role === UserRole.INSTRUCTOR) return true;
+  if (input.role !== UserRole.SUBSCRIBER) return false;
+  return (
+    isEligibleForDoorAccess(input.subscription, now) || isEntryPackageActive(input.entryPackage)
+  );
 }
 
 export type SubscriptionStatus =

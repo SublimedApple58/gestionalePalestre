@@ -1,7 +1,7 @@
 import { db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
-import { isEligibleForDoorAccess } from "@/lib/subscription";
+import { shouldHaveDoorPin } from "@/lib/subscription";
 import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
 import {
   allocateUnlockMethods,
@@ -74,13 +74,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         tuyaUserId: true,
         role: true,
         subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
       },
     });
-    const eligible = users.filter(
-      (u) =>
-        u.role === UserRole.ADMIN ||
-        u.role === UserRole.INSTRUCTOR ||
-        (u.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(u.subscription))
+    const eligible = users.filter((u) =>
+      shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
     );
     const summary = { total: eligible.length, ok: 0, errors: [] as string[] };
     for (const u of eligible) {
@@ -274,15 +272,17 @@ export async function GET(request: Request): Promise<NextResponse> {
         tuyaUserId: true,
         role: true,
         subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
       },
       take: 200,
     });
     const eligible = candidates
-      .filter(
-        (u) =>
-          u.role === UserRole.ADMIN ||
-          u.role === UserRole.INSTRUCTOR ||
-          (u.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(u.subscription))
+      .filter((u) =>
+        shouldHaveDoorPin({
+          role: u.role,
+          subscription: u.subscription,
+          entryPackage: u.entryPackage,
+        })
       )
       .slice(0, n);
 
@@ -319,6 +319,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       subscription: {
         select: { startsAt: true, endsAt: true, deactivatedAt: true },
       },
+      entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },
   });
 
@@ -334,10 +335,11 @@ export async function GET(request: Request): Promise<NextResponse> {
   };
 
   for (const user of users) {
-    const shouldHavePin =
-      user.role === UserRole.ADMIN ||
-      user.role === UserRole.INSTRUCTOR ||
-      (user.role === UserRole.SUBSCRIBER && isEligibleForDoorAccess(user.subscription));
+    const shouldHavePin = shouldHaveDoorPin({
+      role: user.role,
+      subscription: user.subscription,
+      entryPackage: user.entryPackage,
+    });
 
     if (!shouldHavePin) {
       summary.skipped++;
