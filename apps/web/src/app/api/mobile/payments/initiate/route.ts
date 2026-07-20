@@ -119,29 +119,9 @@ export const POST = withMobileAuth(async (request, { user }) => {
         });
       }
 
-      if (initiated.installmentPlan) {
-        await tx.installmentPlan.create({
-          data: {
-            paymentId: payment.id,
-            userId: user.id,
-            totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
-            installmentsCount: initiated.installmentPlan.installmentsCount,
-            installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
-            revolutSubscriptionId: initiated.revolutSubscriptionId,
-            firstChargeAt: initiated.installmentPlan.firstChargeAt,
-            installments: {
-              create: Array.from(
-                { length: initiated.installmentPlan.installmentsCount },
-                (_, idx) => ({
-                  sequenceNumber: idx + 1,
-                  dueAt: addMonthsUtc(initiated.installmentPlan!.firstChargeAt, idx),
-                  amountCents: initiated.installmentPlan!.installmentAmountCents
-                })
-              )
-            }
-          }
-        });
-      }
+      // NB: per le rate NON creiamo qui il piano. Nasce nel webhook alla prima rata
+      // pagata (`ensureInstallmentPlan`): l'acquisto a rate "parte" solo a pagamento
+      // confermato. Link garantito da `Payment.providerReference = revolutSubscriptionId`.
     });
 
     return NextResponse.json({
@@ -162,17 +142,3 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "GATEWAY_ERROR" }, { status: 502 });
   }
 });
-
-function addMonthsUtc(base: Date, months: number): Date {
-  const d = new Date(base);
-  return new Date(
-    Date.UTC(
-      d.getUTCFullYear(),
-      d.getUTCMonth() + months,
-      d.getUTCDate(),
-      d.getUTCHours(),
-      d.getUTCMinutes(),
-      d.getUTCSeconds()
-    )
-  );
-}

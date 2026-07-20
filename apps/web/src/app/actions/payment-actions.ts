@@ -16,8 +16,9 @@ function isCheckoutTier(value: unknown): value is CheckoutTier {
  * Crea un record `Payment(PENDING)` in DB, chiama il gateway Revolut per creare
  * l'ordine hosted, salva il `providerReference` e reindirizza il browser all'URL hosted.
  *
- * Se payInInstallments=true e il tier ha rate, crea anche un InstallmentPlan con
- * la prima rata marcata PAID al completamento del checkout e le successive SCHEDULED.
+ * Se payInInstallments=true e il tier ha rate, crea SOLO la subscription Revolut e
+ * il Payment(PENDING): il piano rateale + le rate nascono nel webhook alla PRIMA
+ * rata effettivamente pagata (l'acquisto a rate "parte" solo a acquisto completato).
  *
  * Se fallisce prima del redirect aggiorna `Payment.status=FAILED` e manda l'utente
  * su `/checkout/failure?reason=...`.
@@ -114,29 +115,11 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
         });
       }
 
-      if (initiated.installmentPlan) {
-        await tx.installmentPlan.create({
-          data: {
-            paymentId: payment.id,
-            userId: user.id,
-            totalAmountCents: initiated.installmentPlan.installmentAmountCents * initiated.installmentPlan.installmentsCount,
-            installmentsCount: initiated.installmentPlan.installmentsCount,
-            installmentAmountCents: initiated.installmentPlan.installmentAmountCents,
-            revolutSubscriptionId: initiated.revolutSubscriptionId,
-            firstChargeAt: initiated.installmentPlan.firstChargeAt,
-            installments: {
-              create: Array.from(
-                { length: initiated.installmentPlan.installmentsCount },
-                (_, idx) => ({
-                  sequenceNumber: idx + 1,
-                  dueAt: addMonthsUtc(initiated.installmentPlan!.firstChargeAt, idx),
-                  amountCents: initiated.installmentPlan!.installmentAmountCents
-                })
-              )
-            }
-          }
-        });
-      }
+      // NB: per le rate NON creiamo qui il piano. L'acquisto a rate "parte" solo a
+      // pagamento confermato: il piano + le rate nascono nel webhook alla prima rata
+      // pagata (`ensureInstallmentPlan`). Così un checkout abbandonato non lascia mai
+      // un piano armato che potrebbe toccare l'abbonamento. Il collegamento è già
+      // garantito da `Payment.providerReference = revolutSubscriptionId`.
     });
 
     hostedUrl = initiated.hostedUrl;
@@ -153,18 +136,4 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
   }
 
   redirect(hostedUrl);
-}
-
-function addMonthsUtc(base: Date, months: number): Date {
-  const d = new Date(base);
-  return new Date(
-    Date.UTC(
-      d.getUTCFullYear(),
-      d.getUTCMonth() + months,
-      d.getUTCDate(),
-      d.getUTCHours(),
-      d.getUTCMinutes(),
-      d.getUTCSeconds()
-    )
-  );
 }

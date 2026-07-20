@@ -13,7 +13,11 @@ import {
   verifyWebhookSignature,
   type RevolutOrder
 } from "@/lib/payments/revolut";
-import { computeSubscriptionEndDate } from "@/lib/subscription";
+import {
+  computeExtendedEndDate,
+  computeSubscriptionEndDate,
+  TIER_CATALOG
+} from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
@@ -77,8 +81,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
+  // Un ordine legato a una subscription Revolut è una rata (setup della prima o
+  // ciclo successivo), anche se il piano in DB non esiste ancora: lo creiamo solo
+  // quando la prima rata è effettivamente pagata (l'acquisto a rate "parte" solo
+  // a acquisto completato).
+  const isInstallmentOrder = order.subscriptionId != null || payment.installmentPlan != null;
+
   if (order.state === "completed") {
-    if (payment.installmentPlan) {
+    if (isInstallmentOrder) {
       await handleInstallmentPaid(payment, order.id, body);
     } else {
       await handleOneShotPaid(payment, body);
@@ -88,7 +98,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (order.state === "failed" || order.state === "cancelled") {
-    if (payment.installmentPlan) {
+    if (isInstallmentOrder) {
       await handleInstallmentFailed(payment, order.state, body);
     } else {
       await db.payment.update({
@@ -125,6 +135,14 @@ async function resolvePayment(order: RevolutOrder): Promise<ResolvedPayment | nu
       const byPlan = await db.payment.findUnique({ where: { id: plan.paymentId }, include });
       if (byPlan && byPlan.provider === "REVOLUT") return byPlan;
     }
+    // 1b. Piano non ancora creato (prima rata non pagata): al momento dell'avvio
+    //     salviamo `Payment.providerReference = subscriptionId`. Così riconosciamo
+    //     comunque il pagamento e creeremo il piano solo a completamento.
+    const bySub = await db.payment.findFirst({
+      where: { provider: "REVOLUT", providerReference: order.subscriptionId },
+      include
+    });
+    if (bySub) return bySub;
   }
 
   // 2. external reference → Payment.id (one-shot)
@@ -154,13 +172,16 @@ async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promi
       }
     });
 
-    const startsAt = new Date();
-    const endsAt = computeSubscriptionEndDate(updated.tier, startsAt);
+    const now = new Date();
+    const existing = await tx.userSubscription.findUnique({ where: { userId: payment.userId } });
+    // Si SOMMA all'eventuale copertura già presente (niente giorni persi).
+    const endsAt = computeExtendedEndDate(updated.tier, now, existing);
 
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
-      update: { tier: updated.tier, startsAt, endsAt, deactivatedAt: null },
-      create: { userId: payment.userId, tier: updated.tier, startsAt, endsAt }
+      // Su update NON resettiamo startsAt: la copertura si accumula.
+      update: { tier: updated.tier, endsAt, deactivatedAt: null },
+      create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
     });
 
     await tx.payment.update({
@@ -210,6 +231,62 @@ async function cancelStrayInstallmentPlans(
   }
 }
 
+function addMonthsUtc(base: Date, months: number): Date {
+  const d = new Date(base);
+  return new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth() + months,
+      d.getUTCDate(),
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds()
+    )
+  );
+}
+
+/**
+ * Crea il piano rateale + le sue rate al PRIMO pagamento confermato (non all'avvio
+ * del checkout). `revolutSubscriptionId` = `Payment.providerReference` (la subscription
+ * Revolut salvata all'avvio). Idempotente: `InstallmentPlan.paymentId` è unico, quindi
+ * una corsa tra webbook concomitanti non crea duplicati. Ritorna il piano con le rate.
+ */
+async function ensureInstallmentPlan(
+  payment: ResolvedPayment
+): Promise<ResolvedPayment["installmentPlan"]> {
+  const inst = TIER_CATALOG[payment.tier].installments;
+  if (!inst) return null;
+
+  const firstChargeAt = new Date();
+  try {
+    await db.installmentPlan.create({
+      data: {
+        paymentId: payment.id,
+        userId: payment.userId,
+        totalAmountCents: inst.amountCents * inst.count,
+        installmentsCount: inst.count,
+        installmentAmountCents: inst.amountCents,
+        revolutSubscriptionId: payment.providerReference,
+        firstChargeAt,
+        installments: {
+          create: Array.from({ length: inst.count }, (_, idx) => ({
+            sequenceNumber: idx + 1,
+            dueAt: addMonthsUtc(firstChargeAt, idx),
+            amountCents: inst.amountCents
+          }))
+        }
+      }
+    });
+  } catch {
+    // Corsa: creato da un webbook concomitante → lo rileggiamo qui sotto.
+  }
+
+  return db.installmentPlan.findUnique({
+    where: { paymentId: payment.id },
+    include: { installments: true }
+  });
+}
+
 /**
  * Ciclo rata riuscito (setup order o addebito mensile successivo).
  * Marca la prima rata SCHEDULED come PAID, attiva/mantiene la subscription, e
@@ -221,13 +298,21 @@ async function handleInstallmentPaid(
   orderId: string,
   body: unknown
 ): Promise<void> {
-  const plan = payment.installmentPlan;
+  // Il piano a rate NASCE QUI: se non esiste ancora (prima rata pagata) lo creiamo
+  // ora. È il momento in cui l'acquisto a rate "parte" davvero — un checkout
+  // abbandonato non lascia mai un piano armato.
+  const plan = payment.installmentPlan ?? (await ensureInstallmentPlan(payment));
   if (!plan) return;
 
   // Idempotenza: se questo order_id ha già marcato una rata, no-op.
   if (plan.installments.some((i) => i.providerReference === orderId)) {
     return;
   }
+
+  // Prima rata pagata di questo piano? Solo allora concediamo la copertura piena
+  // e la SOMMIAMO all'eventuale abbonamento già presente. Ai cicli successivi la
+  // scadenza NON si ricalcola (altrimenti si sommerebbe ogni mese).
+  const isFirstPaid = !plan.installments.some((i) => i.status === InstallmentStatus.PAID);
 
   const nextScheduled = plan.installments
     .filter((i) => i.status === InstallmentStatus.SCHEDULED)
@@ -245,12 +330,17 @@ async function handleInstallmentPaid(
       });
     }
 
-    const startsAt = payment.paidAt ?? new Date();
-    const endsAt = computeSubscriptionEndDate(payment.tier, startsAt);
+    const now = new Date();
+    const existing = await tx.userSubscription.findUnique({ where: { userId: payment.userId } });
+    const endsAt = isFirstPaid
+      ? computeExtendedEndDate(payment.tier, now, existing)
+      : existing?.endsAt ?? computeSubscriptionEndDate(payment.tier, now);
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
+      // Su update NON tocchiamo startsAt: la copertura si accumula, la data di
+      // inizio storica resta quella originale.
       update: { tier: payment.tier, endsAt, deactivatedAt: null },
-      create: { userId: payment.userId, tier: payment.tier, startsAt, endsAt }
+      create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt }
     });
     if (!payment.subscriptionId) {
       await tx.payment.update({
@@ -300,19 +390,17 @@ async function handleInstallmentPaid(
 /**
  * Ciclo rata fallito → rata FAILED (per il pannello admin "Rate in sofferenza").
  *
- * L'accesso NON viene toccato se l'utente ha una BASE DI PAGAMENTO VALIDA: una
- * rata già pagata su questo piano, oppure un altro pagamento PAID (annuale
- * one-shot, o un altro piano). Motivo: un utente ha UNA sola UserSubscription ma
- * può avere PIÙ piani rateali (checkout ripetuti/abbandonati); una retry Revolut
- * su un piano-fantasma NON deve azzerare l'abbonamento di chi ha davvero pagato
- * (era il bug "annuali pagati che risultano scaduti"). Per un pagante, la rata
- * insoluta si recupera A MANO dal pannello "Rate in sofferenza".
+ * REGOLA CHIAVE: l'accesso viene toccato SOLO se il piano è davvero PARTITO —
+ * cioè ha almeno una rata pagata — e la rata fallita è di un ciclo successivo.
+ * Un acquisto a rate mai completato (prima rata fallita/abbandonata) NON ha piano
+ * (lo creiamo solo a pagamento confermato) oppure ha 0 rate pagate → non spegne
+ * MAI l'abbonamento (era il bug: un tentativo di annuale abbandonato azzerava il
+ * mensile). Idem se l'abbonamento attivo è di un tier diverso dal piano.
  *
- * Solo se l'utente non ha MAI pagato nulla (checkout puramente abbandonato/fallito)
- * portiamo `endsAt = now`: la grazia `ACCESS_GRACE_DAYS` lascia comunque 2 giorni,
- * poi il sync toglie il PIN. Non usiamo `deactivatedAt` (riservato alla
- * disattivazione manuale, che è immediata). Un retry riuscito → `handleInstallmentPaid`
- * ripristina `endsAt` al termine pieno.
+ * Per un pagante vero, la rata insoluta di un ciclo successivo porta `endsAt = now`:
+ * la grazia `ACCESS_GRACE_DAYS` lascia comunque 2 giorni, poi il sync toglie il PIN.
+ * La rata si recupera dal pannello "Rate in sofferenza"; un retry riuscito →
+ * `handleInstallmentPaid` ripristina `endsAt` al termine pieno.
  */
 async function handleInstallmentFailed(
   payment: ResolvedPayment,
@@ -320,12 +408,31 @@ async function handleInstallmentFailed(
   body: unknown
 ): Promise<void> {
   const plan = payment.installmentPlan;
-  if (!plan) return;
 
-  // Un piano non più ACTIVE (annullato, abbandonato, defaultato o completato) non
-  // deve MAI toccare l'abbonamento: un webhook Revolut tardivo su un piano fantasma
-  // (es. tentativo di acquisto a rate mai completato) non può spegnere un
-  // abbonamento valido. Registriamo solo il payload e usciamo.
+  // Nessun piano = acquisto a rate MAI avviato (prima rata fallita/abbandonata):
+  // l'abbonamento non si tocca. Chiudiamo il pagamento e cancelliamo la subscription
+  // Revolut così non riprova ad addebitare.
+  if (!plan) {
+    await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: state === "cancelled" ? PaymentStatus.CANCELED : PaymentStatus.FAILED,
+        failureReason: `Acquisto a rate non completato (Revolut ${state})`,
+        rawWebhookPayload: body as Prisma.InputJsonValue
+      }
+    });
+    if (payment.providerReference) {
+      await cancelSubscription(payment.providerReference).catch((e) =>
+        console.error(
+          `[webhook/revolut] cancel subscription rata non avviata ${payment.providerReference}:`,
+          e
+        )
+      );
+    }
+    return;
+  }
+
+  // Piano non più ACTIVE (annullato/completato/defaultato) → webbook tardivo: solo log.
   if (plan.status !== InstallmentPlanStatus.ACTIVE) {
     await db.payment.update({
       where: { id: payment.id },
@@ -338,24 +445,17 @@ async function handleInstallmentFailed(
     .filter((i) => i.status === InstallmentStatus.SCHEDULED)
     .sort((a, b) => a.sequenceNumber - b.sequenceNumber)[0];
 
-  // Base di pagamento valida? → non tocchiamo l'accesso (solo recupero manuale).
-  const planHasPaidInstallment = plan.installments.some(
-    (i) => i.status === InstallmentStatus.PAID
-  );
-  const otherPaidPayments = await db.payment.count({
-    where: { userId: payment.userId, status: PaymentStatus.PAID, id: { not: payment.id } }
-  });
-  // L'abbonamento attivo dell'utente è di un tier DIVERSO da questo piano a rate?
-  // Allora è copertura reale e scollegata da questa rata (es. mensile assegnato a
-  // mano dalla reception → nessun Payment PAID, ma non c'entra nulla con l'annuale
-  // a rate fallito). Non deve essere spento da una rata di un altro tier.
+  // Il piano è "partito" solo con almeno una rata pagata.
+  const planStarted = plan.installments.some((i) => i.status === InstallmentStatus.PAID);
+  // Abbonamento attivo di tier DIVERSO dal piano → copertura scollegata (es. mensile
+  // assegnato a mano dalla reception): non va spento da una rata di un altro tier.
   const activeSub = await db.userSubscription.findUnique({
     where: { userId: payment.userId }
   });
   const subIsUnrelatedTier =
     activeSub != null && activeSub.deactivatedAt == null && activeSub.tier !== payment.tier;
-  const hasValidCoverage =
-    planHasPaidInstallment || otherPaidPayments > 0 || subIsUnrelatedTier;
+  // Sospendiamo solo un piano avviato la cui rata di un ciclo successivo è fallita.
+  const shouldSuspend = planStarted && !subIsUnrelatedTier;
 
   await db.$transaction(async (tx) => {
     if (nextScheduled) {
@@ -367,7 +467,7 @@ async function handleInstallmentFailed(
         }
       });
     }
-    if (!hasValidCoverage) {
+    if (shouldSuspend) {
       await tx.userSubscription.updateMany({
         where: { userId: payment.userId, deactivatedAt: null },
         data: { endsAt: new Date() }

@@ -105,6 +105,25 @@ export function computeSubscriptionEndDate(tier: SubscriptionTier, startsAt: Dat
   );
 }
 
+/**
+ * Nuova scadenza che SI SOMMA alla copertura esistente invece di sovrascriverla.
+ * Se l'utente ha già un abbonamento attivo (non disattivato) e non ancora scaduto,
+ * la nuova durata parte dalla scadenza attuale (i giorni residui NON si perdono).
+ * Altrimenti parte da `now`. Usato alla conferma del pagamento (one-shot e prima
+ * rata) e vale anche come rinnovo senza buchi.
+ */
+export function computeExtendedEndDate(
+  tier: SubscriptionTier,
+  now: Date,
+  current?: { endsAt: Date; deactivatedAt: Date | null } | null
+): Date {
+  const base =
+    current && current.deactivatedAt == null && current.endsAt.getTime() > now.getTime()
+      ? current.endsAt
+      : now;
+  return computeSubscriptionEndDate(tier, base);
+}
+
 export function isSubscriptionActive(
   subscription:
     | Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null } | null,

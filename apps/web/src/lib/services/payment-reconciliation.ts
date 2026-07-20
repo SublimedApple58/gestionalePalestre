@@ -1,7 +1,7 @@
 import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
 import { getOrder } from "@/lib/payments/revolut";
-import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { computeExtendedEndDate } from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
@@ -64,21 +64,25 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
         }
       });
 
-      const startsAt = new Date();
-      const endsAt = computeSubscriptionEndDate(updated.tier, startsAt);
+      const now = new Date();
+      const existing = await tx.userSubscription.findUnique({
+        where: { userId: payment.userId }
+      });
+      // Si SOMMA alla copertura esistente invece di sovrascriverla (niente giorni persi).
+      const endsAt = computeExtendedEndDate(updated.tier, now, existing);
 
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
+        // Su update NON resettiamo startsAt: la copertura si accumula.
         update: {
           tier: updated.tier,
-          startsAt,
           endsAt,
           deactivatedAt: null
         },
         create: {
           userId: payment.userId,
           tier: updated.tier,
-          startsAt,
+          startsAt: now,
           endsAt
         }
       });

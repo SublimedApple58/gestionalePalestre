@@ -6,6 +6,7 @@ type ReconcileSummary = {
   activePlans: number;
   completedPlans: number;
   discardedAbandoned: number;
+  discardedPendingNoPlan: number;
 };
 
 // Un checkout a rate lasciato a metà (redirect Revolut mai completato) crea
@@ -96,9 +97,41 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
     }
   }
 
+  // Seconda passata: checkout a rate abbandonati che NON hanno un piano (col nuovo
+  // flusso il piano nasce solo a prima rata pagata). Restano come Payment PENDING
+  // con `providerReference` = subscription Revolut. Dopo 48h li chiudiamo e
+  // cancelliamo la subscription così non prova ad addebitare. Escludiamo i
+  // `pending-*` (chiamata al gateway mai riuscita → nessuna subscription reale).
+  const stalePending = await db.payment.findMany({
+    where: {
+      provider: "REVOLUT",
+      status: PaymentStatus.PENDING,
+      installmentPlan: null,
+      createdAt: { lt: new Date(now - ABANDON_AFTER_MS) },
+      NOT: { providerReference: { startsWith: "pending-" } }
+    },
+    select: { id: true, providerReference: true }
+  });
+
+  let discardedPendingNoPlan = 0;
+  for (const p of stalePending) {
+    await cancelSubscription(p.providerReference).catch(() => {
+      // Idempotente/tollerante: se non è una subscription (one-shot) Revolut dà 404.
+    });
+    await db.payment.updateMany({
+      where: { id: p.id, status: PaymentStatus.PENDING },
+      data: {
+        status: PaymentStatus.CANCELED,
+        failureReason: "Acquisto a rate abbandonato (mai completato)"
+      }
+    });
+    discardedPendingNoPlan += 1;
+  }
+
   return {
     activePlans: activePlans.length,
     completedPlans: completed,
-    discardedAbandoned: discarded
+    discardedAbandoned: discarded,
+    discardedPendingNoPlan
   };
 }
