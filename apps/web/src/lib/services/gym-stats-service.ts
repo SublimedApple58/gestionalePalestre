@@ -29,6 +29,8 @@ export type GymStats = {
     active: number;
     newThisMonth: number;
     renewalRatePct: number;
+    renewers: number; // iscritti che hanno rinnovato ≥1 volta
+    payers: number; // iscritti con ≥1 pagamento
     newPerMonth: LabelValue[]; // ultimi 12 mesi
   };
   usage: {
@@ -309,6 +311,8 @@ export async function computeGymStats(
       active,
       newThisMonth: newThisMonth[0]?.c ?? 0,
       renewalRatePct,
+      renewers,
+      payers,
       newPerMonth
     },
     usage: {
