@@ -29,7 +29,8 @@ export const POST = withMobileAuth<{ id: string }>(
 
     await db.userSubscription.update({
       where: { userId: params.id },
-      data: { deactivatedAt: null }
+      // Riattivazione: non piu' disdetto -> azzera canceledAt.
+      data: { deactivatedAt: null, canceledAt: null }
     });
 
     safeSyncPinToKeypad(db, params.id);

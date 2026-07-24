@@ -31,7 +31,8 @@ export const POST = withMobileAuth<{ id: string }>(
     const now = new Date();
     await db.userSubscription.update({
       where: { userId: params.id },
-      data: { deactivatedAt: now }
+      // Disdetta: stampa canceledAt + spegne autoRenew (vedi web deactivate).
+      data: { deactivatedAt: now, canceledAt: now, autoRenew: false }
     });
 
     safeSyncPinToKeypad(db, params.id);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ClipboardList, CreditCard, LayoutDashboard, LogOut, User, Users } from "lucide-react";
+import { BarChart3, ClipboardList, CreditCard, LayoutDashboard, LogOut, User, Users } from "lucide-react";
 import { Layout, Menu, Button, Drawer, Typography } from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import { type UserRole } from "@gestionale/db";
@@ -17,7 +17,7 @@ const { Text } = Typography;
 
 type AuthenticatedShellProps = {
   children: React.ReactNode;
-  currentPath: "/dashboard" | "/utenti" | "/profilo" | "/checkout" | "/schede";
+  currentPath: "/dashboard" | "/utenti" | "/statistiche" | "/profilo" | "/checkout" | "/schede";
   user: {
     firstName: string;
     role: UserRole;
@@ -27,6 +27,7 @@ type AuthenticatedShellProps = {
 const NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={18} />,
   "/utenti": <Users size={18} />,
+  "/statistiche": <BarChart3 size={18} />,
   "/checkout": <CreditCard size={18} />,
   "/schede": <ClipboardList size={18} />,
   "/profilo": <User size={18} />
@@ -35,6 +36,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
   "/dashboard": <LayoutDashboard size={22} />,
   "/utenti": <Users size={22} />,
+  "/statistiche": <BarChart3 size={22} />,
   "/checkout": <CreditCard size={22} />,
   "/schede": <ClipboardList size={22} />,
   "/profilo": <User size={22} />

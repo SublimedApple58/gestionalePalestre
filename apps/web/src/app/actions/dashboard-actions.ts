@@ -775,7 +775,10 @@ export async function deactivateSubscriptionActionState(
     const now = new Date();
     await db.userSubscription.update({
       where: { userId: targetUserId },
-      data: { deactivatedAt: now }
+      // La disattivazione dell'admin e' il segnale di "disdetta" del prodotto:
+      // stampiamo canceledAt (base per "tempo medio prima della disdetta") e
+      // spegniamo il rinnovo automatico. La riattivazione azzera canceledAt.
+      data: { deactivatedAt: now, canceledAt: now, autoRenew: false }
     });
 
     safeSyncPinToKeypad(db, targetUserId);
@@ -817,7 +820,8 @@ export async function reactivateSubscriptionActionState(
 
     await db.userSubscription.update({
       where: { userId: targetUserId },
-      data: { deactivatedAt: null }
+      // Riattivazione: l'abbonamento non e' piu' disdetto -> azzera canceledAt.
+      data: { deactivatedAt: null, canceledAt: null }
     });
 
     safeSyncPinToKeypad(db, targetUserId);

@@ -1,6 +1,6 @@
 import { UserRole } from "@gestionale/db";
 
-export type AppNavHref = "/dashboard" | "/utenti" | "/profilo" | "/checkout" | "/schede";
+export type AppNavHref = "/dashboard" | "/utenti" | "/statistiche" | "/profilo" | "/checkout" | "/schede";
 
 export type AppNavItem = {
   href: AppNavHref;
@@ -15,6 +15,7 @@ type NavItemDef = Pick<AppNavItem, "href" | "label" | "shortLabel">;
 const DASHBOARD_ITEM: NavItemDef = { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard" };
 const PROFILE_ITEM: NavItemDef = { href: "/profilo", label: "Dati personali", shortLabel: "Profilo" };
 const USERS_ITEM: NavItemDef = { href: "/utenti", label: "Utenti", shortLabel: "Utenti" };
+const STATS_ITEM: NavItemDef = { href: "/statistiche", label: "Statistiche", shortLabel: "Stats" };
 const CHECKOUT_ITEM: NavItemDef = { href: "/checkout", label: "Abbonamento", shortLabel: "Abbon." };
 const SCHEDE_ITEM: NavItemDef = { href: "/schede", label: "Le mie schede", shortLabel: "Schede" };
 
@@ -22,7 +23,7 @@ export function getAppNavigationItems(currentPath: string, role?: UserRole): App
   let items: NavItemDef[];
 
   if (role === UserRole.ADMIN) {
-    items = [DASHBOARD_ITEM, USERS_ITEM, PROFILE_ITEM];
+    items = [DASHBOARD_ITEM, USERS_ITEM, STATS_ITEM, PROFILE_ITEM];
   } else if (role === UserRole.SUBSCRIBER) {
     items = [DASHBOARD_ITEM, SCHEDE_ITEM, CHECKOUT_ITEM, PROFILE_ITEM];
   } else {

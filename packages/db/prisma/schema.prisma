@@ -241,6 +241,13 @@ model UserSubscription {
   /// e' futuro. Permette all'admin di sospendere/riattivare senza perdere lo
   /// storico di tier/date.
   deactivatedAt DateTime?
+  /// Rinnovo automatico attivo (billing ricorrente Revolut / piano rateale).
+  /// Usato per le statistiche di fidelizzazione ("% rinnovi automatici").
+  autoRenew     Boolean          @default(false)
+  /// Momento della disdetta del rinnovo automatico (distinto da deactivatedAt,
+  /// che sospende subito l'accesso: qui l'accesso resta fino a endsAt).
+  /// Base per il "tempo medio prima della disdetta".
+  canceledAt    DateTime?
   assignedById  String?
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedBy    User?            @relation("AdminAssignedSubscriptions", fields: [assignedById], references: [id], onDelete: SetNull)
@@ -249,6 +256,8 @@ model UserSubscription {
 
   @@index([startsAt, endsAt])
   @@index([assignedById])
+  @@index([canceledAt])
+  @@index([autoRenew])
 }
 
 /// Pacchetto ingressi a consumo (admin-only). Alternativa all'abbonamento per chi

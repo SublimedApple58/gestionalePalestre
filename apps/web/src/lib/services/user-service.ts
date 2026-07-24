@@ -235,7 +235,9 @@ export async function assignSubscriptionByAdmin(
       tier: input.tier,
       startsAt: input.startsAt,
       endsAt,
-      assignedById: actorId
+      assignedById: actorId,
+      // Assegnazione manuale = termine nuovo, non e' piu' disdetto.
+      canceledAt: null
     }
   });
 

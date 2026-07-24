@@ -338,9 +338,11 @@ async function handleInstallmentPaid(
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
       // Su update NON tocchiamo startsAt: la copertura si accumula, la data di
-      // inizio storica resta quella originale.
-      update: { tier: payment.tier, endsAt, deactivatedAt: null },
-      create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt }
+      // inizio storica resta quella originale. autoRenew=true: un piano rateale
+      // Revolut e' billing ricorrente (usato dalle stat "% rinnovi automatici");
+      // canceledAt azzerato perche' un pagamento riattiva di fatto l'abbonamento.
+      update: { tier: payment.tier, endsAt, deactivatedAt: null, autoRenew: true, canceledAt: null },
+      create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt, autoRenew: true }
     });
     if (!payment.subscriptionId) {
       await tx.payment.update({
@@ -367,6 +369,14 @@ async function handleInstallmentPaid(
       await tx.installmentPlan.update({
         where: { id: plan.id },
         data: { status: "COMPLETED" }
+      });
+      // Piano rateale saldato per intero: il billing ricorrente finisce qui
+      // (la subscription Revolut viene cancellata sotto). Non e' una disdetta
+      // -> autoRenew=false ma NESSUN canceledAt (l'abbonamento resta valido
+      // fino a endsAt, semplicemente non si rinnovera' da solo).
+      await tx.userSubscription.update({
+        where: { userId: payment.userId },
+        data: { autoRenew: false }
       });
       return true;
     }
