@@ -662,19 +662,17 @@ export async function assignTemplate(
       "Questa scheda non e' assegnabile."
     );
   }
-  if (template.createdById !== input.actorId && input.actorRole !== UserRole.ADMIN) {
-    throw new DomainError(
-      "FORBIDDEN",
-      "Solo il creatore o un admin puo' assegnare la scheda."
-    );
-  }
 
-  // Per istruttori: solo i loro allievi
+  // Admin e istruttori (già filtrati da assertCanCreateTemplates) possono
+  // assegnare QUALSIASI scheda assegnabile: la libreria schede è creata dagli
+  // admin ma gli istruttori la usano per i propri iscritti. Coerente con
+  // l'endpoint /instructor/students che mostra all'istruttore TUTTI gli iscritti.
+  // Vincolo: gli istruttori possono assegnare solo a utenti ISCRITTI.
   if (input.actorRole === UserRole.INSTRUCTOR) {
     const validStudents = await prisma.user.findMany({
       where: {
         id: { in: input.userIds },
-        assignedInstructorId: input.actorId
+        role: UserRole.SUBSCRIBER
       },
       select: { id: true }
     });
@@ -683,7 +681,7 @@ export async function assignTemplate(
     if (invalidIds.length > 0) {
       throw new DomainError(
         "FORBIDDEN",
-        "Puoi assegnare schede solo ai tuoi allievi."
+        "Le schede si assegnano solo agli iscritti."
       );
     }
   }
