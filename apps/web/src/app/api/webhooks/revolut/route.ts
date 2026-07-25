@@ -332,9 +332,20 @@ async function handleInstallmentPaid(
 
     const now = new Date();
     const existing = await tx.userSubscription.findUnique({ where: { userId: payment.userId } });
+    // Su una rata successiva RIPRISTINIAMO la copertura al termine pieno (dalla
+    // data di inizio): se l'accesso era stato tagliato da una rata insoluta
+    // (endsAt riportato alla scadenza), un pagamento riuscito lo riporta al termine.
+    // `Math.max` evita di accorciare una copertura gia' piu' lunga.
     const endsAt = isFirstPaid
       ? computeExtendedEndDate(payment.tier, now, existing)
-      : existing?.endsAt ?? computeSubscriptionEndDate(payment.tier, now);
+      : existing
+        ? new Date(
+            Math.max(
+              existing.endsAt.getTime(),
+              computeSubscriptionEndDate(payment.tier, existing.startsAt).getTime()
+            )
+          )
+        : computeSubscriptionEndDate(payment.tier, now);
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
       // Su update NON tocchiamo startsAt: la copertura si accumula, la data di

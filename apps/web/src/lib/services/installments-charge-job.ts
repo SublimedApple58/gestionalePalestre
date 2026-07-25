@@ -1,12 +1,16 @@
 import { db, InstallmentPlanStatus, InstallmentStatus, PaymentStatus } from "@gestionale/db";
 
 import { cancelSubscription } from "@/lib/payments/revolut";
+import { syncPinToKeypad } from "@/lib/services/tuya-pin-service";
+import { ACCESS_GRACE_DAYS } from "@/lib/subscription";
 
 type ReconcileSummary = {
   activePlans: number;
   completedPlans: number;
   discardedAbandoned: number;
   discardedPendingNoPlan: number;
+  /** Piani con rata scaduta insoluta -> accesso tagliato (rete di sicurezza). */
+  arrearsSuspended: number;
 };
 
 // Un checkout a rate lasciato a metà (redirect Revolut mai completato) crea
@@ -14,6 +18,10 @@ type ReconcileSummary = {
 // rata pagata e col pagamento setup ancora in attesa, lo consideriamo abbandonato
 // e lo buttiamo via. Generoso: un pagamento reale avviene in minuti, non in giorni.
 const ABANDON_AFTER_MS = 48 * 60 * 60 * 1000;
+
+// Oltre questa finestra dalla scadenza, una rata SCHEDULED mai confermata dal
+// webhook Revolut è considerata insoluta (allineata alla grazia porta di 2 giorni).
+const ARREARS_GRACE_MS = ACCESS_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 /**
  * Safety-net giornaliero per i piani rateali.
@@ -33,17 +41,19 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
     where: { status: "ACTIVE" },
     select: {
       id: true,
+      userId: true,
       revolutSubscriptionId: true,
       createdAt: true,
       paymentId: true,
-      payment: { select: { status: true } },
-      installments: { select: { status: true } }
+      payment: { select: { status: true, tier: true } },
+      installments: { select: { id: true, status: true, dueAt: true } }
     }
   });
 
   const now = Date.now();
   let completed = 0;
   let discarded = 0;
+  let arrearsSuspended = 0;
 
   for (const plan of activePlans) {
     const allPaid = plan.installments.every((i) => i.status === InstallmentStatus.PAID);
@@ -94,6 +104,52 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
         }
       });
       discarded += 1;
+      continue;
+    }
+
+    // Rete di sicurezza per rate insolute (webhook Revolut perso): piano PARTITO
+    // (≥1 rata pagata) con una rata SCHEDULED scaduta oltre la grazia (2gg) e mai
+    // confermata. La trattiamo come insoluta: rata -> FAILED, endsAt riportato alla
+    // scadenza della rata (così il PIN si spegne), e sync del PIN. NON annulliamo
+    // piano/subscription: Revolut continua a ritentare e, se paga, il webhook
+    // (handleInstallmentPaid) ripristina la copertura piena e riaccende il PIN.
+    if (!nonePaid) {
+      const cutoff = new Date(now - ARREARS_GRACE_MS);
+      const overdue = plan.installments.filter(
+        (i) => i.status === InstallmentStatus.SCHEDULED && i.dueAt < cutoff
+      );
+      if (overdue.length > 0) {
+        const earliestDue = overdue.reduce((m, i) => (i.dueAt < m ? i.dueAt : m), overdue[0]!.dueAt);
+        const sub = await db.userSubscription.findUnique({ where: { userId: plan.userId } });
+        // Non tocchiamo un abbonamento attivo di tier DIVERSO dal piano (es. mensile
+        // assegnato a mano dalla reception): non deve spegnersi per una rata annuale.
+        const unrelatedTier =
+          sub != null && sub.deactivatedAt == null && sub.tier !== plan.payment.tier;
+
+        await db.$transaction(async (tx) => {
+          await tx.installment.updateMany({
+            where: { id: { in: overdue.map((i) => i.id) } },
+            data: {
+              status: InstallmentStatus.FAILED,
+              failureReason: "Rata scaduta non confermata (rete di sicurezza)"
+            }
+          });
+          // Solo se accorcia: mai estendere una copertura più lunga.
+          if (sub != null && !unrelatedTier && sub.endsAt > earliestDue) {
+            await tx.userSubscription.update({
+              where: { userId: plan.userId },
+              data: { endsAt: earliestDue }
+            });
+          }
+        });
+
+        if (sub != null && !unrelatedTier) {
+          await syncPinToKeypad(db, plan.userId).catch((e) =>
+            console.error(`[installments-reconcile] pin sync fallito per user=${plan.userId}:`, e)
+          );
+        }
+        arrearsSuspended += 1;
+      }
     }
   }
 
@@ -132,6 +188,7 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
     activePlans: activePlans.length,
     completedPlans: completed,
     discardedAbandoned: discarded,
-    discardedPendingNoPlan
+    discardedPendingNoPlan,
+    arrearsSuspended
   };
 }
