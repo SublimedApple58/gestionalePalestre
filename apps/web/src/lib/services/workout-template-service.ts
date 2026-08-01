@@ -7,7 +7,14 @@ import {
 } from "@gestionale/db";
 
 import { logAdminAction } from "./audit-log-service";
+import {
+  createDocumentDownloadUrl,
+  isDocumentStorageConfigured
+} from "./document-storage-service";
 import { DomainError } from "./errors";
+
+// TTL foto esercizio: non sensibili, il mobile ne cachea la scheda.
+const EXERCISE_PHOTO_URL_TTL_SECONDS = 24 * 60 * 60;
 
 /* ─── Tipi I/O ─────────────────────────────────────────────────────────── */
 
@@ -71,6 +78,10 @@ export type WorkoutTemplateDetail = {
       order: number;
       exerciseId: string;
       exerciseName: string;
+      /** URL presigned della foto esercizio (TTL 24h) o null. Inclusa qui nel
+       *  payload scheda cosi' le foto NON dipendono dal sync separato del
+       *  catalogo lato mobile (fonte di bug "foto non visibili"). */
+      photoUrl: string | null;
       notes: string | null;
       sets: Array<{
         id: string;
@@ -577,6 +588,7 @@ export async function getTemplateDetail(
               exerciseId: true,
               exerciseName: true,
               notes: true,
+              exercise: { select: { photoStorageKey: true } },
               sets: {
                 orderBy: { order: "asc" },
                 select: {
@@ -606,6 +618,29 @@ export async function getTemplateDetail(
     throw new DomainError("FORBIDDEN", "Non hai accesso a questa scheda.");
   }
 
+  // Presign delle foto una sola volta per exerciseId (stesso esercizio → stessa
+  // foto anche se ripetuto in piu' sedute). Best-effort: null se manca/fallisce.
+  const storageReady = isDocumentStorageConfigured();
+  const keyByExerciseId = new Map<string, string | null>();
+  for (const s of t.sessions) {
+    for (const ex of s.exercises) {
+      keyByExerciseId.set(ex.exerciseId, ex.exercise?.photoStorageKey ?? null);
+    }
+  }
+  const photoUrlByExerciseId = new Map<string, string | null>();
+  await Promise.all(
+    Array.from(keyByExerciseId.entries()).map(async ([exId, key]) => {
+      const url =
+        key && storageReady
+          ? await createDocumentDownloadUrl({
+              storageKey: key,
+              expiresInSeconds: EXERCISE_PHOTO_URL_TTL_SECONDS
+            }).catch(() => null)
+          : null;
+      photoUrlByExerciseId.set(exId, url);
+    })
+  );
+
   return {
     id: t.id,
     name: t.name,
@@ -625,6 +660,7 @@ export async function getTemplateDetail(
         order: ex.order,
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
+        photoUrl: photoUrlByExerciseId.get(ex.exerciseId) ?? null,
         notes: ex.notes,
         sets: ex.sets.map((set) => ({
           id: set.id,
