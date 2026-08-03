@@ -610,3 +610,15 @@ model WorkoutAssignment {
   @@index([userId])
   @@index([templateId])
 }
+
+/// Configurazione applicativa key-value: unica fonte per valori editabili a
+/// runtime SENZA redeploy. Primo uso: `minSupportedVersion` (versione minima
+/// dell'app mobile) e `iosStoreUrl`, letti dall'endpoint pubblico
+/// `/api/mobile/app-config` per il gate "forza aggiornamento".
+/// Lettura fail-open: se la chiave manca, il chiamante usa un default sicuro.
+model AppConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
