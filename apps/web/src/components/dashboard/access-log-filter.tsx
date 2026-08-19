@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { AccessDateRange } from "./access-date-range";
+
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -45,7 +47,6 @@ export function AccessLogFilter({ from, to }: { from: string | null; to: string 
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const today = ymd(new Date());
   const active = from && to ? `${from}→${to}` : null;
 
   function apply(nextFrom: string | null, nextTo: string | null) {
@@ -79,28 +80,7 @@ export function AccessLogFilter({ from, to }: { from: string | null; to: string 
           </button>
         )}
       </div>
-      <div className="access-filter-range">
-        <label className="access-date">
-          <span>Da</span>
-          <input
-            type="date"
-            value={from ?? ""}
-            max={to ?? today}
-            onChange={(e) => apply(e.target.value || null, to)}
-          />
-        </label>
-        <span className="access-date-sep">→</span>
-        <label className="access-date">
-          <span>A</span>
-          <input
-            type="date"
-            value={to ?? ""}
-            min={from ?? undefined}
-            max={today}
-            onChange={(e) => apply(from, e.target.value || null)}
-          />
-        </label>
-      </div>
+      <AccessDateRange from={from} to={to} onChange={apply} />
     </div>
   );
 }

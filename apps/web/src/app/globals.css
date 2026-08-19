@@ -6107,31 +6107,191 @@ button.scheda-exercise-thumb:active {
 .access-chip-clear {
   color: var(--text-muted, #9a9aa4);
 }
-.access-filter-range {
-  display: flex;
+/* Date-range picker custom (stile Airbnb) */
+.adr-wrap {
+  position: relative;
+}
+.adr-trigger {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.access-date {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted, #9a9aa4);
-}
-.access-date input {
   background: #0c0c11;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: var(--text, #f4f4f6);
-  padding: 7px 10px;
-  font-size: 13px;
-  font-family: inherit;
-  color-scheme: dark;
-}
-.access-date-sep {
+  border-radius: 12px;
   color: var(--text-muted, #9a9aa4);
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.adr-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.adr-trigger.has-value {
+  color: var(--text, #f4f4f6);
+  border-color: rgba(223, 37, 49, 0.5);
+}
+.adr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.adr-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  background: #15151b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.adr-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.adr-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--text, #f4f4f6);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.adr-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.adr-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.adr-months {
+  display: flex;
+  gap: 26px;
+}
+.adr-month {
+  width: 252px;
+}
+.adr-mtitle {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #f4f4f6);
+  text-transform: capitalize;
+  margin: 0 0 12px;
+  pointer-events: none;
+}
+.adr-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.adr-wd-row {
+  margin-bottom: 6px;
+}
+.adr-wd {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #9a9aa4);
+  padding: 4px 0;
+}
+.adr-cell {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.adr-empty {
+  background: transparent;
+}
+.adr-day {
+  border: none;
+  background: transparent;
+  color: var(--text, #f4f4f6);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: background 0.12s, color 0.12s;
+}
+.adr-day:hover:not(.is-disabled):not(.is-start):not(.is-end) {
+  background: rgba(255, 255, 255, 0.08);
+}
+.adr-day.is-disabled {
+  color: rgba(255, 255, 255, 0.22);
+  cursor: default;
+}
+.adr-day.is-today {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+.adr-day.is-mid {
+  background: rgba(223, 37, 49, 0.16);
+  border-radius: 0;
+  color: #fff;
+}
+.adr-day.is-start,
+.adr-day.is-end {
+  background: #df2531;
+  color: #fff;
+  font-weight: 700;
+}
+.adr-day.is-start {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.adr-day.is-end {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.adr-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.adr-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #9a9aa4);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.adr-clear:hover {
+  color: #fff;
+}
+.adr-hint {
+  font-size: 12px;
+  color: var(--text-soft, #63636d);
+}
+@media (max-width: 640px) {
+  .adr-months {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .adr-month {
+    width: 240px;
+  }
+  .adr-mtitle {
+    margin-top: 0;
+  }
+  .adr-pop {
+    right: auto;
+    left: 0;
+  }
 }
 
 /* Accessi: line + strip */
