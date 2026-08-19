@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import type { GymStats } from "@/lib/services/gym-stats-service";
 
@@ -38,13 +39,33 @@ function heatColor(t: number): string {
   return `rgba(223,37,49,${(0.16 + t * 0.84).toFixed(3)})`;
 }
 
-export function StatsView({ stats, rangeDays }: { stats: GymStats; rangeDays: number }) {
+export function StatsView({
+  stats,
+  rangeDays,
+  asOf
+}: {
+  stats: GymStats;
+  rangeDays: number;
+  asOf: string | null;
+}) {
   const { members, usage, retention } = stats;
+  const router = useRouter();
 
   const avgPerMonth = Math.round(members.newPerMonth.reduce((s, m) => s + m.value, 0) / 12);
   const prevMonth = members.newPerMonth[members.newPerMonth.length - 2]?.value ?? 0;
   const momDelta = members.newThisMonth - prevMonth;
   const oneOff = Math.max(0, members.payers - members.renewers);
+
+  // Snapshot abbonamenti per tipo: valore del date-input = data effettiva usata.
+  const asOfInput = members.activeByTierAsOf.slice(0, 10);
+  const todayInput = new Date().toISOString().slice(0, 10);
+  const isToday = !asOf || asOf === todayInput;
+  const tierMax = Math.max(1, ...members.activeByTier.map((t) => t.value));
+  function onAsOfChange(value: string) {
+    const q = new URLSearchParams({ range: String(rangeDays) });
+    if (value && value !== todayInput) q.set("asOf", value);
+    router.push(`/statistiche?${q.toString()}`, { scroll: false });
+  }
 
   const monthMax = Math.max(1, ...members.newPerMonth.map((m) => m.value));
   const heatMax = Math.max(1, ...usage.heatmap.flat());
@@ -144,6 +165,42 @@ export function StatsView({ stats, rangeDays }: { stats: GymStats; rangeDays: nu
               {fmt(members.renewers)} rinnovati · {fmt(oneOff)} una tantum · su {fmt(members.payers)} paganti
             </div>
           </div>
+        </div>
+
+        <div className="stats-panel stats-mt">
+          <div className="stats-heat-head">
+            <div>
+              <div className="stats-p-t">Abbonamenti attivi per tipo</div>
+              <div className="stats-p-s">
+                {isToday ? "Situazione a oggi" : `Situazione al ${asOfInput.split("-").reverse().join("/")}`} ·{" "}
+                {fmt(members.activeSubsTotal)} attivi
+              </div>
+            </div>
+            <label className="stats-asof">
+              <span>Al giorno</span>
+              <input
+                type="date"
+                value={asOfInput}
+                max={todayInput}
+                onChange={(e) => onAsOfChange(e.target.value)}
+              />
+            </label>
+          </div>
+          {members.activeByTier.length === 0 ? (
+            <div className="stats-p-s">Nessun abbonamento attivo a questa data.</div>
+          ) : (
+            <div className="stats-tiers">
+              {members.activeByTier.map((t) => (
+                <div className="stats-tier" key={t.label}>
+                  <span className="stats-tier-lab">{t.label}</span>
+                  <div className="stats-tier-track">
+                    <div className="stats-tier-fill" style={{ width: `${(t.value / tierMax) * 100}%` }} />
+                  </div>
+                  <span className="stats-tier-val">{fmt(t.value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -31,6 +31,7 @@ import {
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
+import { UserAccessLogList } from "@/components/dashboard/user-access-log-list";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
 import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
@@ -634,6 +635,11 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
       key: "documenti",
       label: "Documenti",
       children: <AdminDocumentsTab userId={user.id} documents={user.documents} />
+    },
+    {
+      key: "accessi",
+      label: "Accessi",
+      children: <UserAccessLogList userId={user.id} />
     },
     {
       key: "cronologia",

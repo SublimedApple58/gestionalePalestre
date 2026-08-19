@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from "@gestionale/db";
+import { Prisma, SubscriptionTier, type PrismaClient } from "@gestionale/db";
+import { tierLabel } from "@/lib/subscription";
 
 /**
  * Servizio statistiche palestra (admin-only). UNICA implementazione, riusata dal
@@ -32,6 +33,12 @@ export type GymStats = {
     renewers: number; // iscritti che hanno rinnovato ≥1 volta
     payers: number; // iscritti con ≥1 pagamento
     newPerMonth: LabelValue[]; // ultimi 12 mesi
+    /** Abbonamenti ATTIVI per tipo (snapshot a `activeByTierAsOf`). Es. 30 Annuale, 50 Mensile. */
+    activeByTier: LabelValue[];
+    /** Totale abbonamenti attivi allo snapshot (somma di activeByTier). */
+    activeSubsTotal: number;
+    /** Data (ISO) dello snapshot activeByTier — default "ora". */
+    activeByTierAsOf: string;
   };
   usage: {
     accessesRange: number;
@@ -70,10 +77,15 @@ function round(n: number, digits = 1): number {
 
 export async function computeGymStats(
   db: PrismaClient,
-  opts: { rangeDays?: number } = {}
+  opts: { rangeDays?: number; asOf?: Date } = {}
 ): Promise<GymStats> {
   const rangeDays = Math.min(Math.max(opts.rangeDays ?? 90, 7), 365);
   const now = new Date();
+  // Snapshot per activeByTier: istante a cui contare gli abbonamenti attivi.
+  // Default = ora. La colonna è timestamp UTC senza tz → riportiamo l'istante
+  // scelto nello stesso dominio (`::timestamptz AT TIME ZONE 'UTC'`).
+  const asOf = opts.asOf ?? now;
+  const asOfSql = Prisma.sql`${asOf.toISOString()}::timestamptz AT TIME ZONE 'UTC'`;
 
   const [
     totalMembers,
@@ -92,7 +104,8 @@ export async function computeGymStats(
     autoRenewCount,
     durationRow,
     cancelRow,
-    churnedRow
+    churnedRow,
+    activeByTierRows
   ] = await Promise.all([
     // Totale iscritti
     db.user.count({ where: { role: "SUBSCRIBER" } }),
@@ -227,7 +240,14 @@ export async function computeGymStats(
           AND "endsAt" < (now() AT TIME ZONE 'UTC')
           AND "endsAt" >= (now() AT TIME ZONE 'UTC') - ${`${rangeDays} days`}::interval
         )
-      )`)
+      )`),
+
+    // Abbonamenti ATTIVI per tipo allo snapshot `asOf` (es. 30 Annuale, 50 Mensile)
+    db.$queryRaw<{ tier: string; c: number }[]>(Prisma.sql`
+      SELECT "tier"::text AS tier, count(*)::int AS c FROM "UserSubscription"
+      WHERE "deactivatedAt" IS NULL
+        AND "startsAt" <= ${asOfSql} AND "endsAt" >= ${asOfSql}
+      GROUP BY "tier"`)
   ]);
 
   // ---- derive ----
@@ -299,6 +319,21 @@ export async function computeGymStats(
   const avgPerActiveMemberWeek = active > 0 && weeks > 0 ? round(accessesRange / active / weeks, 2) : 0;
   const avgPerDay = round(accessesLast30 / 30);
 
+  // Abbonamenti attivi per tipo (ordine fisso DAILY..BIENNIAL, solo tipi con ≥1).
+  const TIER_ORDER: SubscriptionTier[] = [
+    SubscriptionTier.DAILY,
+    SubscriptionTier.MONTHLY,
+    SubscriptionTier.QUARTERLY,
+    SubscriptionTier.YEARLY,
+    SubscriptionTier.BIENNIAL
+  ];
+  const tierMap = new Map(activeByTierRows.map((r) => [r.tier, r.c]));
+  const activeByTier: LabelValue[] = TIER_ORDER.filter((t) => (tierMap.get(t) ?? 0) > 0).map((t) => ({
+    label: tierLabel(t),
+    value: tierMap.get(t) ?? 0
+  }));
+  const activeSubsTotal = activeByTier.reduce((s, r) => s + r.value, 0);
+
   const churnBase = activeSubs + churnedInPeriod;
   const churnRatePct = churnBase > 0 ? round((churnedInPeriod / churnBase) * 100) : 0;
   const autoRenewPct = activeSubs > 0 ? round(((autoRenewCount[0]?.c ?? 0) / activeSubs) * 100) : 0;
@@ -313,7 +348,10 @@ export async function computeGymStats(
       renewalRatePct,
       renewers,
       payers,
-      newPerMonth
+      newPerMonth,
+      activeByTier,
+      activeSubsTotal,
+      activeByTierAsOf: asOf.toISOString()
     },
     usage: {
       accessesRange,

@@ -172,7 +172,16 @@ export const mobileAdminUsersQuerySchema = z.object({
 /** Query GET /api/mobile/admin/access-logs */
 export const mobileAdminAccessLogsQuerySchema = z.object({
   cursor: z.string().optional(),
-  limit: z.coerce.number().int().positive().max(50).optional()
+  limit: z.coerce.number().int().positive().max(50).optional(),
+  /** Filtro periodo (giorno italiano), formato YYYY-MM-DD. */
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
 });
 
 /** Body POST /api/mobile/admin/users — alias di adminCreateUserSchema. */

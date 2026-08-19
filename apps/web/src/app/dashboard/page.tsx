@@ -10,6 +10,7 @@ import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { getProfilePhotoUrl, getProfilePhotoUrls } from "@/lib/profile-photo";
 import { roleLabel } from "@/lib/roles";
 import { createDocumentDownloadUrl, isDocumentStorageConfigured } from "@/lib/services/document-storage-service";
+import { listLowActivitySubscribers } from "@/lib/services/low-activity-service";
 import { requireSessionUser } from "@/lib/session";
 
 type DashboardPageProps = {
@@ -242,7 +243,8 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     reviewDocumentsRaw,
     overdueInstallments,
     expiringAssociations,
-    expiringCertificatesRaw
+    expiringCertificatesRaw,
+    lowActivitySubscribers
   ] = await Promise.all([
     db.accessEvent.findMany({
       include: {
@@ -313,7 +315,9 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       },
       orderBy: { medicalCertificateExpiresAt: "asc" },
       take: 100
-    })
+    }),
+    // Iscritti attivi senza ingressi da ≥15 giorni (banner "da ricontattare")
+    listLowActivitySubscribers(db, { days: 15, take: 20 })
   ]);
 
   const storageConfigured = isDocumentStorageConfigured();
@@ -352,6 +356,7 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
         lastName: d.user.lastName,
         medicalCertificateExpiresAt: d.medicalCertificateExpiresAt as Date
       }))}
+      lowActivitySubscribers={lowActivitySubscribers}
     />
   );
 }

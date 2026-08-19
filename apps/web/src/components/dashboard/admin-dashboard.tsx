@@ -16,6 +16,7 @@ import { AssociationExpiringSection, type ExpiringAssociationRow } from "./assoc
 import { BirthdayBanner } from "./birthday-banner";
 import { CertificateExpiringSection, type ExpiringCertificateRow } from "./certificate-expiring-section";
 import { DocumentReviewTable } from "./document-review-table";
+import { LowActivitySection, type LowActivityRow } from "./low-activity-section";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
 import { RefreshAccessLogsButton } from "./refresh-access-logs-button";
 import { MaskedAccessCode } from "../ui/masked-access-code";
@@ -63,6 +64,7 @@ type AdminDashboardProps = {
   overdueInstallments?: OverdueInstallmentRow[];
   expiringAssociations?: ExpiringAssociationRow[];
   expiringCertificates?: ExpiringCertificateRow[];
+  lowActivitySubscribers?: LowActivityRow[];
 };
 
 export function AdminDashboard({
@@ -72,7 +74,8 @@ export function AdminDashboard({
   profilePhotoUrls = {},
   overdueInstallments = [],
   expiringAssociations = [],
-  expiringCertificates = []
+  expiringCertificates = [],
+  lowActivitySubscribers = []
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length;
 
@@ -116,6 +119,11 @@ export function AdminDashboard({
       {/* ── Certificati medici in scadenza ───────────────────────── */}
       {expiringCertificates.length > 0 && (
         <CertificateExpiringSection items={expiringCertificates} limit={HOME_PREVIEW} href="/certificati" />
+      )}
+
+      {/* ── Iscritti poco attivi (nessun ingresso da ≥15 gg) ─────── */}
+      {lowActivitySubscribers.length > 0 && (
+        <LowActivitySection items={lowActivitySubscribers} days={15} />
       )}
 
       {/* ── Approvazioni in sospeso ─────────────────────────────── */}
