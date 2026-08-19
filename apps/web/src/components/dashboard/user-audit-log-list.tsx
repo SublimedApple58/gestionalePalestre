@@ -172,8 +172,9 @@ export function UserAuditLogList({ userId }: { userId: string }) {
 
   return (
     <div className="drawer-tab-content">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h4 className="user-drawer-section-title" style={{ margin: 0 }}>
+      <section className="user-drawer-section">
+      <div className="user-drawer-section-head">
+        <h4 className="user-drawer-section-title" style={{ marginBottom: 0 }}>
           Cronologia azioni
         </h4>
         <Button
@@ -231,6 +232,7 @@ export function UserAuditLogList({ userId }: { userId: string }) {
           </Button>
         </div>
       ) : null}
+      </section>
     </div>
   );
 }

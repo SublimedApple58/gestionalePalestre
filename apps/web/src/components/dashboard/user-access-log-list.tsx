@@ -110,44 +110,62 @@ export function UserAccessLogList({ userId }: { userId: string }) {
 
   return (
     <div className="drawer-tab-content">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h4 className="user-drawer-section-title" style={{ margin: 0 }}>
-          Storico accessi
-        </h4>
-        <Button type="text" size="small" icon={<RefreshCw size={12} />} onClick={refresh} aria-label="Aggiorna" />
-      </div>
-
-      {items.length === 0 ? (
-        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-          Nessun ingresso registrato per questo iscritto.
-        </Text>
-      ) : (
-        <ul className="user-drawer-audit-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {items.map((it) => (
-            <li key={it.id} style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-                <Tag color={EVENT_COLOR[it.eventType] ?? "default"}>{EVENT_LABEL[it.eventType] ?? it.eventType}</Tag>
-                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textAlign: "right", flexShrink: 0 }}>
-                  {dateFormatter.format(new Date(it.occurredAt))}
-                </Text>
-              </div>
-              {it.note ? (
-                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", display: "block", marginTop: 2 }}>
-                  {it.note}
-                </Text>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {cursor ? (
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
-          <Button size="small" onClick={loadMore} loading={loadingMore}>
-            Carica altri
-          </Button>
+      <section className="user-drawer-section">
+        <div className="user-drawer-section-head">
+          <h4 className="user-drawer-section-title" style={{ marginBottom: 0 }}>
+            Storico accessi
+          </h4>
+          <Button type="text" size="small" icon={<RefreshCw size={12} />} onClick={refresh} aria-label="Aggiorna" />
         </div>
-      ) : null}
+
+        {items.length === 0 ? (
+          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+            Nessun ingresso registrato per questo iscritto.
+          </Text>
+        ) : (
+          <ul className="user-drawer-audit-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {items.map((it, idx) => (
+              <li
+                key={it.id}
+                style={{
+                  padding: "12px 0",
+                  borderBottom: idx < items.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <Tag color={EVENT_COLOR[it.eventType] ?? "default"} style={{ marginInlineEnd: 0 }}>
+                    {EVENT_LABEL[it.eventType] ?? it.eventType}
+                  </Tag>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.5)",
+                      textAlign: "right",
+                      flexShrink: 0,
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {dateFormatter.format(new Date(it.occurredAt))}
+                  </Text>
+                </div>
+                {it.note ? (
+                  <Text style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", display: "block", marginTop: 4 }}>
+                    {it.note}
+                  </Text>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {cursor ? (
+          <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+            <Button size="small" onClick={loadMore} loading={loadingMore}>
+              Carica altri
+            </Button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
