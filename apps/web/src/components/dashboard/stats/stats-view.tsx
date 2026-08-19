@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type { GymStats } from "@/lib/services/gym-stats-service";
 
+import { StatsDatePicker } from "./stats-date-picker";
+
 const RANGES = [
   { days: 30, label: "30 gg" },
   { days: 90, label: "90 gg" },
@@ -176,15 +178,10 @@ export function StatsView({
                 {fmt(members.activeSubsTotal)} attivi
               </div>
             </div>
-            <label className="stats-asof">
+            <div className="stats-asof">
               <span>Al giorno</span>
-              <input
-                type="date"
-                value={asOfInput}
-                max={todayInput}
-                onChange={(e) => onAsOfChange(e.target.value)}
-              />
-            </label>
+              <StatsDatePicker value={asOfInput} onChange={onAsOfChange} />
+            </div>
           </div>
           {members.activeByTier.length === 0 ? (
             <div className="stats-p-s">Nessun abbonamento attivo a questa data.</div>
