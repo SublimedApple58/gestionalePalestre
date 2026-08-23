@@ -151,11 +151,15 @@ export async function syncPinToKeypad(
       });
     }
   } else {
-    // NON deve avere il PIN — rimuovi se ce l'ha
-    if (user.tuyaPinActive || user.tuyaPinUnlockNo) {
-      if (user.tuyaUserId) {
-        await disablePin(user.tuyaUserId, user.tuyaPinUnlockNo ?? "1");
-      }
+    // NON deve avere il PIN → CANCELLA l'utente dal device (non solo la chiave).
+    // Lasciare il device-user orfano accumula record sul tastierino (device gonfio)
+    // e genera drift (tuyaUserId in DB non più valido sul device → codici morti,
+    // orfani). Alla (ri)attivazione `ensureTuyaUser` lo ricrea pulito. Idempotente:
+    // dopo la cancellazione tuyaUserId è null → i sync successivi non richiamano Tuya.
+    if (user.tuyaUserId) {
+      await removeTuyaUserCompletely(prisma, userId);
+    } else if (user.tuyaPinActive || user.tuyaPinUnlockNo) {
+      // Stato incoerente senza device-user: pulisci solo il DB.
       await prisma.user.update({
         where: { id: userId },
         data: { tuyaPinActive: false, tuyaPinUnlockNo: null },

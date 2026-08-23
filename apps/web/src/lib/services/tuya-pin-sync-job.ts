@@ -1,10 +1,17 @@
 import { type PrismaClient } from "@gestionale/db";
 
-import { syncPinToKeypad, ensureTuyaUser } from "./tuya-pin-service";
+import { shouldHaveDoorPin } from "@/lib/subscription";
+import { listTuyaUsers } from "@/lib/tuya/access-control";
+
+import { syncPinToKeypad } from "./tuya-pin-service";
 
 type SyncResult = {
   total: number;
-  synced: number;
+  deviceUsers: number; // utenti presenti sul device all'inizio (-1 se list KO)
+  added: number; // PIN attivati (nuovi/riattivati)
+  orphansFixed: number; // utenti idonei ricreati perché il device li aveva persi
+  removed: number; // utenti non idonei cancellati dal device
+  skipped: number; // già coerenti → nessuna chiamata Tuya
   errors: string[];
 };
 
@@ -15,52 +22,95 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Sync brutale: prende TUTTI gli utenti e per ciascuno chiama syncPinToKeypad.
- * La logica e' dentro syncPinToKeypad:
- *   - abbonamento attivo (o admin/instructor) → PIN deve esserci
- *   - altrimenti → PIN deve essere rimosso
+ * Reconcile notturno LEGGERO e drift-aware (sostituisce il vecchio sync brutale
+ * che chiamava syncPinToKeypad per TUTTI e registrava device-user anche per i non
+ * idonei). Consuma il minimo di quota Tuya:
  *
- * Nessuna pre-filtratura, nessuna assunzione sullo stato DB.
- * Rate-limited a 300ms tra una chiamata e l'altra.
+ *  1. UNA sola `listTuyaUsers()` → chi è davvero presente sul device.
+ *  2. Un giro sul DB: per ogni utente confronta idoneità (shouldHaveDoorPin) e
+ *     presenza reale sul device, e AGISCE SOLO SUI DELTA:
+ *       - idoneo senza PIN attivo            → attiva (ensure+enable+permanent)
+ *       - idoneo ma SPARITO dal device (orfano, tuyaUserId in DB non più valido)
+ *                                             → azzera e ricrea da zero
+ *       - NON idoneo ma ancora sul device     → CANCELLA l'utente dal device
+ *       - già coerente                        → skip (NESSUNA chiamata Tuya)
+ *
+ * Gli utenti sani (idonei con PIN attivo e presenti) non generano alcuna chiamata.
+ * Rate-limit 300ms SOLO tra le azioni reali (gli skip non aspettano).
  */
 export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResult> {
-  const result: SyncResult = { total: 0, synced: 0, errors: [] };
+  const result: SyncResult = {
+    total: 0,
+    deviceUsers: -1,
+    added: 0,
+    orphansFixed: 0,
+    removed: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  // 1) Snapshot degli utenti realmente presenti sul device (1 sola chiamata).
+  let deviceIds: Set<string> | null = null;
+  try {
+    const list = await listTuyaUsers();
+    deviceIds = new Set(list.map((u) => u.user_id));
+    result.deviceUsers = deviceIds.size;
+  } catch (err) {
+    // Senza l'elenco device non possiamo rilevare gli orfani in sicurezza:
+    // procediamo con add/remove basati sullo stato DB, saltando l'orphan-fix.
+    result.errors.push(`listTuyaUsers: ${(err as Error).message}`);
+  }
 
   const users = await prisma.user.findMany({
-    where: { tuyaUserId: { not: null } },
-    select: { id: true },
+    select: {
+      id: true,
+      role: true,
+      tuyaUserId: true,
+      tuyaPinActive: true,
+      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+      entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
-
   result.total = users.length;
 
   for (const user of users) {
+    const eligible = shouldHaveDoorPin({
+      role: user.role,
+      subscription: user.subscription,
+      entryPackage: user.entryPackage,
+    });
+    // null se non possiamo saperlo (list KO o nessun tuyaUserId) → niente orphan-fix.
+    const onDevice =
+      deviceIds && user.tuyaUserId ? deviceIds.has(user.tuyaUserId) : null;
+    const orphan = eligible && !!user.tuyaUserId && onDevice === false;
+
+    const needsAdd = eligible && (!user.tuyaPinActive || orphan);
+    const needsRemove = !eligible && !!user.tuyaUserId;
+
+    if (!needsAdd && !needsRemove) {
+      result.skipped++;
+      continue;
+    }
+
     try {
+      if (orphan) {
+        // Il device ha perso l'utente: azzera il tuyaUserId fantasma così
+        // syncPinToKeypad lo ricrea da zero (ensureTuyaUser → createTuyaUser).
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null },
+        });
+      }
       await syncPinToKeypad(prisma, user.id);
-      result.synced++;
+      if (needsRemove) result.removed++;
+      else if (orphan) result.orphansFixed++;
+      else result.added++;
     } catch (err) {
       result.errors.push(`${user.id}: ${(err as Error).message}`);
     }
     await delay(DELAY_MS);
   }
-
-  // Also register users without tuyaUserId
-  const unregistered = await prisma.user.findMany({
-    where: { tuyaUserId: null },
-    select: { id: true },
-  });
-
-  for (const user of unregistered) {
-    try {
-      await ensureTuyaUser(prisma, user.id);
-      result.synced++;
-    } catch (err) {
-      result.errors.push(`register ${user.id}: ${(err as Error).message}`);
-    }
-    await delay(DELAY_MS);
-  }
-
-  result.total += unregistered.length;
 
   return result;
 }
