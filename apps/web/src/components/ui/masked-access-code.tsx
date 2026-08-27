@@ -32,8 +32,8 @@ export function MaskedAccessCode({ code, title = "Codice ingresso" }: MaskedAcce
       </div>
 
       <div className="access-code-row">
-        <code className={`access-code ${isVisible ? "visible" : "hidden"}`} aria-label="Codice di accesso">
-          {isVisible ? code : hiddenCode}
+        <code className={`access-code ${isVisible ? "visible" : "hidden"}`} aria-label="Codice di accesso, poi premi cancelletto">
+          {(isVisible ? code : hiddenCode) + "#"}
         </code>
 
         <button
@@ -54,6 +54,10 @@ export function MaskedAccessCode({ code, title = "Codice ingresso" }: MaskedAcce
           <Copy size={18} />
         </button>
       </div>
+
+      <p style={{ marginTop: 10, fontSize: 12.5, color: "var(--text-muted, #9a9aa4)" }}>
+        Digita il codice e premi <strong>#</strong> (cancelletto) sul tastierino per confermare.
+      </p>
 
       {copied ? <p className="copy-success">Codice copiato!</p> : null}
     </section>

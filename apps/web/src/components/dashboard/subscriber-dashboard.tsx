@@ -259,7 +259,7 @@ export function SubscriberDashboard({
             </div>
             <p className="dash-card-note">
               Digita il tuo codice personale sul tastierino all&apos;ingresso della
-              palestra per aprire la porta.
+              palestra e premi <strong>#</strong> (cancelletto) per confermare e aprire la porta.
             </p>
           </div>
         ) : (
