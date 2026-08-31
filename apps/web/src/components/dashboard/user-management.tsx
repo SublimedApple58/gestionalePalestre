@@ -14,11 +14,15 @@ import {
 
 import { createUserByAdminAction } from "@/app/actions/dashboard-actions";
 import { getMissingDocumentTypes, getMissingOverallDocumentTypes } from "@/lib/documents";
-import { medicalCertificateStatus } from "@/lib/medical-certificate";
+import {
+  getMedicalCertificateExpiry,
+  medicalCertificateStatus
+} from "@/lib/medical-certificate";
 import { roleLabel } from "@/lib/roles";
 import { isSubscriptionActive, tierLabel } from "@/lib/subscription";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { AccessDateRange } from "./access-date-range";
 import { UserEditDrawer, type DrawerUserRow } from "./user-edit-drawer";
 
 const { Text } = Typography;
@@ -69,6 +73,8 @@ type SortMode = "alpha" | "registration";
 type AssociationFilter = "all" | "member" | "non_member";
 type SubscriptionFilter = "all" | "active" | "expired" | "none";
 type CertificateFilter = "all" | "valid" | "soon" | "expired" | "missing";
+// Su quale campo data si applica il range selezionato nel calendario.
+type DateField = "registration" | "subscriptionEnd" | "certificateEnd";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "alpha", label: "Alfabetico" },
@@ -96,12 +102,21 @@ const CERTIFICATE_OPTIONS: { value: CertificateFilter; label: string }[] = [
   { value: "missing", label: "Senza scadenza" }
 ];
 
+const DATE_FIELD_OPTIONS: { value: DateField; label: string }[] = [
+  { value: "registration", label: "Iscrizione" },
+  { value: "subscriptionEnd", label: "Scad. abbonamento" },
+  { value: "certificateEnd", label: "Scad. certificato" }
+];
+
 export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("alpha");
   const [associationFilter, setAssociationFilter] = useState<AssociationFilter>("all");
   const [subscriptionFilter, setSubscriptionFilter] = useState<SubscriptionFilter>("all");
   const [certificateFilter, setCertificateFilter] = useState<CertificateFilter>("all");
+  const [dateField, setDateField] = useState<DateField>("registration");
+  const [dateFrom, setDateFrom] = useState<string | null>(null);
+  const [dateTo, setDateTo] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
@@ -142,6 +157,20 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
         if (certificateFilter === "expired" && cert.kind !== "expired") return false;
         if (certificateFilter === "missing" && cert.kind !== "missing") return false;
       }
+      if (dateFrom || dateTo) {
+        // Range sul campo data scelto. Chi non ha quella data (es. nessun
+        // abbonamento / certificato) esce dai risultati quando il filtro è attivo.
+        const target =
+          dateField === "registration"
+            ? u.createdAt
+            : dateField === "subscriptionEnd"
+            ? u.subscription?.endsAt ?? null
+            : getMedicalCertificateExpiry(u.documents);
+        if (!target) return false;
+        const t = new Date(target).getTime();
+        if (dateFrom && t < new Date(`${dateFrom}T00:00:00`).getTime()) return false;
+        if (dateTo && t > new Date(`${dateTo}T23:59:59.999`).getTime()) return false;
+      }
       if (!q) return true;
       // Tokenizza la query su spazi: ogni token deve matchare almeno un campo
       // (AND tra token, OR tra campi). Così "Mario Rossi", "Rossi Mario" e i
@@ -165,7 +194,17 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
     });
 
     return list;
-  }, [users, search, sortMode, associationFilter, subscriptionFilter, certificateFilter]);
+  }, [
+    users,
+    search,
+    sortMode,
+    associationFilter,
+    subscriptionFilter,
+    certificateFilter,
+    dateField,
+    dateFrom,
+    dateTo
+  ]);
 
   return (
     <>
@@ -274,6 +313,32 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="utenti-filter-group">
+            <span className="utenti-filter-label">Periodo</span>
+            <div className="seg" role="group" aria-label="Scegli il campo data da filtrare">
+              {DATE_FIELD_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`seg-btn ${dateField === opt.value ? "active" : ""}`}
+                  aria-pressed={dateField === opt.value}
+                  onClick={() => setDateField(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <AccessDateRange
+              from={dateFrom}
+              to={dateTo}
+              allowFuture={dateField !== "registration"}
+              onChange={(from, to) => {
+                setDateFrom(from);
+                setDateTo(to);
+              }}
+            />
           </div>
         </div>
 

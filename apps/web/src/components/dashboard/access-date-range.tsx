@@ -48,11 +48,18 @@ function monthCells(y: number, m: number): (number | null)[] {
 export function AccessDateRange({
   from,
   to,
-  onChange
+  onChange,
+  allowFuture = false
 }: {
   from: string | null;
   to: string | null;
   onChange: (from: string | null, to: string | null) => void;
+  /**
+   * Consente di selezionare date future. Default `false` per il registro
+   * ingressi (non esistono accessi nel futuro); attivato p.es. per filtrare
+   * scadenze abbonamento/certificato in arrivo.
+   */
+  allowFuture?: boolean;
 }) {
   const today = todayYMD();
   const [open, setOpen] = useState(false);
@@ -80,7 +87,7 @@ export function AccessDateRange({
   }, [selStart, previewEnd]);
 
   function pick(dayStr: string) {
-    if (dayStr > today) return;
+    if (!allowFuture && dayStr > today) return;
     if (!selStart || selEnd) {
       // Nuova selezione
       setSelStart(dayStr);
@@ -143,7 +150,7 @@ export function AccessDateRange({
           {monthCells(y, m).map((d, i) => {
             if (d === null) return <span className="adr-cell adr-empty" key={i} />;
             const s = ymd(y, m, d);
-            const disabled = s > today;
+            const disabled = !allowFuture && s > today;
             const isLo = s === lo;
             const isHi = s === hi && lo !== hi;
             const inRange = !!lo && !!hi && s >= lo && s <= hi;
@@ -177,8 +184,10 @@ export function AccessDateRange({
     );
   }
 
-  const nextDisabled = rightView.y > new Date().getFullYear() ||
-    (rightView.y === new Date().getFullYear() && rightView.m >= new Date().getMonth());
+  const nextDisabled =
+    !allowFuture &&
+    (rightView.y > new Date().getFullYear() ||
+      (rightView.y === new Date().getFullYear() && rightView.m >= new Date().getMonth()));
 
   return (
     <div className="adr-wrap">
