@@ -20,10 +20,11 @@
  *  4. Alla conferma HeyLight chiama il webhook + reindirizza a success/failure.
  *     Verifichiamo lo stato reale con `getApplication` (fonte di verità).
  *
- * NOTA (⚠️ da confermare in sandbox): forma esatta del body di `/init/`
- * (`shipping_address` per un servizio, wrapping `data` nelle risposte) e formato/
- * firma del payload webhook. Il client fa unwrap difensivo `data ?? json`.
+ * NOTA: campi/endpoint validati contro la sandbox (auth, init, applications,
+ * confirm, firma webhook). Il client fa unwrap difensivo `data ?? json`.
  */
+
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 /** Base URL: sandbox vs produzione. Override esplicito via HEYLIGHT_BASE_URL. */
 function baseUrl(): string {
@@ -323,4 +324,67 @@ export async function getApplication(
 /** True se il contratto è finale: merchant pagato, abbonamento da attivare. */
 export function isContractPaid(app: HeyLightApplication): boolean {
   return app.status === "success" && app.contractConfirmedAt != null;
+}
+
+/* ─────────────────────────── Confirm delivery ─────────────────────────── */
+
+/**
+ * Conferma la "consegna" del contratto: `POST /api/checkout/v1/confirm/` con
+ * `{ external_uuid }`. Lo stato `awaiting_confirmation` NON avanza da solo a
+ * `success` — serve questa chiamata merchant. Per un servizio (abbonamento) la
+ * eroghiamo subito dopo l'acquisto → confermiamo appena il contratto è pronto.
+ * Ritorna true se HeyLight risponde `success`. Idempotente lato nostro: se il
+ * contratto non è confermabile (stato sbagliato) ritorna false senza lanciare.
+ */
+export async function confirmContract(externalUuid: string): Promise<boolean> {
+  const response = await authedFetch("/api/checkout/v1/confirm/", {
+    method: "POST",
+    body: { external_uuid: externalUuid }
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    console.warn(
+      `[heylight] confirmContract non riuscita ${response.status} ${response.statusText}: ${text}`
+    );
+    return false;
+  }
+
+  // Risposta: { success: "true"|"false", success_message }. `success` è una stringa.
+  const data = unwrap<{ success?: string | boolean }>(await response.json());
+  return data.success === true || data.success === "true";
+}
+
+/* ─────────────────────────── Webhook signature ─────────────────────────── */
+
+/**
+ * Verifica la firma del webhook HeyLight.
+ *
+ * HeyLight invia l'header `X-Signature-SHA256` = `hex(HMAC_SHA256(signing_key, raw_body))`
+ * (hex minuscolo, nessun prefisso). La firma è sui BYTE RAW del body: NON
+ * ri-serializzare il JSON. Confronto a tempo costante.
+ *
+ * Se `HEYLIGHT_WEBHOOK_SECRET` non è impostato (dev) ritorna true per non bloccare
+ * i test locali — stesso comportamento del webhook Revolut.
+ *
+ * Validata contro il vettore ufficiale della doc (key `0f8c1a52-…`, body 87 byte →
+ * `6aad3fb2cf4839bc536c22ad296999095747f7038328bb06eecf893e05791bff`).
+ */
+export function verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const secret = process.env.HEYLIGHT_WEBHOOK_SECRET;
+
+  if (!secret) {
+    console.warn("[heylight] HEYLIGHT_WEBHOOK_SECRET non impostato — verifica firma saltata (solo dev)");
+    return true;
+  }
+
+  if (!signatureHeader) return false;
+
+  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+  const provided = signatureHeader.trim().toLowerCase();
+
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }

@@ -15,14 +15,25 @@
 > - **Fase 3** ✅ routing facade (`YEARLY` + rate → HeyLight) + checkout action (phone/failureUrl/webhookUrl).
 > - **Fase 4** ✅ webhook `/api/webhooks/heylight` (trigger) + `reconcileHeyLightPayment`
 >   (fonte di verità via GET /applications/) + success page.
-> - **Fase 5** → e2e sandbox: singole chiamate validate; redirect+firma+webhook reali da
->   verificare (serve preview deployata o conferma formato/firma webhook dal Portale Merchant).
+> - **Fase 5** ✅ (codice) — firma webhook `X-Signature-SHA256` verificata (HMAC-SHA256 sui byte
+>   raw, hex lowercase) con **unit test sul vettore ufficiale** (`tests/unit/heylight-webhook.test.ts`);
+>   auto-conferma `awaiting_confirmation` via `POST /api/checkout/v1/confirm/ {external_uuid}`.
+>   Resta da fare **un solo giro e2e reale** (redirect + firma contratto lato cliente + webhook)
+>   su preview deployata o completando un checkout in sandbox dal browser.
 >
-> **Decisione tecnica:** il `token` del webhook = `Payment.id` (correlazione); autenticità
-> garantita dalla GET `/applications/` autorevole, non dal payload (niente firma HMAC nota).
-> SDD SEPA gate attuale LASCIATO invariato per gli acquisti a rate → **da decidere** se saltarlo
-> per HeyLight (il mandato di rimborso è firmato su Compass). Indirizzo `shipping_address` = env
+> **Dettagli confermati in sandbox (Hiro sul Portale Merchant):**
+> - Webhook body = SOLO `{ status, token }` (niente uuid nel payload); header firma
+>   `X-Signature-SHA256`. Il `token` = il nostro reference (`Payment.id`) impostato alla create.
+> - `awaiting_confirmation` NON avanza da solo → serve `confirm/` merchant (per un servizio la
+>   chiamiamo subito: erogazione immediata).
+> - API key **produzione**: Impostazioni account → "Gestione dell'account" → "Chiavi API"
+>   ("API key Dilazione" + "Public key"), account "House of Muscle". Da copiare al go-live.
+>
+> **Decisioni tecniche:** `token` webhook = `Payment.id` (correlazione); autenticità = firma HMAC
+> **+** GET `/applications/` autorevole (doppia garanzia). **SDD SEPA gate LASCIATO ATTIVO anche per
+> HeyLight** (decisione Tiziano 07/09, nessuna modifica). Indirizzo `shipping_address` = env
 > `HEYLIGHT_SHIP_*` (default placeholder → impostare sede reale prima della prod).
+> Env aggiuntiva: `HEYLIGHT_WEBHOOK_SECRET` (signing key per la firma).
 
 ## Contesto
 
@@ -113,11 +124,11 @@ Auth → init → redirect → firma simulata → webhook/return → `getApplica
 abbonamento + PIN. **Nessun tocco alla prod senza OK esplicito.**
 
 ## Domande aperte (Fase 0, da girare a HeyLight/Umberto)
-1. Fee merchant e se il cliente è a interessi zero (12×47,99).
-2. `awaiting_confirmation` richiede una conferma ordine esplicita da parte nostra?
-3. Flusso rimborsi/recessi.
-4. Comportamento e fallback su credito rifiutato.
-5. Formato payload webhook + eventuale firma HMAC.
+1. Fee merchant e se il cliente è a interessi zero (12×47,99). — APERTA
+2. ~~`awaiting_confirmation` richiede una conferma ordine esplicita?~~ ✅ Sì → `POST /confirm/`.
+3. Flusso rimborsi/recessi. — APERTA (esiste endpoint refund; da mappare quando serve)
+4. Comportamento e fallback su credito rifiutato. — APERTA (per ora → `/checkout/failure`)
+5. ~~Formato payload webhook + firma HMAC.~~ ✅ `{status,token}` + `X-Signature-SHA256` HMAC-SHA256.
 
 ## Fonti
 - https://docs.heylight.com/reference/getting-started-with-your-api

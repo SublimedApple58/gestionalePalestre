@@ -1,7 +1,7 @@
 import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
 import { getOrder } from "@/lib/payments/revolut";
-import { getApplication, isContractPaid } from "@/lib/payments/heylight";
+import { confirmContract, getApplication, isContractPaid } from "@/lib/payments/heylight";
 import { computeExtendedEndDate } from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
@@ -161,7 +161,7 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
     return payment;
   }
 
-  const app = await getApplication(payment.providerReference).catch((error) => {
+  let app = await getApplication(payment.providerReference).catch((error) => {
     console.warn(
       `[payment-reconciliation] getApplication fallito per payment=${payment.id} uuid=${payment.providerReference}:`,
       error
@@ -170,6 +170,21 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
   });
 
   if (!app) return payment;
+
+  // `awaiting_confirmation` NON avanza da solo: confermiamo la "consegna" del
+  // servizio (l'abbonamento è erogato subito) e rileggiamo lo stato autorevole.
+  if (app.status === "awaiting_confirmation") {
+    const confirmed = await confirmContract(payment.providerReference).catch((error) => {
+      console.warn(
+        `[payment-reconciliation] confirmContract fallita per payment=${payment.id}:`,
+        error
+      );
+      return false;
+    });
+    if (confirmed) {
+      app = (await getApplication(payment.providerReference).catch(() => null)) ?? app;
+    }
+  }
 
   if (isContractPaid(app)) {
     const result = await db.$transaction(async (tx) => {
