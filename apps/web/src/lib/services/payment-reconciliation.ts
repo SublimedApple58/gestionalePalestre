@@ -1,7 +1,12 @@
 import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
 import { getOrder } from "@/lib/payments/revolut";
-import { confirmContract, getApplication, isContractPaid } from "@/lib/payments/heylight";
+import {
+  confirmContract,
+  getApplication,
+  isContractPaid,
+  isHeyLightProduction
+} from "@/lib/payments/heylight";
 import { computeExtendedEndDate } from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
@@ -212,7 +217,15 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
       });
     });
 
-    safeSyncPinToKeypad(db, payment.userId);
+    // Guard e2e: in sandbox NON tocchiamo la serratura Tuya reale (nessun PIN vero).
+    // In produzione l'attivazione sincronizza il PIN come per gli altri pagamenti.
+    if (isHeyLightProduction()) {
+      safeSyncPinToKeypad(db, payment.userId);
+    } else {
+      console.warn(
+        `[payment-reconciliation] HeyLight sandbox: sync PIN Tuya saltato (payment=${payment.id})`
+      );
+    }
     return result;
   }
 

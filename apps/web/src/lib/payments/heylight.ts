@@ -326,6 +326,15 @@ export function isContractPaid(app: HeyLightApplication): boolean {
   return app.status === "success" && app.contractConfirmedAt != null;
 }
 
+/**
+ * True solo in ambiente HeyLight di PRODUZIONE (`HEYLIGHT_ENV=production`).
+ * Usato per il guard e2e: in sandbox l'attivazione non deve toccare risorse reali
+ * (es. il PIN della serratura Tuya), così il giro di test è a effetti-reali zero.
+ */
+export function isHeyLightProduction(): boolean {
+  return process.env.HEYLIGHT_ENV === "production";
+}
+
 /* ─────────────────────────── Confirm delivery ─────────────────────────── */
 
 /**
