@@ -3,7 +3,10 @@ import Link from "next/link";
 import { CheckCircle2, Clock } from "lucide-react";
 
 import { db } from "@gestionale/db";
-import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
+import {
+  reconcileHeyLightPayment,
+  reconcileRevolutPayment
+} from "@/lib/services/payment-reconciliation";
 import { requireSessionUser } from "@/lib/session";
 import { formatEuroCents, tierLabel } from "@/lib/subscription";
 import { formatRomeDateTime } from "@/lib/datetime";
@@ -34,10 +37,15 @@ export default async function CheckoutSuccessPage({ searchParams }: SuccessPageP
     redirect("/dashboard");
   }
 
-  // Prova riconciliazione remota (Revolut API) prima di leggere il Payment.
-  // Se fallisce, continuiamo comunque con lo stato DB corrente.
+  // Prova riconciliazione remota prima di leggere il Payment. Ogni funzione fa
+  // no-op se il provider non è il suo, quindi le chiamiamo entrambe (Revolut per
+  // one-shot/rate, HeyLight per l'annuale a rate BNPL). Se falliscono, continuiamo
+  // comunque con lo stato DB corrente.
   await reconcileRevolutPayment(pid).catch((error) => {
-    console.warn(`[checkout/success] reconcile fallito per pid=${pid}:`, error);
+    console.warn(`[checkout/success] reconcile Revolut fallito per pid=${pid}:`, error);
+  });
+  await reconcileHeyLightPayment(pid).catch((error) => {
+    console.warn(`[checkout/success] reconcile HeyLight fallito per pid=${pid}:`, error);
   });
 
   const payment = await db.payment.findUnique({

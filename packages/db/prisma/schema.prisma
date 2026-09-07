@@ -26,6 +26,7 @@ enum PaymentProvider {
   REVOLUT
   KLARNA
   STRIPE
+  HEYLIGHT
 }
 
 enum PaymentStatus {

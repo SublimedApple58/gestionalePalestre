@@ -7,9 +7,22 @@
 >
 > **Cosa è stato fatto finora:**
 > - Ricognizione fattibilità → `002-heylight-feasibility.md`.
-> - **Auth sandbox verificata**: `POST https://sbx-origination.heidipay.io/auth/v1/generate/`
->   con la chiave sandbox risponde `200 {status:"success", data:{token}}`. Sviluppo sbloccato.
-> - Fase 1 (provider client `heylight.ts`) → in corso.
+> - **Sandbox verificata** (curl): auth `200`, init `201 REDIRECT`+`external_contract_uuid`,
+>   applications `200`. Corretti 3 nomi campo (`mapping_scheme`, `address_line_1`, `contract_uuid`).
+> - **Fase 1** ✅ provider client `heylight.ts`.
+> - **Fase 2** ✅ enum `PaymentProvider.HEYLIGHT` + migrazione additiva
+>   `20260907120000_add_heylight_payment_provider` (da applicare con `prisma migrate`).
+> - **Fase 3** ✅ routing facade (`YEARLY` + rate → HeyLight) + checkout action (phone/failureUrl/webhookUrl).
+> - **Fase 4** ✅ webhook `/api/webhooks/heylight` (trigger) + `reconcileHeyLightPayment`
+>   (fonte di verità via GET /applications/) + success page.
+> - **Fase 5** → e2e sandbox: singole chiamate validate; redirect+firma+webhook reali da
+>   verificare (serve preview deployata o conferma formato/firma webhook dal Portale Merchant).
+>
+> **Decisione tecnica:** il `token` del webhook = `Payment.id` (correlazione); autenticità
+> garantita dalla GET `/applications/` autorevole, non dal payload (niente firma HMAC nota).
+> SDD SEPA gate attuale LASCIATO invariato per gli acquisti a rate → **da decidere** se saltarlo
+> per HeyLight (il mandato di rimborso è firmato su Compass). Indirizzo `shipping_address` = env
+> `HEYLIGHT_SHIP_*` (default placeholder → impostare sede reale prima della prod).
 
 ## Contesto
 
