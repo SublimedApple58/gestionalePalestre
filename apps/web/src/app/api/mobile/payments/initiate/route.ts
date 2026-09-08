@@ -64,7 +64,7 @@ export const POST = withMobileAuth(async (request, { user }) => {
 
   const dbUser = await db.user.findUnique({
     where: { id: user.id },
-    select: { revolutCustomerId: true }
+    select: { revolutCustomerId: true, phoneNumber: true }
   });
 
   // Crea il record Payment con un providerReference temporaneo.
@@ -94,10 +94,16 @@ export const POST = withMobileAuth(async (request, { user }) => {
       payInInstallments,
       reference: payment.id,
       returnUrl: mobileReturnUrl,
+      // HeyLight (annuale a rate) richiede success+failure URL e il webhook. Sul
+      // mobile entrambi puntano alla stessa pagina bounce → deep link: l'app poi
+      // riconcilia via /confirm per determinare lo stato reale (come per Revolut).
+      failureUrl: mobileReturnUrl,
+      webhookUrl: `${baseUrl}/api/webhooks/heylight`,
       customer: {
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email
+        email: user.email,
+        phoneNumber: dbUser?.phoneNumber ?? undefined
       },
       revolutCustomerId: dbUser?.revolutCustomerId ?? undefined
     });

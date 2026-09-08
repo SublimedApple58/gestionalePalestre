@@ -1,8 +1,11 @@
-import { db } from "@gestionale/db";
+import { db, PaymentProvider } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
-import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
+import {
+  reconcileHeyLightPayment,
+  reconcileRevolutPayment
+} from "@/lib/services/payment-reconciliation";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { mobileConfirmPaymentSchema } from "@/lib/validators/mobile";
 
@@ -40,7 +43,10 @@ export const POST = withMobileAuth(async (request, { user }) => {
     return NextResponse.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
   }
 
-  const reconciled = await reconcileRevolutPayment(payment.id);
+  const reconciled =
+    payment.provider === PaymentProvider.HEYLIGHT
+      ? await reconcileHeyLightPayment(payment.id)
+      : await reconcileRevolutPayment(payment.id);
 
   const subscription = await db.userSubscription.findUnique({
     where: { userId: user.id }
