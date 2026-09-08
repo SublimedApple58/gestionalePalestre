@@ -1,6 +1,9 @@
 import { db, PaymentProvider, PaymentStatus } from "@gestionale/db";
 
-import { reconcileRevolutPayment } from "@/lib/services/payment-reconciliation";
+import {
+  reconcileHeyLightPayment,
+  reconcileRevolutPayment
+} from "@/lib/services/payment-reconciliation";
 
 /**
  * Finestra di lookback (in giorni) per cercare Payment Revolut ancora PENDING.
@@ -19,12 +22,14 @@ export type ReconciliationJobSummary = {
 };
 
 /**
- * Cron job: scansiona i Payment Revolut ancora PENDING degli ultimi LOOKBACK_DAYS
- * e chiama `reconcileRevolutPayment` su ognuno. La funzione è già idempotente e
- * transaction-safe, quindi possiamo rifrullarla senza rischi.
+ * Cron job: scansiona i Payment ancora PENDING degli ultimi LOOKBACK_DAYS
+ * (Revolut e HeyLight) e chiama il reconcile giusto per provider su ognuno.
+ * Le funzioni sono già idempotenti e transaction-safe, quindi possiamo
+ * rifrullarle senza rischi.
  *
  * Pensato per coprire il caso in cui il polling pull-side sulla success page
- * non parte (utente chiude il tab dopo Apple Pay, rete che cade, ecc.).
+ * non parte (utente chiude il tab dopo il pagamento / la firma HeyLight, rete
+ * che cade, webhook non consegnato, ecc.).
  *
  * Schedulato da Vercel — vedi `apps/web/vercel.json`. Auth via `CRON_SECRET`.
  */
@@ -33,11 +38,11 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
 
   const pendingPayments = await db.payment.findMany({
     where: {
-      provider: PaymentProvider.REVOLUT,
+      provider: { in: [PaymentProvider.REVOLUT, PaymentProvider.HEYLIGHT] },
       status: PaymentStatus.PENDING,
       createdAt: { gte: cutoff }
     },
-    select: { id: true }
+    select: { id: true, provider: true }
   });
 
   const summary: ReconciliationJobSummary = {
@@ -48,9 +53,12 @@ export async function runPaymentsReconciliationJob(): Promise<ReconciliationJobS
     errors: 0
   };
 
-  for (const { id } of pendingPayments) {
+  for (const { id, provider } of pendingPayments) {
     try {
-      const updated = await reconcileRevolutPayment(id);
+      const updated =
+        provider === PaymentProvider.HEYLIGHT
+          ? await reconcileHeyLightPayment(id)
+          : await reconcileRevolutPayment(id);
       if (!updated) {
         summary.errors += 1;
         continue;
