@@ -28,7 +28,14 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
 
   const user = await db.user.findUnique({
     where: { id: sessionUser.id },
-    select: { id: true, firstName: true, lastName: true, email: true, revolutCustomerId: true }
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phoneNumber: true,
+      revolutCustomerId: true
+    }
   });
 
   if (!user) {
@@ -90,10 +97,13 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
       payInInstallments,
       reference: payment.id,
       returnUrl: `${baseUrl}/checkout/success?pid=${payment.id}`,
+      failureUrl: `${baseUrl}/checkout/failure?pid=${payment.id}`,
+      webhookUrl: `${baseUrl}/api/webhooks/heylight`,
       customer: {
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email
+        email: user.email,
+        phoneNumber: user.phoneNumber ?? undefined
       },
       revolutCustomerId: user.revolutCustomerId ?? undefined
     });

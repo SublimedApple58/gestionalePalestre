@@ -1,6 +1,12 @@
 import { db, InstallmentStatus, PaymentProvider, PaymentStatus, type Payment } from "@gestionale/db";
 
 import { getOrder } from "@/lib/payments/revolut";
+import {
+  confirmContract,
+  getApplication,
+  isContractPaid,
+  isHeyLightProduction
+} from "@/lib/payments/heylight";
 import { computeExtendedEndDate } from "@/lib/subscription";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
@@ -128,6 +134,109 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
   }
 
   // Stato ancora pending — no-op, l'utente vedrà il messaggio "in elaborazione".
+  return payment;
+}
+
+/**
+ * Riconciliazione pull-side di un Payment HeyLight/Compass (BNPL). Interroga la
+ * GET /applications/ (fonte di verità autorevole): se il contratto è `success`
+ * (finanziamento accettato, merchant pagato) attiva la UserSubscription in una
+ * singola transazione. È usata sia dalla success page sia dal webhook, così la
+ * logica di attivazione è UNA sola (il webhook è un semplice trigger).
+ *
+ * A differenza di Revolut NON esistono rate da inseguire: Compass gestisce i
+ * pagamenti col cliente, per noi è un'attivazione unica (come un one-shot).
+ *
+ * Idempotente: Payment già finale → no-op; provider ≠ HEYLIGHT o senza reference → no-op.
+ */
+export async function reconcileHeyLightPayment(paymentId: string): Promise<Payment | null> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) return null;
+
+  if (payment.provider !== PaymentProvider.HEYLIGHT || !payment.providerReference) {
+    return payment;
+  }
+
+  if (
+    payment.status === PaymentStatus.PAID ||
+    payment.status === PaymentStatus.FAILED ||
+    payment.status === PaymentStatus.CANCELED ||
+    payment.status === PaymentStatus.REFUNDED
+  ) {
+    return payment;
+  }
+
+  let app = await getApplication(payment.providerReference).catch((error) => {
+    console.warn(
+      `[payment-reconciliation] getApplication fallito per payment=${payment.id} uuid=${payment.providerReference}:`,
+      error
+    );
+    return null;
+  });
+
+  if (!app) return payment;
+
+  // `awaiting_confirmation` NON avanza da solo: confermiamo la "consegna" del
+  // servizio (l'abbonamento è erogato subito) e rileggiamo lo stato autorevole.
+  if (app.status === "awaiting_confirmation") {
+    const confirmed = await confirmContract(payment.providerReference).catch((error) => {
+      console.warn(
+        `[payment-reconciliation] confirmContract fallita per payment=${payment.id}:`,
+        error
+      );
+      return false;
+    });
+    if (confirmed) {
+      app = (await getApplication(payment.providerReference).catch(() => null)) ?? app;
+    }
+  }
+
+  if (isContractPaid(app)) {
+    const result = await db.$transaction(async (tx) => {
+      const now = new Date();
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.PAID, paidAt: now }
+      });
+
+      const existing = await tx.userSubscription.findUnique({
+        where: { userId: payment.userId }
+      });
+      // Si SOMMA alla copertura esistente (niente giorni persi), come one-shot.
+      const endsAt = computeExtendedEndDate(updated.tier, now, existing);
+
+      const subscription = await tx.userSubscription.upsert({
+        where: { userId: payment.userId },
+        update: { tier: updated.tier, endsAt, deactivatedAt: null },
+        create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
+      });
+
+      return tx.payment.update({
+        where: { id: payment.id },
+        data: { subscriptionId: subscription.id }
+      });
+    });
+
+    // Guard e2e: in sandbox NON tocchiamo la serratura Tuya reale (nessun PIN vero).
+    // In produzione l'attivazione sincronizza il PIN come per gli altri pagamenti.
+    if (isHeyLightProduction()) {
+      safeSyncPinToKeypad(db, payment.userId);
+    } else {
+      console.warn(
+        `[payment-reconciliation] HeyLight sandbox: sync PIN Tuya saltato (payment=${payment.id})`
+      );
+    }
+    return result;
+  }
+
+  if (app.status === "cancelled") {
+    return db.payment.update({
+      where: { id: payment.id },
+      data: { status: PaymentStatus.CANCELED, failureReason: "HeyLight: contratto annullato/rifiutato" }
+    });
+  }
+
+  // pending / awaiting_confirmation → no-op, l'utente vede "in elaborazione".
   return payment;
 }
 
