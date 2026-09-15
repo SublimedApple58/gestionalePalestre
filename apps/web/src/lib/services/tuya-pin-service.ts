@@ -118,7 +118,7 @@ export async function syncPinToKeypad(
       tuyaPinUnlockNo: true,
       tuyaPinActive: true,
       subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true },
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true },
       },
       entryPackage: {
         select: { deactivatedAt: true, remainingEntries: true },

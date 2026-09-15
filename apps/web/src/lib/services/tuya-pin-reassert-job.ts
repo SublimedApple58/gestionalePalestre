@@ -123,7 +123,7 @@ export async function runTuyaPinReassertJob(
       tuyaUserId: true,
       tuyaPinUnlockNo: true,
       subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true }
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true }
       },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } }
     }

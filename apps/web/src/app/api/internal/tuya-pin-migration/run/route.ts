@@ -43,7 +43,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       tuyaUserId: true,
       tuyaPinActive: true,
       subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true },
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true },
       },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },

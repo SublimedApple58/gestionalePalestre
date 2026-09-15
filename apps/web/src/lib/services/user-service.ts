@@ -269,7 +269,7 @@ export async function assignEntryPackageByAdmin(
     where: { id: input.targetUserId },
     select: {
       role: true,
-      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } }
+      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true } }
     }
   });
 

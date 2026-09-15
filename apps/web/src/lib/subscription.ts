@@ -159,14 +159,24 @@ const ACCESS_GRACE_MS = ACCESS_GRACE_DAYS * 24 * 60 * 60 * 1000;
  */
 export function isEligibleForDoorAccess(
   subscription:
-    | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+    | (Pick<UserSubscription, "startsAt" | "endsAt"> & {
+        deactivatedAt?: Date | null;
+        autoRenew?: boolean | null;
+      })
     | null,
   now: Date = new Date()
 ): boolean {
   if (!subscription) return false;
   if (subscription.deactivatedAt) return false;
   if (now < subscription.startsAt) return false;
-  return now.getTime() <= subscription.endsAt.getTime() + ACCESS_GRACE_MS;
+  // La grazia post-scadenza esiste SOLO per coprire il ritardo del rinnovo
+  // automatico asincrono (webhook Revolut dei piani a rate): si applica quindi
+  // unicamente agli abbonamenti con `autoRenew`. Un abbonamento che NON si rinnova
+  // da solo (one-shot, DAILY, piano a rate saldato, disdetto) NON ha grazia →
+  // scaduto = bloccato subito a `endsAt`. (Bug: prima la grazia era cieca e faceva
+  // entrare qualsiasi scaduto per ~2-3 giorni.)
+  const graceMs = subscription.autoRenew ? ACCESS_GRACE_MS : 0;
+  return now.getTime() <= subscription.endsAt.getTime() + graceMs;
 }
 
 /**
@@ -192,7 +202,10 @@ export function shouldHaveDoorPin(
   input: {
     role: UserRole;
     subscription:
-      | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+      | (Pick<UserSubscription, "startsAt" | "endsAt"> & {
+          deactivatedAt?: Date | null;
+          autoRenew?: boolean | null;
+        })
       | null;
     entryPackage: { deactivatedAt?: Date | null; remainingEntries: number } | null | undefined;
   },

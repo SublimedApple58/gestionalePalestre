@@ -73,7 +73,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         accessCode: true,
         tuyaUserId: true,
         role: true,
-        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true } },
         entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
       },
     });
@@ -271,7 +271,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         accessCode: true,
         tuyaUserId: true,
         role: true,
-        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true } },
         entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
       },
       take: 200,
@@ -317,7 +317,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       lastName: true,
       tuyaUserId: true,
       subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true },
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true },
       },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },

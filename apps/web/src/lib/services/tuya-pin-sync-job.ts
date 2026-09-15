@@ -67,7 +67,7 @@ export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResul
       role: true,
       tuyaUserId: true,
       tuyaPinActive: true,
-      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true } },
+      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true } },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },
     orderBy: { createdAt: "asc" },
