@@ -1,6 +1,8 @@
 export const DEFAULT_DOC_AI_MODEL = "gpt-4.1-mini";
 const DEFAULT_DOC_AI_MIN_CONFIDENCE = 0.85;
 const DEFAULT_DOC_AI_MAX_RETRIES = 3;
+const DEFAULT_DOC_AI_TRANSIENT_MAX_ATTEMPTS = 12;
+const DEFAULT_DOC_AI_TRANSIENT_RETRY_BASE_MS = 300_000;
 const DEFAULT_DOC_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
 const DEFAULT_DOC_PRESIGN_TTL_SECONDS = 300;
 const DEFAULT_DOC_JOB_BATCH_SIZE = 10;
@@ -41,6 +43,22 @@ export const DOC_AI_MIN_CONFIDENCE = readFloat(
   DEFAULT_DOC_AI_MIN_CONFIDENCE
 );
 export const DOC_AI_MAX_RETRIES = readInt(process.env.DOC_AI_MAX_RETRIES, DEFAULT_DOC_AI_MAX_RETRIES);
+/**
+ * Quante volte il cron rimette in coda un job di estrazione AI quando il
+ * fallimento e' transitorio (provider AI non disponibile: es. OpenAI 429
+ * "no credits", 5xx, rete). Non intacca i tentativi di ricarica dell'utente:
+ * il documento resta in AI_PROCESSING finche' il provider non torna. Superata
+ * questa soglia il job passa a revisione manuale admin (mai "non leggibile").
+ */
+export const DOC_AI_TRANSIENT_MAX_ATTEMPTS = readInt(
+  process.env.DOC_AI_TRANSIENT_MAX_ATTEMPTS,
+  DEFAULT_DOC_AI_TRANSIENT_MAX_ATTEMPTS
+);
+/** Backoff base tra un retry transitorio e il successivo (crescente, con tetto). */
+export const DOC_AI_TRANSIENT_RETRY_BASE_MS = readInt(
+  process.env.DOC_AI_TRANSIENT_RETRY_BASE_MS,
+  DEFAULT_DOC_AI_TRANSIENT_RETRY_BASE_MS
+);
 export const DOC_UPLOAD_MAX_BYTES = readInt(process.env.DOC_UPLOAD_MAX_BYTES, DEFAULT_DOC_UPLOAD_MAX_BYTES);
 export const DOC_PRESIGN_TTL_SECONDS = readInt(
   process.env.DOC_PRESIGN_TTL_SECONDS,

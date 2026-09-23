@@ -9,6 +9,8 @@ import {
 
 import {
   DOC_AI_MAX_RETRIES,
+  DOC_AI_TRANSIENT_MAX_ATTEMPTS,
+  DOC_AI_TRANSIENT_RETRY_BASE_MS,
   DOC_JOB_BATCH_SIZE,
   DOC_PRESIGN_TTL_SECONDS,
   DOC_RATE_LIMIT_MAX_REQUESTS,
@@ -82,6 +84,7 @@ export type DocumentJobRunSummary = {
   succeeded: number;
   failed: number;
   escalated: number;
+  retried: number;
 };
 
 const TAX_CODE_REGEX = /^[A-Z0-9]{16}$/;
@@ -627,7 +630,27 @@ function toSafeErrorCode(error: unknown): string {
   return "UNKNOWN_ERROR";
 }
 
-async function processDocumentJob(prisma: PrismaClient, jobId: string): Promise<"succeeded" | "failed" | "escalated"> {
+/**
+ * Distingue un guasto TRANSITORIO (provider AI / infrastruttura non
+ * disponibile) da un documento realmente illeggibile. Un 429 "no credits",
+ * un 5xx, la chiave mancante o un errore di rete NON sono colpa del file
+ * caricato dall'utente: ricaricare la tessera sanitaria non risolverebbe.
+ * Questi vanno rimessi in coda, non marcati come "non leggibile".
+ * Restano "genuini" (ricarica necessaria) solo gli errori di estrazione
+ * AI_EXTRACTION_* (mismatch, bassa confidenza, formato non valido, ecc.).
+ */
+function isTransientAiError(errorCode: string): boolean {
+  return (
+    errorCode === "AI_PROVIDER_ERROR" ||
+    errorCode === "AI_NOT_CONFIGURED" ||
+    errorCode === "UNKNOWN_ERROR"
+  );
+}
+
+async function processDocumentJob(
+  prisma: PrismaClient,
+  jobId: string
+): Promise<"succeeded" | "failed" | "escalated" | "retried"> {
   const job = await prisma.documentProcessingJob.update({
     where: { id: jobId },
     data: {
@@ -640,7 +663,8 @@ async function processDocumentJob(prisma: PrismaClient, jobId: string): Promise<
       id: true,
       userId: true,
       type: true,
-      maxAttempts: true
+      maxAttempts: true,
+      attemptCount: true
     }
   });
 
@@ -728,6 +752,64 @@ async function processDocumentJob(prisma: PrismaClient, jobId: string): Promise<
     return "succeeded";
   } catch (error) {
     const errorCode = toSafeErrorCode(error);
+
+    // Guasto transitorio del provider AI (es. OpenAI 429 "no credits", 5xx,
+    // rete, chiave mancante): NON e' colpa del documento dell'utente. Non
+    // bruciamo i suoi tentativi di ricarica e non mostriamo "non leggibile":
+    // rimettiamo il job in coda con backoff e lasciamo il documento in
+    // AI_PROCESSING, cosi' il cron lo rielabora da solo quando il provider
+    // torna disponibile.
+    if (isTransientAiError(errorCode)) {
+      await prisma.userDocument.updateMany({
+        where: {
+          userId: job.userId,
+          type: job.type,
+          side: {
+            in: [DocumentSide.FRONT, DocumentSide.BACK]
+          }
+        },
+        data: {
+          // Solo diagnostica: nessun increment di aiAttempts, stato invariato.
+          aiLastError: errorCode
+        }
+      });
+
+      if (job.attemptCount < DOC_AI_TRANSIENT_MAX_ATTEMPTS) {
+        const delayMs =
+          Math.min(job.attemptCount, 6) * DOC_AI_TRANSIENT_RETRY_BASE_MS;
+
+        await prisma.documentProcessingJob.update({
+          where: { id: job.id },
+          data: {
+            status: DocumentJobStatus.QUEUED,
+            nextRunAt: new Date(Date.now() + delayMs),
+            lastError: errorCode
+          }
+        });
+
+        return "retried";
+      }
+
+      // Provider indisponibile troppo a lungo: passiamo alla revisione manuale
+      // dell'admin, senza mai incolpare l'utente ("non leggibile").
+      await prisma.userDocument.updateMany({
+        where: {
+          userId: job.userId,
+          type: job.type,
+          side: {
+            in: [DocumentSide.FRONT, DocumentSide.BACK]
+          }
+        },
+        data: {
+          status: DocumentStatus.PENDING_ADMIN_REVIEW,
+          rejectionReason:
+            "Verifica automatica temporaneamente non disponibile: in attesa di revisione manuale."
+        }
+      });
+
+      await markJobStatus(prisma, job.id, DocumentJobStatus.ESCALATED, errorCode);
+      return "escalated";
+    }
 
     const updatedDocuments = await prisma.$transaction(async (tx) => {
       await tx.userDocument.updateMany({
@@ -825,7 +907,8 @@ export async function runDocumentProcessingJobs(
     queued: queuedJobs.length,
     succeeded: 0,
     failed: 0,
-    escalated: 0
+    escalated: 0,
+    retried: 0
   };
 
   for (const job of queuedJobs) {
@@ -841,6 +924,10 @@ export async function runDocumentProcessingJobs(
 
     if (result === "escalated") {
       summary.escalated += 1;
+    }
+
+    if (result === "retried") {
+      summary.retried += 1;
     }
   }
 
