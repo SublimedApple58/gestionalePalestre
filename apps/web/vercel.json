@@ -18,6 +18,10 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/internal/tuya-permanent-reassert/run",
+      "schedule": "0 5 * * 1"
+    },
+    {
       "path": "/api/internal/installments-charge/run",
       "schedule": "0 7 * * *"
     }
