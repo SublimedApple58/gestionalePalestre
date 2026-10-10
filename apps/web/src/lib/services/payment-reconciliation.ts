@@ -74,16 +74,19 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
       const existing = await tx.userSubscription.findUnique({
         where: { userId: payment.userId }
       });
-      // Si SOMMA alla copertura esistente invece di sovrascriverla (niente giorni persi).
+      // Si SOMMA alla copertura ATTIVA (niente giorni persi); se scaduta/disattivata è nuova.
+      const extendsActive =
+        !!existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime();
       const endsAt = computeExtendedEndDate(updated.tier, now, existing);
 
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
-        // Su update NON resettiamo startsAt: la copertura si accumula.
+        // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
         update: {
           tier: updated.tier,
           endsAt,
-          deactivatedAt: null
+          deactivatedAt: null,
+          ...(extendsActive ? {} : { startsAt: now })
         },
         create: {
           userId: payment.userId,
@@ -202,12 +205,15 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
       const existing = await tx.userSubscription.findUnique({
         where: { userId: payment.userId }
       });
-      // Si SOMMA alla copertura esistente (niente giorni persi), come one-shot.
+      // Si SOMMA alla copertura ATTIVA (niente giorni persi); se scaduta/disattivata è nuova.
+      const extendsActive =
+        !!existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime();
       const endsAt = computeExtendedEndDate(updated.tier, now, existing);
 
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
-        update: { tier: updated.tier, endsAt, deactivatedAt: null },
+        // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
+        update: { tier: updated.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
         create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
       });
 

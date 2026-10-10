@@ -174,13 +174,18 @@ async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promi
 
     const now = new Date();
     const existing = await tx.userSubscription.findUnique({ where: { userId: payment.userId } });
-    // Si SOMMA all'eventuale copertura già presente (niente giorni persi).
+    // Si SOMMA alla copertura già ATTIVA (niente giorni persi); se invece quella
+    // precedente è scaduta/disattivata, è una copertura NUOVA.
+    const extendsActive =
+      !!existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime();
     const endsAt = computeExtendedEndDate(updated.tier, now, existing);
 
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
-      // Su update NON resettiamo startsAt: la copertura si accumula.
-      update: { tier: updated.tier, endsAt, deactivatedAt: null },
+      // Su rinnovo che SOMMA a copertura attiva NON tocchiamo startsAt (la copertura
+      // continua). Se invece riparte da zero, resettiamo startsAt a `now`, altrimenti
+      // resterebbe la data di inizio della vecchia copertura scaduta (startsAt fantasma).
+      update: { tier: updated.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
       create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
     });
 

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/session";
 import { initiatePayment } from "@/lib/payments";
-import { CHECKOUT_TIERS, TIER_CATALOG, type CheckoutTier } from "@/lib/subscription";
+import { CHECKOUT_TIERS, isSubscriptionActive, TIER_CATALOG, type CheckoutTier } from "@/lib/subscription";
 
 function isCheckoutTier(value: unknown): value is CheckoutTier {
   return typeof value === "string" && (CHECKOUT_TIERS as readonly string[]).includes(value);
@@ -55,6 +55,18 @@ export async function initiateCheckoutAction(formData: FormData): Promise<void> 
 
   if (payInInstallments && !tierConfig.installments) {
     redirect("/checkout/failure?reason=rate-non-disponibili-per-tier");
+  }
+
+  // Un pass giornaliero NON è acquistabile se c'è già una copertura attiva: si
+  // impilerebbe sopra l'abbonamento esistente rietichettandolo "Giornaliero".
+  if (tier === "DAILY") {
+    const existingSub = await db.userSubscription.findUnique({
+      where: { userId: user.id },
+      select: { startsAt: true, endsAt: true, deactivatedAt: true }
+    });
+    if (isSubscriptionActive(existingSub)) {
+      redirect("/checkout/failure?reason=abbonamento-gia-attivo");
+    }
   }
 
   // Presa visione mandato SEPA SDD obbligatoria per gli acquisti a rate (addebito

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { initiatePayment } from "@/lib/payments";
-import { TIER_CATALOG } from "@/lib/subscription";
+import { isSubscriptionActive, TIER_CATALOG } from "@/lib/subscription";
 import { mobileInitiatePaymentSchema } from "@/lib/validators/mobile";
 
 export const runtime = "nodejs";
@@ -41,6 +41,26 @@ export const POST = withMobileAuth(async (request, { user }) => {
 
   if (payInInstallments && !tierConfig.installments) {
     return NextResponse.json({ error: "INSTALLMENTS_NOT_AVAILABLE" }, { status: 400 });
+  }
+
+  // Un pass giornaliero NON è acquistabile se c'è già una copertura attiva: si
+  // impilerebbe sopra l'abbonamento esistente rietichettandolo "Giornaliero"
+  // (coverage più lunga mascherata da daily). Chi ha già accesso non ne ha
+  // bisogno; se vuole aggiungere giorni, rinnova il suo tier.
+  if (tier === "DAILY") {
+    const existingSub = await db.userSubscription.findUnique({
+      where: { userId: user.id },
+      select: { startsAt: true, endsAt: true, deactivatedAt: true }
+    });
+    if (isSubscriptionActive(existingSub)) {
+      return NextResponse.json(
+        {
+          error: "ALREADY_HAS_ACTIVE_SUBSCRIPTION",
+          message: "Hai già un abbonamento attivo: il pass giornaliero non è acquistabile."
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // Presa visione mandato SEPA SDD obbligatoria per gli acquisti a rate (addebito

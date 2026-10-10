@@ -1,5 +1,7 @@
 import { SubscriptionTier, UserRole, type UserSubscription } from "@gestionale/db";
 
+import { romeDayEndExclusiveUtc, romeYmd } from "./datetime";
+
 const TIER_MONTHS: Record<SubscriptionTier, number> = {
   DAILY: 0,
   MONTHLY: 1,
@@ -79,17 +81,11 @@ export function computeSubscriptionEndDate(tier: SubscriptionTier, startsAt: Dat
   const value = new Date(startsAt);
 
   if (tier === SubscriptionTier.DAILY) {
-    return new Date(
-      Date.UTC(
-        value.getUTCFullYear(),
-        value.getUTCMonth(),
-        value.getUTCDate() + 1,
-        value.getUTCHours(),
-        value.getUTCMinutes(),
-        value.getUTCSeconds(),
-        value.getUTCMilliseconds()
-      )
-    );
+    // Pass giornaliero: vale fino a MEZZANOTTE (Europe/Rome) del giorno di
+    // attivazione, non 24h dall'orario di acquisto. Vercel gira in UTC, quindi
+    // la "mezzanotte italiana" si calcola via gli helper del fuso palestra:
+    // romeDayEndExclusiveUtc(giorno) = inizio del giorno successivo in Rome.
+    return romeDayEndExclusiveUtc(romeYmd(value));
   }
 
   return new Date(

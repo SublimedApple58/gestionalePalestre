@@ -70,4 +70,21 @@ export function romeDayEndExclusiveUtc(ymd: string): Date {
   return romeDayStartUtc(nymd);
 }
 
+/**
+ * Giorno di calendario (YYYY-MM-DD) a cui appartiene l'istante `value` nel fuso
+ * della palestra (Europe/Rome). Utile per calcolare la "mezzanotte italiana" di
+ * un istante salvato in UTC (es. scadenza di un pass giornaliero).
+ */
+export function romeYmd(value: Date | string | number): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: GYM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date(value));
+  const m: Record<string, string> = {};
+  for (const p of parts) m[p.type] = p.value;
+  return `${m.year}-${m.month}-${m.day}`;
+}
+
 export { GYM_TIME_ZONE };
