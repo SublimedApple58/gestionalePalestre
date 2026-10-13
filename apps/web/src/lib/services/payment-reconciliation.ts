@@ -62,35 +62,39 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
 
   if (remote.state === "completed") {
     const result = await db.$transaction(async (tx) => {
-      const updated = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.PAID,
-          paidAt: new Date()
-        }
-      });
-
       const now = new Date();
+      // Claim atomico PENDING→PAID: solo UN reconcile concorrente (webhook,
+      // success page, confirm mobile, cron) attraversa questo punto e applica
+      // l'abbonamento. Gli altri trovano count=0 e NON ri-applicano, evitando
+      // il doppio stacking di computeExtendedEndDate (durata raddoppiata).
+      const claim = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.PENDING },
+        data: { status: PaymentStatus.PAID, paidAt: now }
+      });
+      if (claim.count === 0) {
+        return tx.payment.findUnique({ where: { id: payment.id } });
+      }
+
       const existing = await tx.userSubscription.findUnique({
         where: { userId: payment.userId }
       });
       // Si SOMMA alla copertura ATTIVA (niente giorni persi); se scaduta/disattivata è nuova.
       const extendsActive =
         !!existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime();
-      const endsAt = computeExtendedEndDate(updated.tier, now, existing);
+      const endsAt = computeExtendedEndDate(payment.tier, now, existing);
 
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
         // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
         update: {
-          tier: updated.tier,
+          tier: payment.tier,
           endsAt,
           deactivatedAt: null,
           ...(extendsActive ? {} : { startsAt: now })
         },
         create: {
           userId: payment.userId,
-          tier: updated.tier,
+          tier: payment.tier,
           startsAt: now,
           endsAt
         }
@@ -197,10 +201,17 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
   if (isContractPaid(app)) {
     const result = await db.$transaction(async (tx) => {
       const now = new Date();
-      const updated = await tx.payment.update({
-        where: { id: payment.id },
+      // Claim atomico PENDING→PAID: solo UN reconcile concorrente (webhook,
+      // success page, confirm mobile, cron) applica l'abbonamento. Gli altri
+      // trovano count=0 e NON ri-applicano, evitando il doppio stacking di
+      // computeExtendedEndDate (annuale che diventava 2 anni).
+      const claim = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.PENDING },
         data: { status: PaymentStatus.PAID, paidAt: now }
       });
+      if (claim.count === 0) {
+        return tx.payment.findUnique({ where: { id: payment.id } });
+      }
 
       const existing = await tx.userSubscription.findUnique({
         where: { userId: payment.userId }
@@ -208,13 +219,13 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
       // Si SOMMA alla copertura ATTIVA (niente giorni persi); se scaduta/disattivata è nuova.
       const extendsActive =
         !!existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime();
-      const endsAt = computeExtendedEndDate(updated.tier, now, existing);
+      const endsAt = computeExtendedEndDate(payment.tier, now, existing);
 
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
         // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
-        update: { tier: updated.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
-        create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
+        update: { tier: payment.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
+        create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt }
       });
 
       return tx.payment.update({
