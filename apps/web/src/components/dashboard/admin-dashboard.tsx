@@ -15,6 +15,7 @@ import { AccessLogList, type AccessLogRow } from "./access-log-list";
 import { AssociationExpiringSection, type ExpiringAssociationRow } from "./association-expiring-section";
 import { BirthdayBanner } from "./birthday-banner";
 import { CertificateExpiringSection, type ExpiringCertificateRow } from "./certificate-expiring-section";
+import { CertificateReviewHero, type CertReviewRow } from "./certificate-review-hero";
 import { DocumentReviewTable } from "./document-review-table";
 import { LowActivitySection, type LowActivityRow } from "./low-activity-section";
 import { OverdueInstallmentsSection } from "./overdue-installments-section";
@@ -64,6 +65,8 @@ type AdminDashboardProps = {
   overdueInstallments?: OverdueInstallmentRow[];
   expiringAssociations?: ExpiringAssociationRow[];
   expiringCertificates?: ExpiringCertificateRow[];
+  certsToReview?: CertReviewRow[];
+  certsToReviewTotal?: number;
   lowActivitySubscribers?: LowActivityRow[];
 };
 
@@ -75,12 +78,17 @@ export function AdminDashboard({
   overdueInstallments = [],
   expiringAssociations = [],
   expiringCertificates = [],
+  certsToReview = [],
+  certsToReviewTotal,
   lowActivitySubscribers = []
 }: AdminDashboardProps) {
   const totalPending = reviewDocuments.length;
 
   return (
     <div className="dash-content">
+      {/* ── Certificati medici da controllare (in CIMA, salta all'occhio) ── */}
+      <CertificateReviewHero items={certsToReview} total={certsToReviewTotal} />
+
       {/* ── Banner compleanni (oggi + domani) ────────────────────── */}
       <BirthdayBanner />
 

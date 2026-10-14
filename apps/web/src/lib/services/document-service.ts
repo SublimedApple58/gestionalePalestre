@@ -933,3 +933,67 @@ export async function runDocumentProcessingJobs(
 
   return summary;
 }
+
+// ── Certificati medici "da controllare" (strada A) ───────────────────────────
+//
+// Quando un iscritto CARICA o RICARICA il certificato medico, il commit lascia
+// `reviewedAt = null` (vedi `commitUploadedDocument`: il branch di update azzera
+// reviewedById/reviewedAt). Il certificato resta `APPROVED` (nessun cambio di
+// stato → nessuna regressione su scadenze/accesso), ma essere APPROVED con
+// `reviewedAt` null = "(ri)caricato dall'iscritto e non ancora controllato da un
+// admin". Gli upload fatti DALL'admin per conto dell'iscritto stampano già
+// reviewedAt → non compaiono qui. L'admin "spunta" riusando `approveDocumentByAdmin`
+// (imposta reviewedById/reviewedAt mantenendo APPROVED) → il certificato esce dalla lista.
+//
+// NB rilascio: i certificati PRE-ESISTENTI hanno reviewedAt null → al deploy va
+// fatto un backfill una-tantum (reviewedAt = uploadedAt sui MEDICAL già caricati)
+// per non riversare l'intero storico nella lista. Nessuna migrazione di schema.
+
+export type MedicalCertificateToReview = {
+  documentId: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  uploadedAt: Date;
+  medicalCertificateExpiresAt: Date | null;
+  storageKey: string;
+};
+
+const MEDICAL_REVIEW_WHERE = {
+  type: DocumentType.MEDICAL_CERTIFICATE,
+  status: DocumentStatus.APPROVED,
+  reviewedAt: null,
+  user: { role: UserRole.SUBSCRIBER }
+} as const;
+
+export async function listMedicalCertificatesToReview(
+  prisma: PrismaClient,
+  options: { take?: number } = {}
+): Promise<MedicalCertificateToReview[]> {
+  const docs = await prisma.userDocument.findMany({
+    where: MEDICAL_REVIEW_WHERE,
+    select: {
+      id: true,
+      uploadedAt: true,
+      storageKey: true,
+      medicalCertificateExpiresAt: true,
+      user: { select: { id: true, firstName: true, lastName: true } }
+    },
+    orderBy: { uploadedAt: "desc" },
+    take: options.take ?? 100
+  });
+
+  return docs.map((d) => ({
+    documentId: d.id,
+    userId: d.user.id,
+    firstName: d.user.firstName,
+    lastName: d.user.lastName,
+    uploadedAt: d.uploadedAt,
+    medicalCertificateExpiresAt: d.medicalCertificateExpiresAt,
+    storageKey: d.storageKey
+  }));
+}
+
+export async function countMedicalCertificatesToReview(prisma: PrismaClient): Promise<number> {
+  return prisma.userDocument.count({ where: MEDICAL_REVIEW_WHERE });
+}

@@ -18,6 +18,8 @@ const { Text } = Typography;
 type AuthenticatedShellProps = {
   children: React.ReactNode;
   currentPath: "/dashboard" | "/utenti" | "/statistiche" | "/profilo" | "/checkout" | "/schede";
+  /** Contatore mostrato come badge sulla voce Dashboard (es. certificati da controllare). */
+  dashboardBadge?: number;
   user: {
     firstName: string;
     role: UserRole;
@@ -42,15 +44,34 @@ const BOTTOM_NAV_ICONS: Record<string, React.ReactNode> = {
   "/profilo": <User size={22} />
 };
 
-export function AuthenticatedShell({ children, currentPath, user }: AuthenticatedShellProps) {
+export function AuthenticatedShell({
+  children,
+  currentPath,
+  dashboardBadge = 0,
+  user
+}: AuthenticatedShellProps) {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const navItems = getAppNavigationItems(currentPath, user.role);
 
-  const menuItems = navItems.map((item) => ({
-    key: item.href,
-    icon: NAV_ICONS[item.href],
-    label: <Link href={item.href} onClick={() => setMobileDrawerOpen(false)}>{item.label}</Link>
-  }));
+  const badgeFor = (href: string): number => (href === "/dashboard" ? dashboardBadge : 0);
+
+  const menuItems = navItems.map((item) => {
+    const count = badgeFor(item.href);
+    return {
+      key: item.href,
+      icon: NAV_ICONS[item.href],
+      label: (
+        <Link href={item.href} onClick={() => setMobileDrawerOpen(false)} className="nav-link-with-badge">
+          <span>{item.label}</span>
+          {count > 0 && (
+            <span className="nav-badge" aria-label={`${count} da controllare`}>
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+        </Link>
+      )
+    };
+  });
 
   const sidebarContent = (
     <>
@@ -197,17 +218,27 @@ export function AuthenticatedShell({ children, currentPath, user }: Authenticate
           }}
           aria-label="Navigazione principale"
         >
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`bottom-nav-link ${item.active ? "active" : ""}`}
-              aria-current={item.active ? "page" : undefined}
-            >
-              {BOTTOM_NAV_ICONS[item.href]}
-              <span>{item.shortLabel}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const count = badgeFor(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`bottom-nav-link ${item.active ? "active" : ""}`}
+                aria-current={item.active ? "page" : undefined}
+              >
+                <span className="bottom-nav-icon-wrap">
+                  {BOTTOM_NAV_ICONS[item.href]}
+                  {count > 0 && (
+                    <span className="nav-badge nav-badge-dot" aria-label={`${count} da controllare`}>
+                      {count > 9 ? "9+" : count}
+                    </span>
+                  )}
+                </span>
+                <span>{item.shortLabel}</span>
+              </Link>
+            );
+          })}
         </nav>
       </Footer>
     </Layout>

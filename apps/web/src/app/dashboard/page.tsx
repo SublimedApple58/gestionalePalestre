@@ -10,6 +10,10 @@ import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import { getProfilePhotoUrl, getProfilePhotoUrls } from "@/lib/profile-photo";
 import { roleLabel } from "@/lib/roles";
 import { createDocumentDownloadUrl, isDocumentStorageConfigured } from "@/lib/services/document-storage-service";
+import {
+  countMedicalCertificatesToReview,
+  listMedicalCertificatesToReview
+} from "@/lib/services/document-service";
 import { listLowActivitySubscribers } from "@/lib/services/low-activity-service";
 import { requireSessionUser } from "@/lib/session";
 
@@ -84,9 +88,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const profilePhotoUrl = await getProfilePhotoUrl(currentUser.id);
 
+  // Contatore per il badge in sidebar: certificati (ri)caricati dagli iscritti e
+  // non ancora controllati dall'admin (solo per gli admin).
+  const certReviewCount =
+    currentUser.role === UserRole.ADMIN ? await countMedicalCertificatesToReview(db) : 0;
+
   return (
     <AuthenticatedShell
       currentPath="/dashboard"
+      dashboardBadge={certReviewCount}
       user={{
         firstName: currentUser.firstName,
         role: currentUser.role
@@ -107,7 +117,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
 
         {currentUser.role === UserRole.ADMIN ? (
-          <AdminView currentUserId={currentUser.id} accessCode={currentUser.accessCode} />
+          <AdminView
+            currentUserId={currentUser.id}
+            accessCode={currentUser.accessCode}
+            certReviewCount={certReviewCount}
+          />
         ) : null}
 
         {currentUser.role === UserRole.INSTRUCTOR ? (
@@ -231,9 +245,10 @@ async function InstructorView({
 type AdminViewProps = {
   currentUserId: string;
   accessCode: string;
+  certReviewCount: number;
 };
 
-async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
+async function AdminView({ currentUserId, accessCode, certReviewCount }: AdminViewProps) {
   const associationThreshold = new Date();
   associationThreshold.setDate(associationThreshold.getDate() + 14);
   const certificateThreshold = new Date();
@@ -244,7 +259,8 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
     overdueInstallments,
     expiringAssociations,
     expiringCertificatesRaw,
-    lowActivitySubscribers
+    lowActivitySubscribers,
+    certsToReviewRaw
   ] = await Promise.all([
     db.accessEvent.findMany({
       include: {
@@ -317,7 +333,9 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
       take: 100
     }),
     // Iscritti attivi senza ingressi da ≥15 giorni (banner "da ricontattare")
-    listLowActivitySubscribers(db, { days: 15, take: 20 })
+    listLowActivitySubscribers(db, { days: 15, take: 20 }),
+    // Certificati (ri)caricati dagli iscritti e non ancora controllati (strada A)
+    listMedicalCertificatesToReview(db, { take: 50 })
   ]);
 
   const storageConfigured = isDocumentStorageConfigured();
@@ -336,6 +354,23 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
   const allUserIds = new Set<string>();
   for (const log of accessLogs) allUserIds.add(log.user.id);
   const photoUrlMap = await getProfilePhotoUrls(Array.from(allUserIds));
+
+  // Certificati da controllare: anteprima firmata + foto profilo per ciascuno.
+  const certPhotoMap = await getProfilePhotoUrls(certsToReviewRaw.map((c) => c.userId));
+  const certsToReview = await Promise.all(
+    certsToReviewRaw.map(async (c) => ({
+      documentId: c.documentId,
+      userId: c.userId,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      uploadedAt: c.uploadedAt,
+      medicalCertificateExpiresAt: c.medicalCertificateExpiresAt,
+      previewUrl: storageConfigured
+        ? await createDocumentDownloadUrl({ storageKey: c.storageKey, expiresInSeconds: 300 }).catch(() => null)
+        : null,
+      photoUrl: certPhotoMap.get(c.userId) ?? null
+    }))
+  );
 
   return (
     <AdminDashboard
@@ -356,6 +391,8 @@ async function AdminView({ currentUserId, accessCode }: AdminViewProps) {
         lastName: d.user.lastName,
         medicalCertificateExpiresAt: d.medicalCertificateExpiresAt as Date
       }))}
+      certsToReview={certsToReview}
+      certsToReviewTotal={certReviewCount}
       lowActivitySubscribers={lowActivitySubscribers}
     />
   );
