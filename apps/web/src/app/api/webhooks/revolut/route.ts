@@ -16,8 +16,10 @@ import {
 import {
   computeExtendedEndDate,
   computeSubscriptionEndDate,
+  neverShorten,
   TIER_CATALOG
 } from "@/lib/subscription";
+import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
@@ -162,7 +164,7 @@ async function resolvePayment(order: RevolutOrder): Promise<ResolvedPayment | nu
 async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promise<void> {
   if (payment.status === PaymentStatus.PAID) return; // idempotente
 
-  await db.$transaction(async (tx) => {
+  const audit = await db.$transaction(async (tx) => {
     const updated = await tx.payment.update({
       where: { id: payment.id },
       data: {
@@ -185,7 +187,14 @@ async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promi
       // Su rinnovo che SOMMA a copertura attiva NON tocchiamo startsAt (la copertura
       // continua). Se invece riparte da zero, resettiamo startsAt a `now`, altrimenti
       // resterebbe la data di inizio della vecchia copertura scaduta (startsAt fantasma).
-      update: { tier: updated.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
+      // Copertura NUOVA (precedente scaduta) → la vecchia scadenza manuale non vale più.
+      update: {
+        tier: updated.tier,
+        endsAt,
+        deactivatedAt: null,
+        arrearsSuspendedAt: null,
+        ...(extendsActive ? {} : { startsAt: now, endsAtManual: false })
+      },
       create: { userId: payment.userId, tier: updated.tier, startsAt: now, endsAt }
     });
 
@@ -193,6 +202,13 @@ async function handleOneShotPaid(payment: ResolvedPayment, body: unknown): Promi
       where: { id: payment.id },
       data: { subscriptionId: subscription.id }
     });
+    return { before: existing, after: subscription };
+  });
+
+  await logSubscriptionAutoChange(db, {
+    userId: payment.userId,
+    source: `webhook:revolut:one-shot:${payment.id}`,
+    ...audit
   });
 
   // Chi paga in UNICA SOLUZIONE non deve avere rate: elimina eventuali piani
@@ -323,6 +339,8 @@ async function handleInstallmentPaid(
     .filter((i) => i.status === InstallmentStatus.SCHEDULED)
     .sort((a, b) => a.sequenceNumber - b.sequenceNumber)[0];
 
+  let subBefore: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
+  let subAfter: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
   const planNowComplete = await db.$transaction(async (tx) => {
     if (payment.status !== PaymentStatus.PAID) {
       await tx.payment.update({
@@ -337,19 +355,20 @@ async function handleInstallmentPaid(
 
     const now = new Date();
     const existing = await tx.userSubscription.findUnique({ where: { userId: payment.userId } });
-    // Su una rata successiva RIPRISTINIAMO la copertura al termine pieno (dalla
-    // data di inizio): se l'accesso era stato tagliato da una rata insoluta
-    // (endsAt riportato alla scadenza), un pagamento riuscito lo riporta al termine.
-    // `Math.max` evita di accorciare una copertura gia' piu' lunga.
+    // Rata SUCCESSIVA: una scadenza impostata a mano dalla reception non si
+    // tocca. Altrimenti si garantisce solo il minimo del piano senza MAI
+    // accorciare una copertura più lunga (prima di be431fc la si riportava allo
+    // standard e i mesi aggiunti a mano sparivano). L'eventuale insoluto si toglie
+    // azzerando arrearsSuspendedAt: endsAt non viene più tagliato.
+    const freshCoverage =
+      isFirstPaid &&
+      !(existing && existing.deactivatedAt == null && existing.endsAt.getTime() > now.getTime());
     const endsAt = isFirstPaid
       ? computeExtendedEndDate(payment.tier, now, existing)
       : existing
-        ? new Date(
-            Math.max(
-              existing.endsAt.getTime(),
-              computeSubscriptionEndDate(payment.tier, existing.startsAt).getTime()
-            )
-          )
+        ? existing.endsAtManual
+          ? existing.endsAt
+          : neverShorten(existing.endsAt, computeSubscriptionEndDate(payment.tier, existing.startsAt))
         : computeSubscriptionEndDate(payment.tier, now);
     const subscription = await tx.userSubscription.upsert({
       where: { userId: payment.userId },
@@ -357,9 +376,19 @@ async function handleInstallmentPaid(
       // inizio storica resta quella originale. autoRenew=true: un piano rateale
       // Revolut e' billing ricorrente (usato dalle stat "% rinnovi automatici");
       // canceledAt azzerato perche' un pagamento riattiva di fatto l'abbonamento.
-      update: { tier: payment.tier, endsAt, deactivatedAt: null, autoRenew: true, canceledAt: null },
+      update: {
+        tier: payment.tier,
+        endsAt,
+        deactivatedAt: null,
+        autoRenew: true,
+        canceledAt: null,
+        arrearsSuspendedAt: null,
+        ...(freshCoverage ? { endsAtManual: false } : {})
+      },
       create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt, autoRenew: true }
     });
+    subBefore = existing;
+    subAfter = subscription;
     if (!payment.subscriptionId) {
       await tx.payment.update({
         where: { id: payment.id },
@@ -399,6 +428,13 @@ async function handleInstallmentPaid(
     return false;
   });
 
+  await logSubscriptionAutoChange(db, {
+    userId: payment.userId,
+    source: `webhook:revolut:installment-paid:${orderId}`,
+    before: subBefore,
+    after: subAfter
+  });
+
   // Tutte le rate pagate → ferma la subscription Revolut (best-effort, fuori dalla tx).
   if (planNowComplete && plan.revolutSubscriptionId) {
     await cancelSubscription(plan.revolutSubscriptionId).catch((error) => {
@@ -423,10 +459,12 @@ async function handleInstallmentPaid(
  * MAI l'abbonamento (era il bug: un tentativo di annuale abbandonato azzerava il
  * mensile). Idem se l'abbonamento attivo è di un tier diverso dal piano.
  *
- * Per un pagante vero, la rata insoluta di un ciclo successivo porta `endsAt = now`:
- * la grazia `ACCESS_GRACE_DAYS` lascia comunque 2 giorni, poi il sync toglie il PIN.
- * La rata si recupera dal pannello "Rate in sofferenza"; un retry riuscito →
- * `handleInstallmentPaid` ripristina `endsAt` al termine pieno.
+ * Per un pagante vero, la rata insoluta di un ciclo successivo SOSPENDE l'accesso
+ * (`arrearsSuspendedAt = now`): la grazia `ACCESS_GRACE_DAYS` lascia comunque 2
+ * giorni, poi il sync toglie il PIN. `endsAt` NON viene più tagliato (prima il
+ * taglio + "ripristino allo standard" cancellava i mesi aggiunti a mano). La rata
+ * si recupera dal pannello "Rate in sofferenza"; un retry riuscito →
+ * `handleInstallmentPaid` azzera la sospensione e la scadenza reale torna valida.
  */
 async function handleInstallmentFailed(
   payment: ResolvedPayment,
@@ -483,7 +521,7 @@ async function handleInstallmentFailed(
   // Sospendiamo solo un piano avviato la cui rata di un ciclo successivo è fallita.
   const shouldSuspend = planStarted && !subIsUnrelatedTier;
 
-  await db.$transaction(async (tx) => {
+  const suspendedNow = await db.$transaction(async (tx) => {
     if (nextScheduled) {
       await tx.installment.update({
         where: { id: nextScheduled.id },
@@ -493,17 +531,30 @@ async function handleInstallmentFailed(
         }
       });
     }
+    let suspended = 0;
     if (shouldSuspend) {
-      await tx.userSubscription.updateMany({
-        where: { userId: payment.userId, deactivatedAt: null },
-        data: { endsAt: new Date() }
+      // Sospende senza toccare endsAt; se già sospeso resta la data originale.
+      const res = await tx.userSubscription.updateMany({
+        where: { userId: payment.userId, deactivatedAt: null, arrearsSuspendedAt: null },
+        data: { arrearsSuspendedAt: new Date() }
       });
+      suspended = res.count;
     }
     await tx.payment.update({
       where: { id: payment.id },
       data: { rawWebhookPayload: body as Prisma.InputJsonValue }
     });
+    return suspended;
   });
+
+  if (suspendedNow > 0 && activeSub) {
+    await logSubscriptionAutoChange(db, {
+      userId: payment.userId,
+      source: `webhook:revolut:installment-failed:${state}`,
+      before: activeSub,
+      after: await db.userSubscription.findUnique({ where: { userId: payment.userId } })
+    });
+  }
 }
 
 function extractOrderId(body: unknown): string | null {

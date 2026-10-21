@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrl } from "@/lib/profile-photo";
+import { effectiveEndsAt } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export const GET = withMobileAuth<{ id: string }>(
     const student = await db.user.findUnique({
       where: { id: params.id },
       include: {
-        subscription: { select: { tier: true, startsAt: true, endsAt: true } },
+        subscription: { select: { tier: true, startsAt: true, endsAt: true, arrearsSuspendedAt: true } },
         documents: {
           select: {
             id: true,
@@ -69,7 +70,7 @@ export const GET = withMobileAuth<{ id: string }>(
         ? {
             tier: student.subscription.tier,
             startsAt: student.subscription.startsAt.toISOString(),
-            endsAt: student.subscription.endsAt.toISOString()
+            endsAt: effectiveEndsAt(student.subscription).toISOString()
           }
         : null,
       documents: student.documents.map((d) => ({

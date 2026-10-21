@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext } from "react";
 import { App } from "antd";
 
-type ToastType = "success" | "error";
+type ToastType = "success" | "error" | "warning";
 
 type ToastContextValue = {
   addToast: (message: string, type: ToastType) => void;
@@ -20,20 +20,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const addToast = useCallback(
     (message: string, type: ToastType) => {
-      notification[type === "success" ? "success" : "error"]({
-        message: type === "success" ? "Successo" : "Errore",
+      const palette = {
+        success: { title: "Successo", bg: "rgba(34, 197, 94, 0.12)", border: "rgba(34, 197, 94, 0.3)" },
+        error: { title: "Errore", bg: "rgba(223, 37, 49, 0.12)", border: "rgba(223, 37, 49, 0.3)" },
+        // Avviso NON bloccante: l'azione è andata a buon fine ma c'è qualcosa da sapere.
+        warning: { title: "Attenzione", bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.35)" }
+      }[type];
+      notification[type]({
+        message: palette.title,
         description: message,
         placement: "bottomRight",
-        duration: 4,
+        duration: type === "warning" ? 8 : 4,
         style: {
-          background:
-            type === "success"
-              ? "rgba(34, 197, 94, 0.12)"
-              : "rgba(223, 37, 49, 0.12)",
-          borderColor:
-            type === "success"
-              ? "rgba(34, 197, 94, 0.3)"
-              : "rgba(223, 37, 49, 0.3)",
+          background: palette.bg,
+          borderColor: palette.border,
           backdropFilter: "blur(8px)",
           border: "1px solid",
           borderRadius: 8

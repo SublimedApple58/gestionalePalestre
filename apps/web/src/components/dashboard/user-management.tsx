@@ -47,6 +47,9 @@ type UserRow = {
     startsAt: Date;
     endsAt: Date;
     deactivatedAt: Date | null;
+    autoRenew: boolean;
+    endsAtManual: boolean;
+    arrearsSuspendedAt: Date | null;
   } | null;
   entryPackage: {
     totalEntries: number;

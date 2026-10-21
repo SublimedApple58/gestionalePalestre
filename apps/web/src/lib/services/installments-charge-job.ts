@@ -1,6 +1,7 @@
 import { db, InstallmentPlanStatus, InstallmentStatus, PaymentStatus } from "@gestionale/db";
 
 import { cancelSubscription } from "@/lib/payments/revolut";
+import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import { syncPinToKeypad } from "@/lib/services/tuya-pin-service";
 import { ACCESS_GRACE_DAYS } from "@/lib/subscription";
 
@@ -109,10 +110,11 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
 
     // Rete di sicurezza per rate insolute (webhook Revolut perso): piano PARTITO
     // (≥1 rata pagata) con una rata SCHEDULED scaduta oltre la grazia (2gg) e mai
-    // confermata. La trattiamo come insoluta: rata -> FAILED, endsAt riportato alla
-    // scadenza della rata (così il PIN si spegne), e sync del PIN. NON annulliamo
-    // piano/subscription: Revolut continua a ritentare e, se paga, il webhook
-    // (handleInstallmentPaid) ripristina la copertura piena e riaccende il PIN.
+    // confermata. La trattiamo come insoluta: rata -> FAILED, accesso SOSPESO dalla
+    // scadenza della rata (`arrearsSuspendedAt`, così il PIN si spegne) e sync del
+    // PIN. `endsAt` NON viene più tagliato: la scadenza reale (mesi extra inclusi)
+    // resta salva. NON annulliamo piano/subscription: Revolut continua a ritentare
+    // e, se paga, il webhook (handleInstallmentPaid) toglie la sospensione.
     if (!nonePaid) {
       const cutoff = new Date(now - ARREARS_GRACE_MS);
       const overdue = plan.installments.filter(
@@ -126,6 +128,7 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
         const unrelatedTier =
           sub != null && sub.deactivatedAt == null && sub.tier !== plan.payment.tier;
 
+        let suspended = false;
         await db.$transaction(async (tx) => {
           await tx.installment.updateMany({
             where: { id: { in: overdue.map((i) => i.id) } },
@@ -134,14 +137,29 @@ export async function runInstallmentsReconcileJob(): Promise<ReconcileSummary> {
               failureReason: "Rata scaduta non confermata (rete di sicurezza)"
             }
           });
-          // Solo se accorcia: mai estendere una copertura più lunga.
-          if (sub != null && !unrelatedTier && sub.endsAt > earliestDue) {
+          // Sospende dalla rata scaduta più vecchia (se non già sospeso prima).
+          if (
+            sub != null &&
+            !unrelatedTier &&
+            sub.endsAt > earliestDue &&
+            (sub.arrearsSuspendedAt == null || sub.arrearsSuspendedAt > earliestDue)
+          ) {
             await tx.userSubscription.update({
               where: { userId: plan.userId },
-              data: { endsAt: earliestDue }
+              data: { arrearsSuspendedAt: earliestDue }
             });
+            suspended = true;
           }
         });
+
+        if (suspended) {
+          await logSubscriptionAutoChange(db, {
+            userId: plan.userId,
+            source: `job:installments-arrears:${plan.id}`,
+            before: sub,
+            after: await db.userSubscription.findUnique({ where: { userId: plan.userId } })
+          });
+        }
 
         if (sub != null && !unrelatedTier) {
           await syncPinToKeypad(db, plan.userId).catch((e) =>

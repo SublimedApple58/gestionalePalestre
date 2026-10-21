@@ -2669,6 +2669,42 @@ tbody tr:hover td:first-child {
   margin-bottom: 14px;
 }
 
+/* Badge discreto: scadenza impostata a mano (intoccabile dai ricalcoli) */
+.sub-manual-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(212, 212, 218, 0.8);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Banner sospensione per rata insoluta (Stato attuale) */
+.sub-arrears-banner {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+  color: #fcd34d;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.sub-arrears-banner strong {
+  color: #fde68a;
+}
+
+
 /* Riga riassuntiva sotto l'header del drawer */
 .user-drawer-summary {
   display: flex;

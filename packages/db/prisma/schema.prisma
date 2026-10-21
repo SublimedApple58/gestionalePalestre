@@ -249,6 +249,16 @@ model UserSubscription {
   /// che sospende subito l'accesso: qui l'accesso resta fino a endsAt).
   /// Base per il "tempo medio prima della disdetta".
   canceledAt    DateTime?
+  /// Scadenza impostata A MANO dalla reception (diversa dallo standard del
+  /// piano, es. mesi residui "rottamati" da un'altra palestra). Finché è true
+  /// nessun ricalcolo automatico (rate, insoluti, riassegnazione dello stesso
+  /// piano, cambio data inizio, bonifiche) può riscrivere endsAt: si cambia solo
+  /// se la reception la riscrive. Un rinnovo pagato si SOMMA sopra senza perderla.
+  endsAtManual  Boolean          @default(false)
+  /// Accesso sospeso per rata insoluta. Sostituisce il vecchio "taglio" di
+  /// endsAt: la scadenza reale resta intatta e torna valida appena la rata
+  /// viene pagata (campo azzerato). Letto da isEligibleForDoorAccess.
+  arrearsSuspendedAt DateTime?
   assignedById  String?
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedBy    User?            @relation("AdminAssignedSubscriptions", fields: [assignedById], references: [id], onDelete: SetNull)
@@ -473,6 +483,9 @@ enum AuditAction {
   SUBSCRIPTION_DEACTIVATED
   SUBSCRIPTION_REACTIVATED
   SUBSCRIPTION_DATE_CHANGED
+  /// Modifica automatica (pagamento, rata, insoluto): actorId null, payload
+  /// { source, before, after }. Rende tracciabile ogni scrittura non manuale.
+  SUBSCRIPTION_AUTO_UPDATED
   ENTRY_PACKAGE_ASSIGNED
   ENTRY_PACKAGE_REMOVED
   DOC_APPROVED

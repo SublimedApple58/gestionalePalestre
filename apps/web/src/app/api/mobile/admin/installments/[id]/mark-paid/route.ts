@@ -2,6 +2,7 @@ import { db, InstallmentStatus, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
+import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 export const runtime = "nodejs";
@@ -59,6 +60,23 @@ export const POST = withMobileAuth<{ id: string }>(
         where: { userId, deactivatedAt: { not: null } },
         data: { deactivatedAt: null }
       });
+      // Nessuna rata insoluta residua → togli la sospensione: la scadenza reale
+      // (mai tagliata) torna valida così com'era, mesi extra inclusi.
+      const suspended = await db.userSubscription.findFirst({
+        where: { userId, arrearsSuspendedAt: { not: null } }
+      });
+      if (suspended) {
+        const after = await db.userSubscription.update({
+          where: { userId },
+          data: { arrearsSuspendedAt: null }
+        });
+        await logSubscriptionAutoChange(db, {
+          userId,
+          source: "installment:mark-paid:mobile",
+          before: suspended,
+          after
+        });
+      }
       safeSyncPinToKeypad(db, userId);
     }
 

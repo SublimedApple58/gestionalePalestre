@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrl } from "@/lib/profile-photo";
 import { getPendingPolicies } from "@/lib/policies";
-import { isEntryPackageActive, isSubscriptionActive } from "@/lib/subscription";
+import { effectiveEndsAt, isEntryPackageActive, isSubscriptionActive } from "@/lib/subscription";
 import { logAdminAction } from "@/lib/services/audit-log-service";
 import { removeTuyaUserCompletely } from "@/lib/services/tuya-pin-service";
 
@@ -34,7 +34,7 @@ export const GET = withMobileAuth(async (_request, { user }) => {
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
-      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true, arrearsSuspendedAt: true }
     }),
     db.userEntryPackage.findUnique({
       where: { userId: user.id },
@@ -54,7 +54,7 @@ export const GET = withMobileAuth(async (_request, { user }) => {
     subscription && isActive
       ? Math.max(
           0,
-          Math.ceil((subscription.endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          Math.ceil((effectiveEndsAt(subscription).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         )
       : 0;
 
@@ -82,7 +82,11 @@ export const GET = withMobileAuth(async (_request, { user }) => {
       ? {
           tier: subscription.tier,
           startsAt: subscription.startsAt.toISOString(),
-          endsAt: subscription.endsAt.toISOString(),
+          // Rata insoluta: l'app continua a vedere la fine copertura effettiva
+          // (come col vecchio taglio di endsAt). coverageEndsAt = scadenza reale.
+          endsAt: effectiveEndsAt(subscription).toISOString(),
+          coverageEndsAt: subscription.endsAt.toISOString(),
+          arrearsSuspendedAt: subscription.arrearsSuspendedAt?.toISOString() ?? null,
           isActive,
           daysRemaining
         }
@@ -159,7 +163,7 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
     }),
     db.userSubscription.findUnique({
       where: { userId: user.id },
-      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, deactivatedAt: true, arrearsSuspendedAt: true }
     }),
     db.userEntryPackage.findUnique({
       where: { userId: user.id },
@@ -179,7 +183,7 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
     subscription && isActive
       ? Math.max(
           0,
-          Math.ceil((subscription.endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          Math.ceil((effectiveEndsAt(subscription).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         )
       : 0;
 
@@ -204,7 +208,11 @@ export const PATCH = withMobileAuth(async (request, { user }) => {
       ? {
           tier: subscription.tier,
           startsAt: subscription.startsAt.toISOString(),
-          endsAt: subscription.endsAt.toISOString(),
+          // Rata insoluta: l'app continua a vedere la fine copertura effettiva
+          // (come col vecchio taglio di endsAt). coverageEndsAt = scadenza reale.
+          endsAt: effectiveEndsAt(subscription).toISOString(),
+          coverageEndsAt: subscription.endsAt.toISOString(),
+          arrearsSuspendedAt: subscription.arrearsSuspendedAt?.toISOString() ?? null,
           isActive,
           daysRemaining
         }

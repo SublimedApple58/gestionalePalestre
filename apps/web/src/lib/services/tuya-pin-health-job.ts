@@ -125,7 +125,7 @@ export async function runTuyaPinHealthJob(
       tuyaUserId: true,
       role: true,
       subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true },
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true },
       },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },

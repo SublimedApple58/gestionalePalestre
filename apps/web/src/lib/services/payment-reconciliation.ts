@@ -8,6 +8,7 @@ import {
   isHeyLightProduction
 } from "@/lib/payments/heylight";
 import { computeExtendedEndDate } from "@/lib/subscription";
+import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
 
 /**
@@ -61,6 +62,8 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
   if (!remote) return payment;
 
   if (remote.state === "completed") {
+    let subBefore: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
+    let subAfter: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
     const result = await db.$transaction(async (tx) => {
       const now = new Date();
       // Claim atomico PENDING→PAID: solo UN reconcile concorrente (webhook,
@@ -86,11 +89,15 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
         // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
+        // Copertura che SI SOMMA: parte dalla scadenza attuale (anche se manuale) e
+        // la allunga, i mesi aggiunti a mano restano dentro. Copertura NUOVA: la
+        // vecchia scadenza manuale non vale più → flag azzerato.
         update: {
           tier: payment.tier,
           endsAt,
           deactivatedAt: null,
-          ...(extendsActive ? {} : { startsAt: now })
+          arrearsSuspendedAt: null,
+          ...(extendsActive ? {} : { startsAt: now, endsAtManual: false })
         },
         create: {
           userId: payment.userId,
@@ -99,6 +106,8 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
           endsAt
         }
       });
+      subBefore = existing;
+      subAfter = subscription;
 
       const finalPayment = await tx.payment.update({
         where: { id: payment.id },
@@ -125,6 +134,14 @@ export async function reconcileRevolutPayment(paymentId: string): Promise<Paymen
       return finalPayment;
     });
 
+    if (subAfter) {
+      await logSubscriptionAutoChange(db, {
+        userId: payment.userId,
+        source: `payment:revolut:${payment.id}`,
+        before: subBefore,
+        after: subAfter
+      });
+    }
     safeSyncPinToKeypad(db, payment.userId);
 
     return result;
@@ -199,6 +216,8 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
   }
 
   if (isContractPaid(app)) {
+    let subBefore: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
+    let subAfter: Awaited<ReturnType<typeof db.userSubscription.findUnique>> = null;
     const result = await db.$transaction(async (tx) => {
       const now = new Date();
       // Claim atomico PENDING→PAID: solo UN reconcile concorrente (webhook,
@@ -224,15 +243,33 @@ export async function reconcileHeyLightPayment(paymentId: string): Promise<Payme
       const subscription = await tx.userSubscription.upsert({
         where: { userId: payment.userId },
         // Reset startsAt se riparte da zero (evita lo startsAt fantasma della vecchia copertura).
-        update: { tier: payment.tier, endsAt, deactivatedAt: null, ...(extendsActive ? {} : { startsAt: now }) },
+        // Copertura NUOVA → la vecchia scadenza manuale non vale più.
+        update: {
+          tier: payment.tier,
+          endsAt,
+          deactivatedAt: null,
+          arrearsSuspendedAt: null,
+          ...(extendsActive ? {} : { startsAt: now, endsAtManual: false })
+        },
         create: { userId: payment.userId, tier: payment.tier, startsAt: now, endsAt }
       });
+      subBefore = existing;
+      subAfter = subscription;
 
       return tx.payment.update({
         where: { id: payment.id },
         data: { subscriptionId: subscription.id }
       });
     });
+
+    if (subAfter) {
+      await logSubscriptionAutoChange(db, {
+        userId: payment.userId,
+        source: `payment:heylight:${payment.id}`,
+        before: subBefore,
+        after: subAfter
+      });
+    }
 
     // Guard e2e: in sandbox NON tocchiamo la serratura Tuya reale (nessun PIN vero).
     // In produzione l'attivazione sincronizza il PIN come per gli altri pagamenti.

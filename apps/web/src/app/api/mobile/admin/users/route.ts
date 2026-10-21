@@ -10,6 +10,7 @@ import {
   mobileAdminCreateUserSchema,
   mobileAdminUsersQuerySchema
 } from "@/lib/validators/mobile";
+import { effectiveEndsAt } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -121,7 +122,7 @@ export const GET = withMobileAuth(
         email: true,
         role: true,
         subscription: {
-          select: { tier: true, endsAt: true, deactivatedAt: true }
+          select: { tier: true, endsAt: true, deactivatedAt: true, arrearsSuspendedAt: true }
         }
       }
     });
@@ -142,7 +143,7 @@ export const GET = withMobileAuth(
         subscription: u.subscription && !u.subscription.deactivatedAt
           ? {
               tier: u.subscription.tier,
-              endsAt: u.subscription.endsAt.toISOString()
+              endsAt: effectiveEndsAt(u.subscription).toISOString()
             }
           : null
       })),

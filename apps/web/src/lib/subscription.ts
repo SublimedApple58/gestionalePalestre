@@ -101,6 +101,48 @@ export function computeSubscriptionEndDate(tier: SubscriptionTier, startsAt: Dat
   );
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * True se `endsAt` differisce dallo standard del piano (oltre 1 giorno di
+ * tolleranza per orari/ora legale): è una scadenza impostata a mano dalla
+ * reception (es. mesi residui "rottamati" da un'altra palestra). In quel caso la
+ * subscription viene marcata `endsAtManual` e nessun ricalcolo automatico la tocca.
+ */
+export function isCustomEndsAt(tier: SubscriptionTier, startsAt: Date, endsAt: Date): boolean {
+  const standard = computeSubscriptionEndDate(tier, startsAt);
+  return Math.abs(endsAt.getTime() - standard.getTime()) > DAY_MS;
+}
+
+/**
+ * Le scritture AUTOMATICHE non devono mai accorciare la copertura: ritorna la
+ * scadenza più lontana tra quella attuale e quella ricalcolata.
+ */
+export function neverShorten(currentEndsAt: Date | null | undefined, candidate: Date): Date {
+  if (!currentEndsAt) return candidate;
+  return currentEndsAt.getTime() >= candidate.getTime() ? new Date(currentEndsAt) : candidate;
+}
+
+/**
+ * Fine copertura EFFETTIVA: la scadenza reale, oppure l'inizio della
+ * sospensione per rata insoluta se precedente. Replica esattamente il vecchio
+ * "taglio" di endsAt senza perdere la scadenza reale.
+ */
+export function effectiveEndsAt(subscription: {
+  endsAt: Date;
+  arrearsSuspendedAt?: Date | null;
+}): Date {
+  const susp = subscription.arrearsSuspendedAt;
+  return susp && susp.getTime() < subscription.endsAt.getTime() ? susp : subscription.endsAt;
+}
+
+export function isSuspendedForArrears(
+  subscription: { endsAt: Date; arrearsSuspendedAt?: Date | null } | null | undefined,
+  now: Date = new Date()
+): boolean {
+  return !!subscription?.arrearsSuspendedAt && subscription.arrearsSuspendedAt.getTime() <= now.getTime();
+}
+
 /**
  * Nuova scadenza che SI SOMMA alla copertura esistente invece di sovrascriverla.
  * Se l'utente ha già un abbonamento attivo (non disattivato) e non ancora scaduto,
@@ -122,7 +164,11 @@ export function computeExtendedEndDate(
 
 export function isSubscriptionActive(
   subscription:
-    | Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null } | null,
+    | Pick<UserSubscription, "startsAt" | "endsAt"> & {
+        deactivatedAt?: Date | null;
+        arrearsSuspendedAt?: Date | null;
+      }
+    | null,
   now: Date = new Date()
 ): boolean {
   if (!subscription) {
@@ -133,7 +179,7 @@ export function isSubscriptionActive(
     return false;
   }
 
-  return now >= subscription.startsAt && now <= subscription.endsAt;
+  return now >= subscription.startsAt && now <= effectiveEndsAt(subscription);
 }
 
 /**
@@ -153,13 +199,19 @@ const ACCESS_GRACE_MS = ACCESS_GRACE_DAYS * 24 * 60 * 60 * 1000;
  * il ritardo del rinnovo automatico. La disattivazione MANUALE (`deactivatedAt`)
  * resta immediata: la grazia vale solo per la scadenza naturale per data.
  */
+/**
+ * Campi minimi per decidere l'accesso porta. `arrearsSuspendedAt` è OBBLIGATORIO
+ * di proposito: chi seleziona la subscription per decidere il PIN deve leggerlo,
+ * altrimenti un iscritto con rata insoluta resterebbe dentro (fail-open).
+ */
+export type DoorAccessSubscription = Pick<UserSubscription, "startsAt" | "endsAt"> & {
+  deactivatedAt?: Date | null;
+  autoRenew?: boolean | null;
+  arrearsSuspendedAt: Date | null;
+};
+
 export function isEligibleForDoorAccess(
-  subscription:
-    | (Pick<UserSubscription, "startsAt" | "endsAt"> & {
-        deactivatedAt?: Date | null;
-        autoRenew?: boolean | null;
-      })
-    | null,
+  subscription: DoorAccessSubscription | null,
   now: Date = new Date()
 ): boolean {
   if (!subscription) return false;
@@ -171,8 +223,10 @@ export function isEligibleForDoorAccess(
   // da solo (one-shot, DAILY, piano a rate saldato, disdetto) NON ha grazia →
   // scaduto = bloccato subito a `endsAt`. (Bug: prima la grazia era cieca e faceva
   // entrare qualsiasi scaduto per ~2-3 giorni.)
+  // Rata insoluta: la copertura effettiva finisce all'inizio della sospensione
+  // (stessa semantica del vecchio taglio di endsAt, grazia inclusa).
   const graceMs = subscription.autoRenew ? ACCESS_GRACE_MS : 0;
-  return now.getTime() <= subscription.endsAt.getTime() + graceMs;
+  return now.getTime() <= effectiveEndsAt(subscription).getTime() + graceMs;
 }
 
 /**
@@ -197,12 +251,7 @@ export function isEntryPackageActive(
 export function shouldHaveDoorPin(
   input: {
     role: UserRole;
-    subscription:
-      | (Pick<UserSubscription, "startsAt" | "endsAt"> & {
-          deactivatedAt?: Date | null;
-          autoRenew?: boolean | null;
-        })
-      | null;
+    subscription: DoorAccessSubscription | null;
     entryPackage: { deactivatedAt?: Date | null; remainingEntries: number } | null | undefined;
   },
   now: Date = new Date()
@@ -228,13 +277,18 @@ export type SubscriptionStatus =
  */
 export function subscriptionStatus(
   subscription:
-    | (Pick<UserSubscription, "startsAt" | "endsAt"> & { deactivatedAt?: Date | null })
+    | (Pick<UserSubscription, "startsAt" | "endsAt"> & {
+        deactivatedAt?: Date | null;
+        arrearsSuspendedAt?: Date | null;
+      })
     | null,
   now: Date = new Date()
 ): SubscriptionStatus {
   if (!subscription) return "none";
   if (subscription.deactivatedAt) return "deactivated";
   if (now < subscription.startsAt) return "pending";
-  if (now > subscription.endsAt) return "expired";
+  // Rata insoluta = scaduto (come col vecchio taglio di endsAt), ma la scadenza
+  // reale resta salva e torna valida al pagamento.
+  if (now > effectiveEndsAt(subscription)) return "expired";
   return "active";
 }

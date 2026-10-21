@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { getProfilePhotoUrls } from "@/lib/profile-photo";
+import { effectiveEndsAt } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export const GET = withMobileAuth(
         lastName: true,
         email: true,
         phoneNumber: true,
-        subscription: { select: { tier: true, endsAt: true } }
+        subscription: { select: { tier: true, endsAt: true, arrearsSuspendedAt: true } }
       }
     });
 
@@ -43,7 +44,7 @@ export const GET = withMobileAuth(
         subscription: s.subscription
           ? {
               tier: s.subscription.tier,
-              endsAt: s.subscription.endsAt.toISOString()
+              endsAt: effectiveEndsAt(s.subscription).toISOString()
             }
           : null
       }))

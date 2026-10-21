@@ -27,7 +27,8 @@ import {
   updateUserRoleByAdmin
 } from "@/lib/services/user-service";
 import { saveWorkoutPlan } from "@/lib/services/workout-service";
-import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { computeSubscriptionEndDate, isCustomEndsAt } from "@/lib/subscription";
+import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import {
   adminCreateUserSchema,
   adminDeleteUserSchema,
@@ -428,7 +429,8 @@ export async function requestReuploadAction(formData: FormData): Promise<void> {
 
 // ── State-returning variants per useActionState (drawer toast) ──────────────
 
-export type ActionResult = { ok: boolean; message: string } | null;
+/** `warning`: azione riuscita ma con un avviso NON bloccante da mostrare. */
+export type ActionResult = { ok: boolean; message: string; warning?: boolean } | null;
 
 export async function changeUserRoleActionState(
   _prev: ActionResult,
@@ -871,15 +873,32 @@ export async function changeSubscriptionStartDateActionState(
 
     const sub = await db.userSubscription.findUnique({
       where: { userId: targetUserId },
-      select: { tier: true, startsAt: true, endsAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, endsAtManual: true }
     });
     if (!sub) return { ok: false, message: "Nessun abbonamento per questo utente." };
 
-    const newEndsAt = customEndsAt ?? computeSubscriptionEndDate(sub.tier, newStartsAt);
+    // Scadenza scritta dalla reception → vale quella, e se differisce dallo
+    // standard diventa "manuale" (intoccabile dai ricalcoli). Senza scadenza: se
+    // quella attuale era manuale resta com'è (si sposta solo l'inizio), altrimenti
+    // si ricalcola dal piano come prima.
+    let newEndsAt: Date;
+    let endsAtManual: boolean;
+    if (customEndsAt) {
+      newEndsAt = customEndsAt;
+      endsAtManual = isCustomEndsAt(sub.tier, newStartsAt, customEndsAt);
+    } else if (sub.endsAtManual) {
+      // La data scritta dalla reception vince sempre: resta com'è anche se cade
+      // prima del nuovo inizio (solo un avviso, mai un blocco).
+      newEndsAt = sub.endsAt;
+      endsAtManual = true;
+    } else {
+      newEndsAt = computeSubscriptionEndDate(sub.tier, newStartsAt);
+      endsAtManual = false;
+    }
 
     await db.userSubscription.update({
       where: { userId: targetUserId },
-      data: { startsAt: newStartsAt, endsAt: newEndsAt }
+      data: { startsAt: newStartsAt, endsAt: newEndsAt, endsAtManual }
     });
 
     safeSyncPinToKeypad(db, targetUserId);
@@ -889,12 +908,23 @@ export async function changeSubscriptionStartDateActionState(
       targetUserId,
       action: AuditAction.SUBSCRIPTION_DATE_CHANGED,
       payload: {
-        before: { startsAt: sub.startsAt.toISOString(), endsAt: sub.endsAt.toISOString() },
-        after: { startsAt: newStartsAt.toISOString(), endsAt: newEndsAt.toISOString() }
+        before: {
+          startsAt: sub.startsAt.toISOString(),
+          endsAt: sub.endsAt.toISOString(),
+          endsAtManual: sub.endsAtManual
+        },
+        after: { startsAt: newStartsAt.toISOString(), endsAt: newEndsAt.toISOString(), endsAtManual }
       }
     });
 
     revalidatePath("/utenti");
+    if (newEndsAt <= newStartsAt) {
+      return {
+        ok: true,
+        warning: true,
+        message: `Data di partenza aggiornata. La scadenza personalizzata (${newEndsAt.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}) è precedente al nuovo inizio: l'abbonamento risulta scaduto. Se serve, indica anche la nuova scadenza.`
+      };
+    }
     return { ok: true, message: customEndsAt ? "Date aggiornate." : "Data di partenza aggiornata." };
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
@@ -1004,6 +1034,23 @@ async function maybeReactivateSubscription(userId: string, planId: string): Prom
       where: { userId, deactivatedAt: { not: null } },
       data: { deactivatedAt: null }
     });
+    // Nessuna rata insoluta residua → togli la sospensione: la scadenza reale
+    // (mai tagliata) torna valida così com'era, mesi extra inclusi.
+    const suspended = await db.userSubscription.findFirst({
+      where: { userId, arrearsSuspendedAt: { not: null } }
+    });
+    if (suspended) {
+      const after = await db.userSubscription.update({
+        where: { userId },
+        data: { arrearsSuspendedAt: null }
+      });
+      await logSubscriptionAutoChange(db, {
+        userId,
+        source: "installment:mark-paid:web",
+        before: suspended,
+        after
+      });
+    }
 
     safeSyncPinToKeypad(db, userId);
   }

@@ -28,6 +28,7 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   SUBSCRIPTION_DEACTIVATED: "Abbonamento disattivato",
   SUBSCRIPTION_REACTIVATED: "Abbonamento riattivato",
   SUBSCRIPTION_DATE_CHANGED: "Data abbonamento modificata",
+  SUBSCRIPTION_AUTO_UPDATED: "Abbonamento aggiornato dal sistema",
   ENTRY_PACKAGE_ASSIGNED: "Pacchetto ingressi assegnato",
   ENTRY_PACKAGE_REMOVED: "Pacchetto ingressi rimosso",
   DOC_APPROVED: "Documento approvato",
@@ -62,6 +63,10 @@ const dateFormatter = new Intl.DateTimeFormat("it-IT", {
   minute: "2-digit"
 });
 
+function fmtDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+}
+
 function describePayload(action: AuditAction, payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
@@ -81,9 +86,24 @@ function describePayload(action: AuditAction, payload: unknown): string | null {
       return tier ? `Tier: ${tier}` : null;
     }
     case "SUBSCRIPTION_DATE_CHANGED": {
-      const after = p.after as { startsAt?: string; endsAt?: string } | null;
+      const after = p.after as { startsAt?: string; endsAt?: string; endsAtManual?: boolean } | null;
       if (!after?.startsAt) return null;
-      return `Nuovo inizio: ${new Date(after.startsAt).toLocaleDateString("it-IT")}`;
+      const end = after.endsAt
+        ? ` · scadenza ${fmtDay(after.endsAt)}${after.endsAtManual ? " (personalizzata)" : ""}`
+        : "";
+      return `Nuovo inizio: ${fmtDay(after.startsAt)}${end}`;
+    }
+    case "SUBSCRIPTION_AUTO_UPDATED": {
+      const before = p.before as { endsAt?: string | null; arrearsSuspendedAt?: string | null } | null;
+      const after = p.after as { endsAt?: string | null; arrearsSuspendedAt?: string | null } | null;
+      const source = typeof p.source === "string" ? p.source.split(":").slice(0, 2).join(" ") : "sistema";
+      const parts: string[] = [source];
+      if (before?.endsAt !== after?.endsAt && after?.endsAt) {
+        parts.push(`scadenza ${before?.endsAt ? fmtDay(before.endsAt) : "—"} → ${fmtDay(after.endsAt)}`);
+      }
+      if (!before?.arrearsSuspendedAt && after?.arrearsSuspendedAt) parts.push("accesso sospeso (rata insoluta)");
+      if (before?.arrearsSuspendedAt && !after?.arrearsSuspendedAt) parts.push("sospensione rimossa");
+      return parts.join(" · ");
     }
     case "DOC_APPROVED":
     case "DOC_REJECTED":

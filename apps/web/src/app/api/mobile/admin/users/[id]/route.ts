@@ -6,6 +6,7 @@ import { getProfilePhotoUrl } from "@/lib/profile-photo";
 import { logAdminAction } from "@/lib/services/audit-log-service";
 import { deleteUserByAdmin } from "@/lib/services/user-service";
 import { DomainError } from "@/lib/services/errors";
+import { effectiveEndsAt } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,7 +102,10 @@ export const GET = withMobileAuth<{ id: string }>(
         ? {
             tier: userRow.subscription.tier,
             startsAt: userRow.subscription.startsAt.toISOString(),
-            endsAt: userRow.subscription.endsAt.toISOString(),
+            endsAt: effectiveEndsAt(userRow.subscription).toISOString(),
+            coverageEndsAt: userRow.subscription.endsAt.toISOString(),
+            arrearsSuspendedAt: userRow.subscription.arrearsSuspendedAt?.toISOString() ?? null,
+            endsAtManual: userRow.subscription.endsAtManual,
             deactivatedAt: userRow.subscription.deactivatedAt
               ? userRow.subscription.deactivatedAt.toISOString()
               : null

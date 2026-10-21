@@ -27,6 +27,7 @@ import {
   hasRequiredDocuments
 } from "@/lib/documents";
 import {
+  effectiveEndsAt,
   isEntryPackageActive,
   isSubscriptionActive,
   subscriptionStatus,
@@ -46,6 +47,7 @@ type SubscriberDashboardProps = {
     tier: SubscriptionTier;
     startsAt: Date;
     endsAt: Date;
+    arrearsSuspendedAt?: Date | null;
   } | null;
   entryPackage: {
     totalEntries: number;
@@ -141,8 +143,8 @@ export function SubscriberDashboard({
               : subStatus === "deactivated"
               ? "Il tuo abbonamento è stato disattivato. Contatta la reception per riattivarlo."
               : subscription
-              ? `Il tuo abbonamento ${tierLabel(subscription.tier)} è scaduto il ${new Date(
-                  subscription.endsAt
+              ? `Il tuo abbonamento ${tierLabel(subscription.tier)} è scaduto il ${effectiveEndsAt(
+                  subscription
                 ).toLocaleDateString("it-IT", {
                   day: "2-digit",
                   month: "long",
@@ -205,7 +207,7 @@ export function SubscriberDashboard({
               label="Scadenza"
               value={
                 subscription
-                  ? new Date(subscription.endsAt).toLocaleDateString("it-IT")
+                  ? effectiveEndsAt(subscription).toLocaleDateString("it-IT")
                   : "—"
               }
             />

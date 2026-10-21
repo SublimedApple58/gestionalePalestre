@@ -13,7 +13,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
   it("BUG FIX: abbonamento SCADUTO non-rinnovante è bloccato subito", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, autoRenew: false },
+        { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: false },
         now
       )
     ).toBe(false);
@@ -21,14 +21,14 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
 
   it("senza autoRenew (campo assente) nessuna grazia → scaduto bloccato", () => {
     expect(
-      isEligibleForDoorAccess({ startsAt: startsPast, endsAt: expired1d, deactivatedAt: null }, now)
+      isEligibleForDoorAccess({ startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, arrearsSuspendedAt: null }, now)
     ).toBe(false);
   });
 
   it("rinnovo automatico scaduto ENTRO la grazia (2gg) resta idoneo", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, autoRenew: true },
+        { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: true },
         now
       )
     ).toBe(true);
@@ -37,7 +37,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
   it("rinnovo automatico OLTRE la grazia è bloccato", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: startsPast, endsAt: expired3d, deactivatedAt: null, autoRenew: true },
+        { startsAt: startsPast, endsAt: expired3d, deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: true },
         now
       )
     ).toBe(false);
@@ -46,7 +46,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
   it("abbonamento attivo è idoneo (a prescindere da autoRenew)", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: startsPast, endsAt: future, deactivatedAt: null, autoRenew: false },
+        { startsAt: startsPast, endsAt: future, deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: false },
         now
       )
     ).toBe(true);
@@ -55,7 +55,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
   it("programmato (startsAt futuro) non idoneo", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: future, endsAt: new Date(future.getTime() + 30 * DAY), deactivatedAt: null, autoRenew: true },
+        { startsAt: future, endsAt: new Date(future.getTime() + 30 * DAY), deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: true },
         now
       )
     ).toBe(false);
@@ -64,7 +64,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
   it("disattivato manualmente non idoneo", () => {
     expect(
       isEligibleForDoorAccess(
-        { startsAt: startsPast, endsAt: future, deactivatedAt: now, autoRenew: true },
+        { startsAt: startsPast, endsAt: future, deactivatedAt: now, arrearsSuspendedAt: null, autoRenew: true },
         now
       )
     ).toBe(false);
@@ -72,7 +72,7 @@ describe("isEligibleForDoorAccess — grazia solo per rinnovo automatico", () =>
 });
 
 describe("shouldHaveDoorPin — decisione unica accesso porta", () => {
-  const expiredSub = { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, autoRenew: false };
+  const expiredSub = { startsAt: startsPast, endsAt: expired1d, deactivatedAt: null, arrearsSuspendedAt: null, autoRenew: false };
 
   it("SUBSCRIBER con abbonamento scaduto non-rinnovante → niente PIN", () => {
     expect(

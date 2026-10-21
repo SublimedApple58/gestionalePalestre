@@ -5,7 +5,7 @@ import { z } from "zod";
 import { withMobileAuth } from "@/lib/auth/with-mobile-auth";
 import { logAdminAction } from "@/lib/services/audit-log-service";
 import { safeSyncPinToKeypad } from "@/lib/services/tuya-pin-service";
-import { computeSubscriptionEndDate } from "@/lib/subscription";
+import { computeSubscriptionEndDate, isCustomEndsAt } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,8 +19,9 @@ const bodySchema = z.object({
  * POST /api/mobile/admin/users/[id]/subscription/start-date
  * Body: { startsAt: ISO 8601 }
  *
- * Cambia la data di partenza dell'abbonamento esistente. endsAt viene
- * ricalcolato in base al tier corrente (1/12/24 mesi).
+ * Cambia la data di partenza dell'abbonamento esistente. Con `endsAt` esplicito
+ * vale quello (manuale se diverso dallo standard). Senza: se la scadenza attuale
+ * è manuale resta intoccata, altrimenti si ricalcola dal piano.
  */
 export const POST = withMobileAuth<{ id: string }>(
   async (request, { params, user }) => {
@@ -41,7 +42,7 @@ export const POST = withMobileAuth<{ id: string }>(
 
     const sub = await db.userSubscription.findUnique({
       where: { userId: params.id },
-      select: { tier: true, startsAt: true, endsAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, endsAtManual: true }
     });
 
     if (!sub) {
@@ -50,6 +51,7 @@ export const POST = withMobileAuth<{ id: string }>(
 
     const newStartsAt = new Date(parsed.data.startsAt);
     let newEndsAt: Date;
+    let endsAtManual: boolean;
     if (parsed.data.endsAt) {
       newEndsAt = new Date(parsed.data.endsAt);
       if (newEndsAt < newStartsAt) {
@@ -58,13 +60,20 @@ export const POST = withMobileAuth<{ id: string }>(
           { status: 400 }
         );
       }
+      endsAtManual = isCustomEndsAt(sub.tier, newStartsAt, newEndsAt);
+    } else if (sub.endsAtManual) {
+      // Scadenza impostata a mano: vince sempre, si sposta solo l'inizio (anche
+      // se cade prima del nuovo inizio → solo `warning` nella risposta, mai 400).
+      newEndsAt = sub.endsAt;
+      endsAtManual = true;
     } else {
       newEndsAt = computeSubscriptionEndDate(sub.tier, newStartsAt);
+      endsAtManual = false;
     }
 
     await db.userSubscription.update({
       where: { userId: params.id },
-      data: { startsAt: newStartsAt, endsAt: newEndsAt }
+      data: { startsAt: newStartsAt, endsAt: newEndsAt, endsAtManual }
     });
 
     safeSyncPinToKeypad(db, params.id);
@@ -76,17 +85,20 @@ export const POST = withMobileAuth<{ id: string }>(
       payload: {
         before: {
           startsAt: sub.startsAt.toISOString(),
-          endsAt: sub.endsAt.toISOString()
+          endsAt: sub.endsAt.toISOString(),
+          endsAtManual: sub.endsAtManual
         },
         after: {
           startsAt: newStartsAt.toISOString(),
-          endsAt: newEndsAt.toISOString()
+          endsAt: newEndsAt.toISOString(),
+          endsAtManual
         }
       }
     });
 
     return NextResponse.json({
       ok: true,
+      ...(newEndsAt <= newStartsAt ? { warning: "MANUAL_ENDS_BEFORE_STARTS" } : {}),
       subscription: {
         tier: sub.tier,
         startsAt: newStartsAt.toISOString(),

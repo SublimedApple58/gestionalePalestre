@@ -40,6 +40,7 @@ import {
   isEligibleForDoorAccess,
   isEntryPackageActive,
   isSubscriptionActive,
+  isSuspendedForArrears,
   subscriptionStatus,
   tierLabel
 } from "@/lib/subscription";
@@ -67,6 +68,9 @@ export type DrawerUserRow = {
     startsAt: Date;
     endsAt: Date;
     deactivatedAt: Date | null;
+    autoRenew: boolean;
+    endsAtManual: boolean;
+    arrearsSuspendedAt: Date | null;
   } | null;
   entryPackage: {
     totalEntries: number;
@@ -154,7 +158,7 @@ function useActionToast(result: ActionResult) {
   const { addToast } = useToast();
   useEffect(() => {
     if (!result) return;
-    addToast(result.message, result.ok ? "success" : "error");
+    addToast(result.message, !result.ok ? "error" : result.warning ? "warning" : "success");
   }, [result, addToast]);
 }
 
@@ -407,6 +411,14 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                       {" → "}
                       {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
                     </Text>
+                    {user.subscription.endsAtManual ? (
+                      <span
+                        className="sub-manual-badge"
+                        title="Scadenza impostata a mano dalla reception: nessun ricalcolo automatico la modifica."
+                      >
+                        Scadenza personalizzata
+                      </span>
+                    ) : null}
                     {subStatus === "deactivated" && user.subscription.deactivatedAt ? (
                       <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginTop: 4 }}>
                         Disattivato il {new Date(user.subscription.deactivatedAt).toLocaleDateString("it-IT")}
@@ -415,10 +427,20 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                       <Text style={{ fontSize: 11, color: "#60a5fa", display: "block", marginTop: 4 }}>
                         Inizia il {new Date(user.subscription.startsAt).toLocaleDateString("it-IT")}
                       </Text>
-                    ) : subStatus === "expired" ? (
+                    ) : subStatus === "expired" && !isSuspendedForArrears(user.subscription) ? (
                       <Text style={{ fontSize: 11, color: "#f87171", display: "block", marginTop: 4 }}>
                         Scaduto il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
                       </Text>
+                    ) : null}
+                    {isSuspendedForArrears(user.subscription) && user.subscription.arrearsSuspendedAt ? (
+                      <div className="sub-arrears-banner" role="status">
+                        <span>
+                          <strong>Accesso sospeso per rata insoluta</strong> dal{" "}
+                          {new Date(user.subscription.arrearsSuspendedAt).toLocaleDateString("it-IT")}. La
+                          scadenza reale ({new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}) resta
+                          salva e torna valida appena la rata viene pagata.
+                        </span>
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -464,7 +486,7 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
                 <form action={startDateAction} className="user-drawer-form" style={{ marginTop: 4 }}>
                   <input type="hidden" name="targetUserId" value={user.id} />
                   <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", display: "block" }}>
-                    Cambia date dell'abbonamento. Se la scadenza non viene specificata, sara' ricalcolata in base al tier.
+                    Cambia date dell'abbonamento. Se la scadenza non viene specificata, sara' ricalcolata in base al tier (una scadenza personalizzata resta invariata).
                   </Text>
                   <CustomCalendar name="startsAt" label="Nuova data inizio" />
                   <CustomCalendar name="endsAt" label="Data scadenza (opzionale)" />
@@ -475,6 +497,7 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
               </Space>
             </section>
           ) : null}
+
 
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Assegna abbonamento</h4>

@@ -1,7 +1,7 @@
 import { SubscriptionTier, UserRole } from "@gestionale/db";
 
 import { roleLabel } from "@/lib/roles";
-import { isEntryPackageActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
+import { effectiveEndsAt, isEntryPackageActive, subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { UserAvatar } from "../ui/user-avatar";
 
@@ -14,6 +14,7 @@ type DashboardHeroProps = {
     tier: SubscriptionTier;
     startsAt: Date;
     endsAt: Date;
+    arrearsSuspendedAt?: Date | null;
   } | null;
   entryPackage?: {
     totalEntries: number;
@@ -91,7 +92,7 @@ export function DashboardHero({
             <div className="dash-hero-stat">
               <span className="dash-hero-stat-label">Scadenza</span>
               <span className="dash-hero-stat-value">
-                {new Date(subscription.endsAt).toLocaleDateString("it-IT")}
+                {effectiveEndsAt(subscription).toLocaleDateString("it-IT")}
               </span>
             </div>
           </>

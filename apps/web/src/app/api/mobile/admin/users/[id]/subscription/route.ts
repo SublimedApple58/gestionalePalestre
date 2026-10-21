@@ -51,7 +51,7 @@ export const POST = withMobileAuth<{ id: string }>(
 
     const fresh = await db.userSubscription.findUnique({
       where: { userId: params.id },
-      select: { tier: true, startsAt: true, endsAt: true }
+      select: { tier: true, startsAt: true, endsAt: true, endsAtManual: true }
     });
 
     await logAdminAction(db, {
@@ -61,7 +61,8 @@ export const POST = withMobileAuth<{ id: string }>(
       payload: {
         tier: parsed.data.tier,
         startsAt: startsAt.toISOString(),
-        endsAt: fresh?.endsAt.toISOString() ?? null
+        endsAt: fresh?.endsAt.toISOString() ?? null,
+        endsAtManual: fresh?.endsAtManual ?? false
       }
     });
 

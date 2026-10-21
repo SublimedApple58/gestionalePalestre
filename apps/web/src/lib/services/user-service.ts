@@ -220,7 +220,22 @@ export async function assignSubscriptionByAdmin(
     throw new DomainError("INVALID_ROLE", "L'abbonamento puo' essere assegnato solo agli iscritti.");
   }
 
-  const endsAt = computeSubscriptionEndDate(input.tier, input.startsAt);
+  const existing = await prisma.userSubscription.findUnique({
+    where: { userId: input.targetUserId },
+    select: { tier: true, endsAt: true, deactivatedAt: true, endsAtManual: true }
+  });
+  // Riassegnazione dello STESSO piano su una copertura in corso con scadenza
+  // impostata a mano: la scadenza resta quella della reception (prima veniva
+  // ricalcolata allo standard e i mesi aggiunti a mano sparivano — caso Ettorre).
+  // Un cambio di piano (tier diverso) è una copertura nuova: si ricalcola.
+  const keepManual =
+    !!existing &&
+    existing.endsAtManual &&
+    existing.deactivatedAt == null &&
+    existing.tier === input.tier &&
+    existing.endsAt.getTime() > Date.now() &&
+    existing.endsAt.getTime() > input.startsAt.getTime();
+  const endsAt = keepManual ? existing.endsAt : computeSubscriptionEndDate(input.tier, input.startsAt);
 
   await prisma.userSubscription.upsert({
     where: { userId: input.targetUserId },
@@ -235,9 +250,11 @@ export async function assignSubscriptionByAdmin(
       tier: input.tier,
       startsAt: input.startsAt,
       endsAt,
+      endsAtManual: keepManual,
       assignedById: actorId,
-      // Assegnazione manuale = termine nuovo, non e' piu' disdetto.
-      canceledAt: null
+      // Assegnazione manuale = termine nuovo, non e' piu' disdetto ne' sospeso.
+      canceledAt: null,
+      arrearsSuspendedAt: null
     }
   });
 
@@ -269,7 +286,9 @@ export async function assignEntryPackageByAdmin(
     where: { id: input.targetUserId },
     select: {
       role: true,
-      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true } }
+      subscription: {
+        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true }
+      }
     }
   });
 

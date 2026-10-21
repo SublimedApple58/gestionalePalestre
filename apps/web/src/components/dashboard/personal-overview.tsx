@@ -12,7 +12,7 @@ import {
   hasRequiredDocuments
 } from "@/lib/documents";
 import { roleLabel } from "@/lib/roles";
-import { subscriptionStatus, tierLabel } from "@/lib/subscription";
+import { effectiveEndsAt, subscriptionStatus, tierLabel } from "@/lib/subscription";
 
 import { UserAvatar } from "../ui/user-avatar";
 import { DocumentUploadCard } from "./document-upload-card";
@@ -31,6 +31,7 @@ type PersonalOverviewProps = {
       tier: SubscriptionTier;
       startsAt: Date;
       endsAt: Date;
+      arrearsSuspendedAt?: Date | null;
     } | null;
   };
   profilePhotoUrl?: string | null;
@@ -108,7 +109,7 @@ export function PersonalOverview({ user, profilePhotoUrl }: PersonalOverviewProp
             <div className="profilo-header-stat">
               <span className="profilo-stat-label">Scadenza</span>
               <span className="profilo-stat-value">
-                {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                {effectiveEndsAt(user.subscription).toLocaleDateString("it-IT")}
               </span>
             </div>
           )}
@@ -184,7 +185,7 @@ export function PersonalOverview({ user, profilePhotoUrl }: PersonalOverviewProp
                 <>
                   <span>{tierLabel(user.subscription.tier)}</span>
                   <span className="profilo-info-sub">
-                    Scade il {new Date(user.subscription.endsAt).toLocaleDateString("it-IT")}
+                    Scade il {effectiveEndsAt(user.subscription).toLocaleDateString("it-IT")}
                   </span>
                 </>
               ) : (
