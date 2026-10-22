@@ -25,6 +25,7 @@ export type {
   Installment,
   InstallmentPlan,
   Payment,
+  PersonalTrainer,
   Session,
   User,
   UserAuditLog,

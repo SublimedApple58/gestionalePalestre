@@ -15,3 +15,6 @@ Regole (dopo l'incidente "scadenze personalizzate sovrascritte", ott 2026):
 Script presenti:
 - `backfill-endsat-manual.mjs` — marca `endsAtManual` su chi ha oggi una scadenza
   impostata a mano (dalla cronologia audit). Non modifica `endsAt`.
+- `seed-personal-trainers.mjs` — caricamento iniziale dei 4 Personal Trainer
+  (foto su R2 sotto `trainers/`, testi approvati). Solo inserimenti, salta chi
+  esiste già; servono le variabili `R2_*` con `--apply`.

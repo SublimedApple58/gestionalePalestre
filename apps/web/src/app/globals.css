@@ -6735,3 +6735,345 @@ button.scheda-exercise-thumb:active {
   padding: 0 4px;
   font-size: 10px;
 }
+
+/* ─── PERSONAL TRAINER (admin) ─────────────────────────────────────────── */
+
+.trainers-admin {
+  max-width: 900px;
+  display: grid;
+  gap: 20px;
+}
+
+.trainers-admin-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.trainers-admin-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f0939a;
+}
+
+.trainers-admin-title {
+  margin: 4px 0 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.trainers-admin-lead {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.trainers-admin-empty {
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.trainers-admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.trainers-admin-row {
+  display: grid;
+  grid-template-columns: 30px 64px minmax(0, 1fr) auto auto 36px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 12px 10px;
+  border-radius: 16px;
+  background: linear-gradient(170deg, rgba(23, 23, 30, 0.94), rgba(14, 14, 20, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 150ms ease, opacity 150ms ease;
+}
+
+.trainers-admin-row:hover {
+  border-color: rgba(223, 37, 49, 0.35);
+}
+
+.trainers-admin-row.is-hidden {
+  opacity: 0.55;
+}
+
+.trainers-admin-order {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.trainers-admin-order button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+}
+
+.trainers-admin-order button:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.trainers-admin-order button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.trainers-admin-thumb {
+  width: 64px;
+  height: 80px;
+  border-radius: 12px;
+  object-fit: cover;
+  object-position: 50% 15%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.trainers-admin-thumb.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.trainers-admin-main {
+  min-width: 0;
+}
+
+.trainers-admin-name {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.trainers-admin-excerpt {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trainers-admin-phone {
+  font-size: 13px;
+  color: var(--text-soft, #d4d4da);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trainers-admin-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 96px;
+  cursor: pointer;
+}
+
+.trainers-admin-edit {
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--text-soft, #d4d4da);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trainers-admin-edit:hover {
+  color: var(--text);
+  border-color: rgba(223, 37, 49, 0.4);
+}
+
+@media (max-width: 760px) {
+  .trainers-admin-row {
+    grid-template-columns: 26px 52px minmax(0, 1fr) 36px;
+    gap: 12px;
+  }
+  .trainers-admin-thumb {
+    width: 52px;
+    height: 65px;
+  }
+  .trainers-admin-phone {
+    display: none;
+  }
+  .trainers-admin-visible {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .trainers-admin-edit {
+    grid-column: 4;
+    grid-row: 1;
+  }
+}
+
+.trainers-drawer {
+  display: grid;
+  gap: 18px;
+}
+
+.trainers-drawer-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trainers-drawer-photo img,
+.trainers-drawer-photo .is-empty {
+  width: 104px;
+  height: 130px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  object-fit: cover;
+  object-position: 50% 15%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.trainers-drawer-photo .is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.trainers-drawer-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.trainers-drawer-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.trainers-drawer-field {
+  display: grid;
+  gap: 6px;
+}
+
+.trainers-drawer-field > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft, #d4d4da);
+}
+
+.trainers-drawer-field em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.trainers-drawer-phone {
+  display: flex;
+  gap: 8px;
+}
+
+.trainers-drawer-error {
+  color: #f87171;
+  font-size: 12px;
+}
+
+.trainers-drawer-preview {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.trainer-bio {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.trainer-bio p {
+  margin: 0;
+}
+
+.trainer-bio strong {
+  color: var(--text);
+}
+
+.trainer-bio .trainer-bio-accent {
+  color: #f0525d;
+}
+
+.trainer-bio-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.trainer-bio-list li::marker {
+  color: var(--brand, #df2531);
+}
+
+.trainers-drawer-visible {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.trainers-drawer-visible strong {
+  display: block;
+  color: var(--text);
+}
+
+.trainers-drawer-visible small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.trainers-drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trainers-drawer-footer-actions {
+  display: flex;
+  gap: 10px;
+}

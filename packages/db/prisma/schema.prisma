@@ -625,6 +625,31 @@ model WorkoutAssignment {
   @@index([templateId])
 }
 
+/// Personal trainer della palestra: lista UNICA mostrata nell'app iscritti e
+/// sul sito pubblico (houseofmuscle.it). Gestita solo da ADMIN (reception).
+/// Non è collegata a un account utente: i PT possono non avere l'app.
+model PersonalTrainer {
+  id              String   @id @default(cuid())
+  firstName       String
+  lastName        String
+  /// Testo con a capo e `**grassetto**`; righe che iniziano con "• " = elenco.
+  bio             String
+  /// Solo cifre, cellulare italiano senza prefisso (es. "3388646144").
+  /// Il link https://wa.me/39<numero> lo costruisce il server.
+  whatsappNumber  String
+  /// Chiave R2 della foto (prefisso `trainers/`). Servita pubblicamente da
+  /// /api/public/trainers/:id/photo con cache lunga.
+  photoStorageKey String?
+  sortOrder       Int      @default(0)
+  isVisible       Boolean  @default(true)
+  /// Ultimo admin che ha modificato il trainer (nessuna FK: storico leggero).
+  updatedById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isVisible, sortOrder])
+}
+
 /// Configurazione applicativa key-value: unica fonte per valori editabili a
 /// runtime SENZA redeploy. Primo uso: `minSupportedVersion` (versione minima
 /// dell'app mobile) e `iosStoreUrl`, letti dall'endpoint pubblico
