@@ -38,7 +38,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   WORKOUT_TEMPLATE_UNASSIGNED: "Scheda rimossa",
   ASSOCIATION_MEMBERSHIP_CHANGED: "Iscrizione associazione aggiornata",
   DOC_DELETED: "Documento rimosso",
-  DOC_ADMIN_UPLOADED: "Documento caricato (admin)"
+  DOC_ADMIN_UPLOADED: "Documento caricato (admin)",
+  PROFILE_UPDATED: "Anagrafica modificata"
 };
 
 const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
@@ -76,6 +77,25 @@ function describePayload(action: AuditAction, payload: unknown): string | null {
       const before = (p.before as { role?: string } | null)?.role ?? "—";
       const after = (p.after as { role?: string } | null)?.role ?? "—";
       return `${before} → ${after}`;
+    }
+    case "PROFILE_UPDATED": {
+      const before = (p.before ?? {}) as Record<string, string | null>;
+      const after = (p.after ?? {}) as Record<string, string | null>;
+      const labels: Record<string, string> = {
+        firstName: "Nome",
+        lastName: "Cognome",
+        email: "Email",
+        phoneNumber: "Telefono",
+        address: "Indirizzo",
+        dateOfBirth: "Nascita",
+        taxCode: "CF"
+      };
+      const show = (field: string, value: string | null | undefined) =>
+        !value ? "—" : field === "dateOfBirth" ? fmtDay(`${value}T12:00:00Z`) : value;
+      const parts = Object.keys(after).map(
+        (f) => `${labels[f] ?? f}: ${show(f, before[f])} → ${show(f, after[f])}`
+      );
+      return parts.length ? parts.join(" · ") : null;
     }
     case "ADDRESS_UPDATED": {
       const after = (p.after as { address?: string | null } | null)?.address;

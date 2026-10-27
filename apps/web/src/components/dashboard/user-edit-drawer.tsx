@@ -25,14 +25,14 @@ import {
   deleteUserActionState,
   reactivateSubscriptionActionState,
   removeEntryPackageActionState,
-  updateAssociationMembershipActionState,
-  updateUserAddressActionState
+  updateAssociationMembershipActionState
 } from "@/app/actions/dashboard-actions";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AdminDocumentsTab } from "@/components/dashboard/admin-documents-tab";
 import { UserAccessLogList } from "@/components/dashboard/user-access-log-list";
 import { UserAuditLogList } from "@/components/dashboard/user-audit-log-list";
+import { UserProfileSection } from "@/components/dashboard/user-profile-section";
 import { associationStatus, type AssociationState } from "@/lib/association";
 import { roleLabel } from "@/lib/roles";
 import {
@@ -58,6 +58,7 @@ export type DrawerUserRow = {
   accessCode: string;
   phoneNumber: string | null;
   address: string | null;
+  dateOfBirth: Date | null;
   associationMember: boolean;
   associationExpiresAt: Date | null;
   assignedInstructorId: string | null;
@@ -240,7 +241,6 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
   const [roleResult, roleAction, rolePending] = useActionState(changeUserRoleActionState, null);
   const [instrResult, instrAction, instrPending] = useActionState(assignInstructorActionState, null);
   const [subResult, subAction, subPending] = useActionState(assignSubscriptionActionState, null);
-  const [addrResult, addrAction, addrPending] = useActionState(updateUserAddressActionState, null);
   const [deleteResult, deleteAction, deletePending] = useActionState(deleteUserActionState, null);
   const [deactivateResult, deactivateAction, deactivatePending] = useActionState(
     deactivateSubscriptionActionState,
@@ -266,7 +266,6 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
   useActionToast(roleResult);
   useActionToast(instrResult);
   useActionToast(subResult);
-  useActionToast(addrResult);
   useActionToast(deactivateResult);
   useActionToast(reactivateResult);
   useActionToast(startDateResult);
@@ -319,6 +318,8 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
       label: "Dettagli",
       children: (
         <div className="drawer-tab-content">
+          <UserProfileSection user={user} />
+
           <section className="user-drawer-section">
             <h4 className="user-drawer-section-title">Ruolo</h4>
             <form action={roleAction} className="user-drawer-form">
@@ -363,23 +364,6 @@ export function UserEditDrawer({ user, opened, onClose, instructors, profilePhot
               </form>
             </section>
           )}
-
-          <section className="user-drawer-section">
-            <h4 className="user-drawer-section-title">Indirizzo</h4>
-            <form action={addrAction} className="user-drawer-form">
-              <input type="hidden" name="targetUserId" value={user.id} />
-              <Input
-                name="address"
-                defaultValue={user.address ?? ""}
-                placeholder="Via Roma 1, 20100 Milano"
-                autoComplete="off"
-                className="dark-input"
-              />
-              <Button type="primary" htmlType="submit" loading={addrPending} size="small">
-                Salva indirizzo
-              </Button>
-            </form>
-          </section>
 
           <AssociationSection user={user} />
         </div>

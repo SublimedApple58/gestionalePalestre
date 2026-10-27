@@ -16,6 +16,11 @@ export type CertReviewRow = {
 /** Quanti iscritti mostrare nel riquadro prima del "e altri N". */
 const HERO_LIMIT = 4;
 
+/** Scadenze salvate a mezzanotte UTC → "YYYY-MM-DD" per l'input data. */
+function toYmd(date: Date | null): string {
+  return date ? new Date(date).toISOString().slice(0, 10) : "";
+}
+
 function initials(first: string, last: string): string {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
@@ -28,6 +33,9 @@ function initials(first: string, last: string): string {
  * Per ogni iscritto: foto, nome, data di caricamento, scadenza, "Apri
  * certificato" (anteprima firmata) e "Segna come controllato" (riusa
  * `approveDocumentAction`: stampa reviewedAt mantenendo lo stato APPROVED).
+ * Come sul mobile, nello stesso gesto si salva la data di scadenza letta sul
+ * certificato (precompilata se gia' nota; vuota = resta quella attuale): e'
+ * quella che alimenta "Certificati in scadenza".
  */
 export function CertificateReviewHero({
   items,
@@ -106,8 +114,18 @@ export function CertificateReviewHero({
                   Apri certificato
                 </span>
               )}
-              <form action={approveDocumentAction}>
+              <form action={approveDocumentAction} className="cert-hero-verify">
                 <input type="hidden" name="documentId" value={c.documentId} />
+                <label className="cert-hero-expiry">
+                  <span className="cert-hero-expiry-label">Scadenza</span>
+                  <input
+                    type="date"
+                    name="medicalCertificateExpiresAt"
+                    defaultValue={toYmd(c.medicalCertificateExpiresAt)}
+                    className="cert-hero-expiry-input"
+                    aria-label={`Scadenza certificato di ${c.firstName} ${c.lastName}`}
+                  />
+                </label>
                 <button type="submit" className="button button-primary cert-hero-check">
                   <Check size={15} />
                   Segna come controllato

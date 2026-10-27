@@ -36,6 +36,7 @@ type UserRow = {
   accessCode: string;
   phoneNumber: string | null;
   address: string | null;
+  dateOfBirth: Date | null;
   createdAt: Date;
   associationMember: boolean;
   associationExpiresAt: Date | null;
@@ -124,7 +125,12 @@ export function UserManagement({ users, errorMessage, profilePhotoUrls = {} }: U
   const [selectedUser, setSelectedUser] = useState<DrawerUserRow | null>(null);
 
   const drawerUserRef = useRef<DrawerUserRow | null>(null);
-  if (selectedUser) drawerUserRef.current = selectedUser;
+  // Dopo un salvataggio (revalidatePath) la lista arriva aggiornata: il drawer
+  // legge la riga fresca invece della copia presa al click, cosi' header e
+  // anagrafica mostrano subito i dati nuovi.
+  if (selectedUser) {
+    drawerUserRef.current = users.find((u) => u.id === selectedUser.id) ?? selectedUser;
+  }
 
   const handleCloseDrawer = useCallback(() => setSelectedUser(null), []);
 

@@ -26,13 +26,16 @@ import {
   updatePersonalInfo,
   updateUserRoleByAdmin
 } from "@/lib/services/user-service";
+import { updateUserProfileByAdmin, type ProfileField } from "@/lib/services/user-profile-service";
 import { saveWorkoutPlan } from "@/lib/services/workout-service";
+import { renameTuyaUser } from "@/lib/tuya/access-control";
 import { computeSubscriptionEndDate, isCustomEndsAt } from "@/lib/subscription";
 import { logSubscriptionAutoChange } from "@/lib/services/subscription-audit";
 import {
   adminCreateUserSchema,
   adminDeleteUserSchema,
   adminRoleChangeSchema,
+  adminUpdateProfileSchema,
   approveDocumentSchema,
   assignEntryPackageSchema,
   assignInstructorSchema,
@@ -607,6 +610,79 @@ export async function updateUserAddressActionState(
     });
     revalidatePath("/utenti");
     return { ok: true, message: "Indirizzo salvato." };
+  } catch (e) {
+    if (e instanceof DomainError) return { ok: false, message: e.message };
+    return { ok: false, message: "Errore imprevisto." };
+  }
+}
+
+const PROFILE_FIELD_LABELS: Record<ProfileField, string> = {
+  firstName: "nome",
+  lastName: "cognome",
+  email: "email",
+  phoneNumber: "telefono",
+  address: "indirizzo",
+  dateOfBirth: "data di nascita",
+  taxCode: "codice fiscale"
+};
+
+export async function updateUserProfileActionState(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const actor = await requireRole([UserRole.ADMIN]);
+  try {
+    const parsed = adminUpdateProfileSchema.safeParse({
+      targetUserId: formData.get("targetUserId"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
+      email: formData.get("email"),
+      phoneNumber: formData.get("phoneNumber"),
+      address: formData.get("address"),
+      dateOfBirth: formData.get("dateOfBirth"),
+      taxCode: formData.get("taxCode")
+    });
+    if (!parsed.success) {
+      return { ok: false, message: parsed.error.issues[0]?.message ?? "Dati non validi." };
+    }
+
+    const result = await updateUserProfileByAdmin(db, actor.role, parsed.data);
+    if (result.changed.length === 0) {
+      return { ok: true, message: "Nessuna modifica da salvare." };
+    }
+
+    await logAdminAction(db, {
+      actorId: actor.id,
+      targetUserId: parsed.data.targetUserId,
+      action: AuditAction.PROFILE_UPDATED,
+      payload: { before: result.before, after: result.after }
+    });
+
+    // Il nome compare come etichetta del member sul tastierino (app Tuya, log
+    // aperture): lo riallineiamo. Best effort: PIN e accesso non dipendono dal
+    // nome, quindi un errore qui non annulla il salvataggio.
+    let tuyaWarning = false;
+    const nameChanged = result.changed.includes("firstName") || result.changed.includes("lastName");
+    if (nameChanged && result.tuyaUserId) {
+      try {
+        await renameTuyaUser(result.tuyaUserId, `${parsed.data.firstName} ${parsed.data.lastName}`);
+      } catch (error) {
+        tuyaWarning = true;
+        console.error("[profile] rinomina Tuya fallita", parsed.data.targetUserId, error);
+      }
+    }
+
+    revalidatePath("/utenti");
+    revalidatePath("/dashboard");
+    const summary = result.changed.map((f) => PROFILE_FIELD_LABELS[f]).join(", ");
+    if (tuyaWarning) {
+      return {
+        ok: true,
+        warning: true,
+        message: `Anagrafica salvata (${summary}). Nome non aggiornato sul tastierino: l'accesso funziona comunque.`
+      };
+    }
+    return { ok: true, message: `Anagrafica salvata: ${summary}.` };
   } catch (e) {
     if (e instanceof DomainError) return { ok: false, message: e.message };
     return { ok: false, message: "Errore imprevisto." };

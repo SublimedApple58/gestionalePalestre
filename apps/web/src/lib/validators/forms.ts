@@ -114,6 +114,40 @@ export const requestReuploadDocumentSchema = z.object({
   reason: z.string().trim().min(4).max(400).optional()
 });
 
+/**
+ * Anagrafica modificata dall'admin dalla scheda iscritto (/utenti).
+ * Campi vuoti → null, tranne nome/cognome/email che restano obbligatori.
+ * Il codice fiscale vive sui documenti TAX_CODE (estratto dall'AI): qui si
+ * corregge quel valore, non c'e' un campo dedicato sull'utente.
+ */
+const emptyToNull = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? null : value;
+
+export const adminUpdateProfileSchema = z.object({
+  targetUserId: z.string().min(1),
+  firstName: z.string().trim().min(2, "Nome troppo corto").max(60),
+  lastName: z.string().trim().min(2, "Cognome troppo corto").max(60),
+  email,
+  phoneNumber: z.preprocess(emptyToNull, phoneNumber.nullable()),
+  address: z.preprocess(emptyToNull, z.string().trim().max(200).nullable()),
+  dateOfBirth: z.preprocess(
+    emptyToNull,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Data di nascita non valida")
+      .nullable()
+  ),
+  taxCode: z.preprocess(
+    (value) => (typeof value === "string" ? value.replace(/\s+/g, "").toUpperCase() || null : null),
+    z
+      .string()
+      .regex(/^[A-Z0-9]{16}$/, "Il codice fiscale deve avere 16 caratteri")
+      .nullable()
+  )
+});
+
+export type AdminUpdateProfileInput = z.infer<typeof adminUpdateProfileSchema>;
+
 export const updatePersonalInfoSchema = z.object({
   // Telefono obbligatorio: non puo' essere rimosso una volta richiesto.
   phoneNumber,

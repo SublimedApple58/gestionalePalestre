@@ -496,6 +496,8 @@ enum AuditAction {
   ASSOCIATION_MEMBERSHIP_CHANGED
   DOC_DELETED
   DOC_ADMIN_UPLOADED
+  /// Anagrafica modificata dall'admin: payload { before, after } con i soli campi cambiati.
+  PROFILE_UPDATED
 }
 
 /// Catalogo centrale degli esercizi. Pre-popolato via seed con i piu' comuni

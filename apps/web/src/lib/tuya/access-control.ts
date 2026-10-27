@@ -108,6 +108,20 @@ export async function createTuyaUser(name: string): Promise<string> {
   return result; // tuyaUserId
 }
 
+/**
+ * Rinomina il member sul device (etichetta visibile nell'app Tuya e nei log
+ * aperture). Non tocca PIN ne' validita': serve solo a tenere allineato il
+ * nome quando la reception corregge l'anagrafica.
+ * Endpoint "Modify user" della device user management (gemello di DELETE).
+ */
+export async function renameTuyaUser(tuyaUserId: string, name: string): Promise<void> {
+  await tuyaRequest<boolean>(
+    "PUT",
+    `/v1.0/devices/${DEVICE_ID}/users/${tuyaUserId}`,
+    { nick_name: name }
+  );
+}
+
 export async function deleteTuyaUser(tuyaUserId: string): Promise<void> {
   await tuyaRequest<boolean>(
     "DELETE",
