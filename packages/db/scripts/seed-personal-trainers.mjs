@@ -20,7 +20,7 @@ import { PrismaClient } from "@prisma/client";
 
 const APPLY = process.argv.includes("--apply");
 const SKIP_PHOTOS = process.argv.includes("--skip-photos");
-const PHOTOS_DIR = process.env.TRAINER_PHOTOS_DIR ?? `${homedir()}/Developer/hom2/public/trainers`;
+const PHOTOS_DIR = process.env.TRAINER_PHOTOS_DIR ?? `${homedir()}/Developer/house-of-muscle/hom2/public/trainers`;
 
 const envText = readFileSync(new URL("../.env", import.meta.url), "utf8");
 const envVal = (n) => process.env[n] ?? envText.match(new RegExp(`^${n}=(.*)$`, "m"))?.[1]?.trim().replace(/^["']|["']$/g, "");
