@@ -231,11 +231,19 @@ export async function listDeviceUserSchedules(): Promise<DeviceUserSchedule[]> {
   const pageSize = 100;
   const all: DeviceUserSchedule[] = [];
   for (let pageNo = 1; pageNo <= 50; pageNo++) {
-    const page = await tuyaRequest<DeviceUserSchedule[] | { list?: DeviceUserSchedule[] }>(
+    const page = await tuyaRequest<unknown>(
       "GET",
       `/v1.1/devices/${DEVICE_ID}/users?page_no=${pageNo}&page_size=${pageSize}`
     );
-    const rows = Array.isArray(page) ? page : (page?.list ?? []);
+    // La risposta è un oggetto di paginazione: l'array dei member è il suo
+    // unico campo-array (il nome della chiave non è documentato).
+    const rows = (
+      Array.isArray(page)
+        ? page
+        : page && typeof page === "object"
+          ? (Object.values(page).find(Array.isArray) ?? [])
+          : []
+    ) as DeviceUserSchedule[];
     all.push(...rows);
     if (rows.length < pageSize) break;
   }
