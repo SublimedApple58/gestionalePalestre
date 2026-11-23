@@ -270,7 +270,35 @@ export async function GET(request: Request): Promise<NextResponse> {
         linkedToIneligibleUser: extra.filter((r) => dbIds.has(r.user_id)).length,
         notInDb: extra.filter((r) => !dbIds.has(r.user_id)).length,
       },
-      rowSample: rows.filter((r) => r.user_type !== 50).slice(0, 2),
+      orphanValidity: (() => {
+        const nowSec = Date.now() / 1000;
+        const c = { permanent: 0, validWindow: 0, expired: 0, noSchedule: 0, byType: {} as Record<string, number> };
+        for (const r of extra) {
+          const s = r.time_schedule_info;
+          c.byType[String(r.user_type)] = (c.byType[String(r.user_type)] ?? 0) + 1;
+          if (!s) c.noSchedule++;
+          else if (s.permanent) c.permanent++;
+          else if ((s.expired_time ?? 0) > nowSec) c.validWindow++;
+          else c.expired++;
+        }
+        return c;
+      })(),
+      orphanKeySample: await (async () => {
+        const n = Math.min(10, Number(params.get("orphansample")) || 0);
+        const out: Array<{ id: string; name: string; sched: unknown; keys: unknown }> = [];
+        for (const r of extra.slice(0, n)) {
+          let keys: unknown;
+          try {
+            keys = await getAssignedKeys(r.user_id);
+          } catch (err) {
+            keys = { error: (err as Error).message };
+          }
+          out.push({ id: r.user_id, name: r.nick_name, sched: r.time_schedule_info, keys });
+          await delay(250);
+        }
+        return out;
+      })(),
+      orphanIds: params.get("orphanids") === "1" ? extra.map((r) => r.user_id) : undefined,
       ...(check.length ? { stillOnDevice: check.filter((id) => byId.has(id)) } : {}),
     });
   }
