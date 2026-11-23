@@ -206,6 +206,53 @@ export async function listUserPasswords(tuyaUserId: string): Promise<unknown> {
   );
 }
 
+export type DeviceUserSchedule = {
+  user_id: string;
+  nick_name: string;
+  user_type: number;
+  time_schedule_info?: {
+    permanent?: boolean;
+    effective_time?: number;
+    expired_time?: number;
+    operate?: string;
+    /** SUCCESS = validità consegnata alla serratura; ONGOING/FAILED = NON applicata. */
+    delivery_status?: string;
+  };
+};
+
+/**
+ * Elenco member del device CON la validità e il suo stato di consegna, a pagine
+ * da 100 (≈1 chiamata ogni 100 utenti). È l'unico modo per sapere se
+ * `setUserPermanent` è davvero arrivato alla serratura: la PUT risponde `true`
+ * appena il cloud accetta la modifica, la consegna al device avviene dopo e può
+ * fallire (`delivery_status: FAILED`) → member ancora LIMITATO (codice KO la sera).
+ */
+export async function listDeviceUserSchedules(): Promise<DeviceUserSchedule[]> {
+  const pageSize = 100;
+  const all: DeviceUserSchedule[] = [];
+  for (let pageNo = 1; pageNo <= 50; pageNo++) {
+    const page = await tuyaRequest<DeviceUserSchedule[] | { list?: DeviceUserSchedule[] }>(
+      "GET",
+      `/v1.1/devices/${DEVICE_ID}/users?page_no=${pageNo}&page_size=${pageSize}`
+    );
+    const rows = Array.isArray(page) ? page : (page?.list ?? []);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return all;
+}
+
+/** Validità + stato di consegna di UN member (1 chiamata). */
+export async function getDeviceUserSchedule(
+  tuyaUserId: string
+): Promise<DeviceUserSchedule["time_schedule_info"]> {
+  const u = await tuyaRequest<DeviceUserSchedule>(
+    "GET",
+    `/v1.1/devices/${DEVICE_ID}/users/${tuyaUserId}`
+  );
+  return u?.time_schedule_info;
+}
+
 /** Dalle risposte "lista" tiene solo il member richiesto (+ un campione per confronto). */
 function pickUser(raw: unknown, tuyaUserId: string): unknown {
   const arr = Array.isArray(raw)

@@ -1,12 +1,15 @@
-import { db, UserRole } from "@gestionale/db";
+import { AuditAction, db, UserRole } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { shouldHaveDoorPin } from "@/lib/subscription";
-import { ensureTuyaUser } from "@/lib/services/tuya-pin-service";
+import { generateAccessCode } from "@/lib/access-code";
+import { logAdminAction } from "@/lib/services/audit-log-service";
+import { ensureTuyaUser, syncPinToKeypad } from "@/lib/services/tuya-pin-service";
 import {
   allocateUnlockMethods,
   setUserPermanent,
   createTempPassword,
+  deleteTuyaUser,
   enablePin,
   syncUnlockMethods,
   getAssignedKeys,
@@ -14,6 +17,7 @@ import {
   getDeviceUser,
   listDeviceTimers,
   listTempPasswords,
+  listDeviceUserSchedules,
   listTuyaUsers,
   listUserPasswords,
   readUserSchedule,
@@ -32,6 +36,16 @@ function isAuthorized(request: Request): boolean {
 
 const DELAY_MS = 350;
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** Codice a 6 cifre non usato da nessun altro utente (accessCode non è @unique). */
+async function generateUniqueAccessCode(): Promise<string> {
+  for (let i = 0; i < 20; i++) {
+    const code = generateAccessCode();
+    const taken = await db.user.findFirst({ where: { accessCode: code }, select: { id: true } });
+    if (!taken) return code;
+  }
+  throw new Error("impossibile generare un codice univoco");
+}
 
 /**
  * RE-SYNC FORZATO dei PIN sul tastierino.
@@ -197,6 +211,120 @@ export async function GET(request: Request): Promise<NextResponse> {
     } catch (err) {
       return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
     }
+  }
+
+  // ── SCAN CONSEGNA VALIDITÀ (chi è ancora LIMITATO sulla serratura) ─────
+  // ?schedulescan=1 → sola lettura, ~1 chiamata ogni 100 member. Elenca i
+  // member idonei la cui validità permanente NON è stata consegnata al device
+  // (delivery_status ≠ SUCCESS): sono i codici "OK di giorno, KO la sera".
+  if (params.get("schedulescan") === "1") {
+    const rows = await listDeviceUserSchedules();
+    const byId = new Map(rows.map((r) => [r.user_id, r]));
+    const users = await db.user.findMany({
+      where: { tuyaUserId: { not: null } },
+      select: {
+        firstName: true,
+        lastName: true,
+        accessCode: true,
+        tuyaUserId: true,
+        role: true,
+        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true } },
+        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
+      },
+    });
+    const eligible = users.filter((u) =>
+      shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
+    );
+    const byStatus: Record<string, number> = {};
+    const notDelivered: string[] = [];
+    let missingOnDevice = 0;
+    for (const u of eligible) {
+      const row = byId.get(u.tuyaUserId!);
+      if (!row) {
+        missingOnDevice++;
+        continue;
+      }
+      const s = row.time_schedule_info;
+      const status = s?.delivery_status ?? (s?.permanent ? "PERMANENT_NO_STATUS" : "NO_SCHEDULE");
+      byStatus[status] = (byStatus[status] ?? 0) + 1;
+      if (status !== "SUCCESS" && status !== "PERMANENT_NO_STATUS") {
+        notDelivered.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${status} permanent=${s?.permanent}`);
+      }
+    }
+    return NextResponse.json({
+      mode: "schedulescan",
+      deviceUsers: rows.length,
+      eligible: eligible.length,
+      missingOnDevice,
+      byStatus,
+      notDelivered,
+    });
+  }
+
+  // ── RICREA il member da zero (member "incastrato" sulla serratura) ─────
+  // ?recreate=<code>            → cancella il member dal device e lo ricrea pulito
+  //                               (nuovo member + PIN + permanente).
+  // ?recreate=<code>&newcode=1  → idem, ma con un CODICE NUOVO: il vecchio smette
+  //                               di funzionare (codice prestato/compromesso).
+  // Serve quando la validità del member resta FAILED/ONGOING anche ri-inviando
+  // `?permanent`: il device rifiuta ogni modifica di quel member, quindi l'unica
+  // via è un member nuovo. Verificare dopo con ?schedule=<code> → SUCCESS.
+  if (params.has("recreate")) {
+    const code = params.get("recreate")?.trim();
+    const u = await db.user.findFirst({
+      where: { accessCode: code },
+      select: { id: true, firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u) return NextResponse.json({ mode: "recreate", error: `nessun utente con codice ${code}` });
+    const label = `${u.firstName} ${u.lastName}`;
+
+    if (u.tuyaUserId) {
+      try {
+        await deleteTuyaUser(u.tuyaUserId);
+      } catch (err) {
+        const msg = (err as Error).message;
+        // Già assente dal device = ok; qualunque altro errore: fermati (non
+        // creare un secondo member con lo stesso PIN accanto al vecchio).
+        if (!msg.includes("1109") && !msg.toLowerCase().includes("not exist") && !msg.toLowerCase().includes("param is illegal")) {
+          return NextResponse.json({ mode: "recreate", user: label, error: `delete: ${msg}` });
+        }
+      }
+    }
+
+    let accessCode = u.accessCode;
+    if (params.get("newcode") === "1") {
+      accessCode = await generateUniqueAccessCode();
+    }
+    await db.user.update({
+      where: { id: u.id },
+      data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null, accessCode },
+    });
+    if (accessCode !== u.accessCode) {
+      await logAdminAction(db, {
+        actorId: null,
+        targetUserId: u.id,
+        action: AuditAction.PROFILE_UPDATED,
+        payload: { before: { accessCode: "******" }, after: { accessCode: "nuovo" }, source: "tuya-pin-resync recreate&newcode" },
+      });
+    }
+
+    await delay(DELAY_MS);
+    try {
+      await syncPinToKeypad(db, u.id);
+    } catch (err) {
+      return NextResponse.json({ mode: "recreate", user: label, accessCode, error: `sync: ${(err as Error).message}` });
+    }
+    const after = await db.user.findUniqueOrThrow({
+      where: { id: u.id },
+      select: { accessCode: true, tuyaUserId: true, tuyaPinActive: true },
+    });
+    return NextResponse.json({
+      mode: "recreate",
+      user: label,
+      oldTuyaUserId: u.tuyaUserId,
+      ...after,
+      note: `Verifica con ?schedule=${after.accessCode}: delivery_status deve diventare SUCCESS.`,
+    });
   }
 
   // ── DIAGNOSTICA SCHEDULE MEMBER (permanente o fascia oraria?) ──────────
