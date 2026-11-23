@@ -251,6 +251,13 @@ export async function GET(request: Request): Promise<NextResponse> {
         notDelivered.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${status} permanent=${s?.permanent}`);
       }
     }
+    // Member sul device NON legati a un idoneo: ex iscritti mai cancellati
+    // (PIN potenzialmente ancora valido) o orfani senza utente in DB.
+    // user_type 50 = owner/admin dell'app Tuya, non un member del gestionale.
+    const eligibleIds = new Set(eligible.map((u) => u.tuyaUserId!));
+    const dbIds = new Set(users.map((u) => u.tuyaUserId!));
+    const extra = rows.filter((r) => !eligibleIds.has(r.user_id) && r.user_type !== 50);
+    const check = (params.get("check") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     return NextResponse.json({
       mode: "schedulescan",
       deviceUsers: rows.length,
@@ -258,6 +265,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       missingOnDevice,
       byStatus,
       notDelivered,
+      extraOnDevice: {
+        total: extra.length,
+        linkedToIneligibleUser: extra.filter((r) => dbIds.has(r.user_id)).length,
+        notInDb: extra.filter((r) => !dbIds.has(r.user_id)).length,
+      },
+      ...(check.length ? { stillOnDevice: check.filter((id) => byId.has(id)) } : {}),
     });
   }
 
