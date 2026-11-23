@@ -138,3 +138,23 @@ pnpm test:ci
 - `test:unit` gira sempre localmente.
 - `test:e2e:be` e `test:e2e:fe` usano `DATABASE_URL_TEST`/`DIRECT_URL_TEST`.
 - Se le variabili test DB non sono configurate, gli e2e vengono saltati.
+
+## Serratura Tuya — "codice OK di giorno, KO la sera"
+
+Causa: il member Tuya non ha la validità **permanente consegnata alla serratura**.
+`setUserPermanent` risponde `true` appena il cloud accetta, ma la consegna al
+device può restare `ONGOING`/`FAILED` (il cloud dice `permanent: true`, la
+serratura tiene la vecchia finestra limitata). Storia e dettagli:
+`plans/access-control/004-codice-ko-sera-delivery-failed.md`.
+
+Route interna `/api/internal/tuya-pin-resync/run` (header `Authorization: Bearer $CRON_SECRET`):
+
+| Query | Effetto |
+|-------|---------|
+| `?schedulescan=1` | Sola lettura (~1 chiamata/100 member): idonei con validità non consegnata + member extra sul device. **Primo passo** di ogni segnalazione. |
+| `?schedule=<codice>` | Sola lettura: `time_schedule_info.delivery_status` del member (deve essere `SUCCESS`). |
+| `?permanent=<codice>` | Ri-invia il permanente. Se resta `FAILED` il member è incastrato → `recreate`. |
+| `?recreate=<codice>` | Cancella e ricrea il member (PIN + permanente), codice invariato. |
+| `?recreate=<codice>&newcode=1` | Idem con **codice nuovo** univoco (codice prestato/compromesso); il vecchio smette di aprire. |
+
+Verifica: dopo ~20 s `?schedule=<codice>` deve dare `SUCCESS` e `?keys=<codice>` una chiave `password`.
