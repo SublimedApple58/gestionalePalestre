@@ -93,6 +93,18 @@ export async function runTuyaPinSyncJob(prisma: PrismaClient): Promise<SyncResul
       continue;
     }
 
+    // Non idoneo e il suo member NON è più sul device: c'è solo da pulire il DB.
+    // Prima si tentava la cancellazione via Tuya ogni notte → `1106 permission
+    // deny` a vuoto (~4 chiamate × 14 ex iscritti ≈ 56 chiamate/notte sprecate).
+    if (needsRemove && onDevice === false) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null },
+      });
+      result.removed++;
+      continue;
+    }
+
     try {
       if (orphan) {
         // Il device ha perso l'utente: azzera il tuyaUserId fantasma così

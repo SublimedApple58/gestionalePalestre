@@ -4,12 +4,11 @@ import { NextResponse } from "next/server";
 import { shouldHaveDoorPin } from "@/lib/subscription";
 import { generateAccessCode } from "@/lib/access-code";
 import { logAdminAction } from "@/lib/services/audit-log-service";
-import { ensureTuyaUser, syncPinToKeypad } from "@/lib/services/tuya-pin-service";
+import { ensureTuyaUser, recreateTuyaMember } from "@/lib/services/tuya-pin-service";
 import {
   allocateUnlockMethods,
   setUserPermanent,
   createTempPassword,
-  deleteTuyaUser,
   enablePin,
   syncUnlockMethods,
   getAssignedKeys,
@@ -218,7 +217,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // member idonei la cui validità permanente NON è stata consegnata al device
   // (delivery_status ≠ SUCCESS): sono i codici "OK di giorno, KO la sera".
   if (params.get("schedulescan") === "1") {
-    const rows = await listDeviceUserSchedules(Number(params.get("pagesize")) || 100);
+    const { rows } = await listDeviceUserSchedules(Number(params.get("pagesize")) || undefined);
     const byId = new Map(rows.map((r) => [r.user_id, r]));
     const users = await db.user.findMany({
       where: { tuyaUserId: { not: null } },
@@ -319,29 +318,15 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
     if (!u) return NextResponse.json({ mode: "recreate", error: `nessun utente con codice ${code}` });
     const label = `${u.firstName} ${u.lastName}`;
+    const newAccessCode = params.get("newcode") === "1" ? await generateUniqueAccessCode() : undefined;
 
-    if (u.tuyaUserId) {
-      try {
-        await deleteTuyaUser(u.tuyaUserId);
-      } catch (err) {
-        const msg = (err as Error).message;
-        // Già assente dal device = ok; qualunque altro errore: fermati (non
-        // creare un secondo member con lo stesso PIN accanto al vecchio).
-        if (!msg.includes("1109") && !msg.toLowerCase().includes("not exist") && !msg.toLowerCase().includes("param is illegal")) {
-          return NextResponse.json({ mode: "recreate", user: label, error: `delete: ${msg}` });
-        }
-      }
+    let result;
+    try {
+      result = await recreateTuyaMember(db, u.id, { newAccessCode });
+    } catch (err) {
+      return NextResponse.json({ mode: "recreate", user: label, error: (err as Error).message });
     }
-
-    let accessCode = u.accessCode;
-    if (params.get("newcode") === "1") {
-      accessCode = await generateUniqueAccessCode();
-    }
-    await db.user.update({
-      where: { id: u.id },
-      data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null, accessCode },
-    });
-    if (accessCode !== u.accessCode) {
+    if (newAccessCode) {
       await logAdminAction(db, {
         actorId: null,
         targetUserId: u.id,
@@ -349,23 +334,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         payload: { before: { accessCode: "******" }, after: { accessCode: "nuovo" }, source: "tuya-pin-resync recreate&newcode" },
       });
     }
-
-    await delay(DELAY_MS);
-    try {
-      await syncPinToKeypad(db, u.id);
-    } catch (err) {
-      return NextResponse.json({ mode: "recreate", user: label, accessCode, error: `sync: ${(err as Error).message}` });
-    }
-    const after = await db.user.findUniqueOrThrow({
-      where: { id: u.id },
-      select: { accessCode: true, tuyaUserId: true, tuyaPinActive: true },
-    });
     return NextResponse.json({
       mode: "recreate",
       user: label,
-      oldTuyaUserId: u.tuyaUserId,
-      ...after,
-      note: `Verifica con ?schedule=${after.accessCode}: delivery_status deve diventare SUCCESS.`,
+      ...result,
+      note: `Verifica con ?schedule=${result.accessCode}: delivery_status deve diventare SUCCESS.`,
     });
   }
 

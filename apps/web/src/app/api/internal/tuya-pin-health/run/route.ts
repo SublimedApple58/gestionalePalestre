@@ -19,7 +19,7 @@ function isAuthorized(request: Request): boolean {
  * Sostituisce il vecchio `tuya-permanent-reassert` settimanale (lo assorbe).
  *
  * Tetti di budget Tuya sovrascrivibili via query per tuning/test:
- *   ?rotationDays=7  ?maxChecks=120  ?maxCalls=400
+ *   ?rotationDays=7  ?maxChecks=120  ?maxCalls=400  ?maxRecreates=10  ?maxOrphanDeletes=40
  *
  * Auth: Vercel Cron invia `Authorization: Bearer <CRON_SECRET>` (anche `x-cron-secret`).
  */
@@ -38,15 +38,25 @@ export async function GET(request: Request): Promise<NextResponse> {
     rotationDays: num("rotationDays"),
     maxChecks: num("maxChecks"),
     maxCalls: num("maxCalls"),
+    maxRecreates: num("maxRecreates"),
+    maxOrphanDeletes: num("maxOrphanDeletes"),
   });
 
   // Log esplicito delle chiamate Tuya usate (vincolo budget piano free).
   console.log(
-    `[tuya-pin-health] completed: tuyaCalls=${summary.tuyaCalls} checked=${summary.checked} ` +
-      `repaired=${summary.repaired} healthyReasserted=${summary.healthyReasserted} ` +
-      `orphansSeen=${summary.orphansSeen} deferred=${summary.deferred} ` +
-      JSON.stringify({ ...summary, repairedCodes: "<hidden>" })
+    `[tuya-pin-health] completed: tuyaCalls=${summary.tuyaCalls} deviceMembers=${summary.deviceMembers} ` +
+      `stuckFound=${summary.stuckFound} stuckRecreated=${summary.stuckRecreated} ` +
+      `checked=${summary.checked} repaired=${summary.repaired} ` +
+      `orphansDeleted=${summary.orphansDeleted} orphansRemaining=${summary.orphansRemaining} ` +
+      `deferred=${summary.deferred} ` +
+      JSON.stringify({ ...summary, repairedCodes: "<hidden>", stuckCodes: "<hidden>" })
   );
+  // Codici riparati in chiaro solo nei log (servono alla reception per avvisare).
+  if (summary.stuckCodes.length || summary.repairedCodes.length) {
+    console.log(
+      `[tuya-pin-health] riparati: stuck=${JSON.stringify(summary.stuckCodes)} keys=${JSON.stringify(summary.repairedCodes)}`
+    );
+  }
 
   return NextResponse.json(summary);
 }

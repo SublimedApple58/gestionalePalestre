@@ -64,3 +64,12 @@ Stima nuova: **~2.000-2.500 chiamate/mese** (giù da ~3-5k).
 - [ ] Deploy in prod (protegge il trial NUOVO: i cron a 5 min consumano anche ora)
 - [ ] All'arrivo tastierino (~8 lug): device nell'account → test "crea codice" →
       bulk iniziale 165 codici da `/tmp/keypad-codes-backup-2026-06-26.csv`
+
+## Update 2026-11-23 — consumo reale e riassetto health-check
+Misurato dai log di prod: `tuya-pin-health` 173 chiamate/notte (di cui ~85 ri-invii
+ciechi del permanente) + pin-sync ~56/notte di delete a vuoto (`1106`). Dopo il fix
+(`004-codice-ko-sera-delivery-failed.md`): scan validità in **1 chiamata**
+(`page_size=2000`), niente ri-invii ciechi, niente delete a vuoto → **~2.600
+chiamate/mese** per i job notturni (prima ~6.900). Pulizia una tantum degli orfani
+(≤435 delete in ~11 notti, tetto 40/notte). Il tetto duro per run resta
+`maxCalls=400`; il conteggio `tuyaCalls` è sempre nel log del cron.

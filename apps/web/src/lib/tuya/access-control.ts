@@ -210,6 +210,7 @@ export type DeviceUserSchedule = {
   user_id: string;
   nick_name: string;
   user_type: number;
+  lock_user_id?: number;
   time_schedule_info?: {
     permanent?: boolean;
     effective_time?: number;
@@ -221,15 +222,24 @@ export type DeviceUserSchedule = {
 };
 
 /**
- * Elenco member del device CON la validità e il suo stato di consegna, a pagine
- * da 100 (≈1 chiamata ogni 100 utenti). È l'unico modo per sapere se
- * `setUserPermanent` è davvero arrivato alla serratura: la PUT risponde `true`
- * appena il cloud accetta la modifica, la consegna al device avviene dopo e può
- * fallire (`delivery_status: FAILED`) → member ancora LIMITATO (codice KO la sera).
+ * Elenco member del device CON la validità e il suo stato di consegna. È l'unico
+ * modo per sapere se `setUserPermanent` è davvero arrivato alla serratura: la PUT
+ * risponde `true` appena il cloud accetta la modifica, la consegna al device
+ * avviene dopo e può fallire (`delivery_status: FAILED`) → member ancora LIMITATO
+ * (codice KO la sera).
+ *
+ * QUOTA: la serratura accetta `page_size` fino ad almeno 2000 → con ~1.100 member
+ * è UNA sola chiamata (verificato 23/11/2026). Ordine: dal member più recente.
  */
-export async function listDeviceUserSchedules(pageSize = 100): Promise<DeviceUserSchedule[]> {
+export const DEVICE_USERS_PAGE_SIZE = 2000;
+
+export async function listDeviceUserSchedules(
+  pageSize = DEVICE_USERS_PAGE_SIZE
+): Promise<{ rows: DeviceUserSchedule[]; calls: number }> {
   const all: DeviceUserSchedule[] = [];
+  let calls = 0;
   for (let pageNo = 1; pageNo <= 50; pageNo++) {
+    calls++;
     const page = await tuyaRequest<unknown>(
       "GET",
       `/v1.1/devices/${DEVICE_ID}/users?page_no=${pageNo}&page_size=${pageSize}`
@@ -246,7 +256,7 @@ export async function listDeviceUserSchedules(pageSize = 100): Promise<DeviceUse
     all.push(...rows);
     if (rows.length < pageSize) break;
   }
-  return all;
+  return { rows: all, calls };
 }
 
 /** Validità + stato di consegna di UN member (1 chiamata). */

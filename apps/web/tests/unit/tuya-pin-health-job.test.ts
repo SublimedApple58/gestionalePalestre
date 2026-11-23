@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * Regressione "codici che spariscono": il health-check notturno deve, SOLO per la
  * fetta di rotazione di stanotte e dentro i tetti di budget Tuya:
- *  - chiave presente  → ri-affermare permanente (no riscrittura PIN);
+ *  - chiave presente  → nessuna scrittura (lo stato validità lo dà lo scan);
  *  - chiave MANCANTE  → ripubblicare il PIN (enablePin + permanent) e allineare il DB;
  *  - utente orfano    → contarlo e lasciarlo a pin-sync (nessuna riscrittura);
  *  - errore di lettura non-orfano → saltare SENZA riscrivere (niente rischio su PIN sani);
@@ -14,12 +14,22 @@ const tuya = vi.hoisted(() => ({
   getAssignedKeys: vi.fn(),
   enablePin: vi.fn(),
   setUserPermanent: vi.fn(),
+  deleteTuyaUser: vi.fn(),
+  listDeviceUserSchedules: vi.fn(),
+  recreateTuyaMember: vi.fn(),
 }));
 
 vi.mock("@/lib/tuya/access-control", () => ({
   getAssignedKeys: tuya.getAssignedKeys,
   enablePin: tuya.enablePin,
   setUserPermanent: tuya.setUserPermanent,
+  deleteTuyaUser: tuya.deleteTuyaUser,
+  listDeviceUserSchedules: tuya.listDeviceUserSchedules,
+}));
+
+vi.mock("@/lib/services/tuya-pin-service", () => ({
+  recreateTuyaMember: tuya.recreateTuyaMember,
+  isTuyaUserGoneError: (m: string) => m.includes("1109"),
 }));
 
 import { runTuyaPinHealthJob } from "@/lib/services/tuya-pin-health-job";
@@ -44,6 +54,8 @@ function makeUser(over: Record<string, unknown>) {
     lastName: "C",
     accessCode: "000000",
     tuyaUserId: "t",
+    tuyaPinActive: true,
+    updatedAt: new Date("2026-10-01T00:00:00Z"),
     role: "SUBSCRIBER",
     subscription: activeSub,
     entryPackage: null,
@@ -78,9 +90,13 @@ describe("runTuyaPinHealthJob", () => {
     vi.clearAllMocks();
     tuya.enablePin.mockResolvedValue("1");
     tuya.setUserPermanent.mockResolvedValue({});
+    tuya.deleteTuyaUser.mockResolvedValue(true);
+    tuya.recreateTuyaMember.mockResolvedValue({});
+    // Default: scan vuoto (nessun member) → fasi B e D inerti.
+    tuya.listDeviceUserSchedules.mockResolvedValue({ rows: [], calls: 1 });
   });
 
-  it("sana→reassert, mancante→ripubblica, orfano→conteggia; rotationDays=1 copre tutti", async () => {
+  it("sana→nessuna scrittura, mancante→ripubblica, orfano→conteggia; rotationDays=1 copre tutti", async () => {
     tuya.getAssignedKeys.mockImplementation(async (id: string) => {
       if (id === "healthy") return { unlock_keys: [{ unlock_no: 9, unlock_type: "password" }] };
       if (id === "missing") return { unlock_keys: [] };
@@ -105,22 +121,22 @@ describe("runTuyaPinHealthJob", () => {
     expect(r.eligibleTotal).toBe(3); // l'espirato è escluso
     expect(r.inBucket).toBe(3);
     expect(r.checked).toBe(3);
-    expect(r.healthyReasserted).toBe(1);
+    expect(r.healthyOk).toBe(1);
     expect(r.repaired).toBe(1);
     expect(r.orphansSeen).toBe(1);
 
     // La chiave mancante è stata ripubblicata; la sana NO.
     expect(tuya.enablePin).toHaveBeenCalledTimes(1);
     expect(tuya.enablePin).toHaveBeenCalledWith("missing", "222222");
-    // setUserPermanent: 1 per la sana + 1 nella riparazione della mancante.
-    expect(tuya.setUserPermanent).toHaveBeenCalledTimes(2);
+    // setUserPermanent SOLO nella riparazione della mancante (niente reassert cieco).
+    expect(tuya.setUserPermanent).toHaveBeenCalledTimes(1);
     // DB allineato SOLO per la riparata.
     expect(prisma.updates).toHaveLength(1);
     expect(prisma.updates[0]).toMatchObject({
       where: { id: "b" },
       data: { tuyaPinActive: true, tuyaPinUnlockNo: "1" },
     });
-    // read(3) + permanent(1 sana) + enable(1) + permanent(1 riparazione) = 6
+    // scan(1) + read(3) + enable(1) + permanent(1 riparazione) = 6
     expect(r.tuyaCalls).toBe(6);
   });
 
@@ -188,5 +204,118 @@ describe("runTuyaPinHealthJob", () => {
     expect(r.eligibleTotal).toBe(20);
     expect(r.inBucket).toBeLessThan(20); // solo ~1/7 stanotte
     expect(r.checked).toBe(r.inBucket);
+  });
+
+  const sched = (status: string, permanent = true) => ({
+    permanent,
+    effective_time: 0,
+    expired_time: 0,
+    operate: "MODIFY",
+    delivery_status: status,
+  });
+  const row = (user_id: string, nick_name: string, lock: number, s: unknown) => ({
+    user_id,
+    nick_name,
+    user_type: 20,
+    lock_user_id: lock,
+    time_schedule_info: s,
+  });
+
+  it("validità FAILED o ONGOING vecchio → recreate (con tetto); ONGOING fresco → aspetta", async () => {
+    tuya.getAssignedKeys.mockResolvedValue({ unlock_keys: [{ unlock_no: 1, unlock_type: "password" }] });
+    const users = [
+      makeUser({ id: "ok", tuyaUserId: "t-ok", firstName: "A", lastName: "Ok" }),
+      makeUser({ id: "failed", tuyaUserId: "t-failed", firstName: "B", lastName: "Failed", accessCode: "971328" }),
+      makeUser({ id: "stale", tuyaUserId: "t-stale", firstName: "C", lastName: "Stale" }),
+      // ONGOING ma toccato 10 minuti fa: consegna ancora in corso → niente recreate
+      makeUser({ id: "fresh", tuyaUserId: "t-fresh", firstName: "D", lastName: "Fresh", updatedAt: new Date(NOW.getTime() - 10 * 60 * 1000) }),
+      makeUser({ id: "limited", tuyaUserId: "t-limited", firstName: "E", lastName: "Limited" }),
+    ];
+    tuya.listDeviceUserSchedules.mockResolvedValue({
+      calls: 1,
+      rows: [
+        row("t-ok", "A Ok", 1, sched("SUCCESS")),
+        row("t-failed", "B Failed", 2, sched("FAILED")),
+        row("t-stale", "C Stale", 3, sched("ONGOING")),
+        row("t-fresh", "D Fresh", 4, sched("ONGOING")),
+        row("t-limited", "E Limited", 5, sched("SUCCESS", false)),
+      ],
+    });
+    const prisma = fakePrisma(users);
+
+    const r = await runTuyaPinHealthJob(prisma as never, { now: NOW, rotationDays: 100000, delayMs: 0, maxRecreates: 1 });
+
+    expect(r.stuckFound).toBe(2);
+    expect(r.stuckRecreated).toBe(1); // tetto
+    expect(r.deferred).toBeGreaterThanOrEqual(1);
+    expect(tuya.recreateTuyaMember).toHaveBeenCalledTimes(1);
+    expect(tuya.recreateTuyaMember).toHaveBeenCalledWith(prisma, "failed");
+    expect(r.stuckCodes).toEqual(["B Failed: 971328"]);
+    // Non permanente ma consegnato → solo 1 setUserPermanent leggero.
+    expect(r.permanentResent).toBe(1);
+    expect(tuya.setUserPermanent).toHaveBeenCalledWith("t-limited");
+  });
+
+  it("orfani: cancella i validi (prima ex iscritti), lascia scaduti, i più recenti e i gemelli senza password collegata", async () => {
+    const users = [
+      makeUser({ id: "a", tuyaUserId: "t-a", firstName: "Simone", lastName: "Attivo" }),
+      makeUser({ id: "b", tuyaUserId: "t-b", firstName: "Bruno", lastName: "Senzachiave" }),
+    ];
+    tuya.getAssignedKeys.mockImplementation(async (id: string) =>
+      id === "t-a" ? { unlock_keys: [{ unlock_no: 1, unlock_type: "password" }] } : { unlock_keys: [] }
+    );
+    tuya.listDeviceUserSchedules.mockResolvedValue({
+      calls: 1,
+      rows: [
+        row("t-a", "Simone Attivo", 50, sched("SUCCESS")),
+        row("t-b", "Bruno Senzachiave", 51, sched("SUCCESS")),
+        row("o-new", "Appena Creato", 99, sched("SUCCESS")), // più nuovo dell'ultimo collegato
+        row("o-ex", "Dario Scaduto", 10, sched("SUCCESS")), // ex iscritto, PIN valido
+        row("o-exp", "Vecchio Limitato", 11, { permanent: false, effective_time: 1, expired_time: 2 }),
+        row("o-twin", "Simone Attivo", 12, sched("SUCCESS")), // gemello di iscritto con password
+        row("o-twin-b", "Bruno Senzachiave", 13, sched("SUCCESS")), // gemello di iscritto SENZA password
+        { user_id: "owner", nick_name: "Owner", user_type: 50, lock_user_id: 1, time_schedule_info: sched("SUCCESS") },
+      ],
+    });
+    const prisma = fakePrisma(users);
+
+    const r = await runTuyaPinHealthJob(prisma as never, { now: NOW, rotationDays: 100000, delayMs: 0 });
+
+    expect(r.orphansExpired).toBe(1);
+    expect(r.orphansValid).toBe(3);
+    expect(r.orphansDeleted).toBe(2);
+    expect(r.orphansSkippedNoLinkedKey).toBe(1);
+    expect(tuya.deleteTuyaUser.mock.calls.map((c) => c[0])).toEqual(["o-ex", "o-twin"]);
+  });
+
+  it("orfani: rispetta maxOrphanDeletes (spalmate su più notti)", async () => {
+    const users = [makeUser({ id: "a", tuyaUserId: "t-a" })];
+    tuya.listDeviceUserSchedules.mockResolvedValue({
+      calls: 1,
+      rows: [
+        row("t-a", "N C", 1000, sched("SUCCESS")),
+        ...Array.from({ length: 10 }, (_, i) => row(`o${i}`, `Ex ${i}`, i + 1, sched("SUCCESS"))),
+      ],
+    });
+    const prisma = fakePrisma(users);
+
+    const r = await runTuyaPinHealthJob(prisma as never, { now: NOW, rotationDays: 100000, delayMs: 0, maxOrphanDeletes: 3 });
+
+    expect(r.orphansDeleted).toBe(3);
+    expect(r.orphansRemaining).toBe(7);
+    expect(tuya.deleteTuyaUser).toHaveBeenCalledTimes(3);
+  });
+
+  it("scan fallito → niente recreate né cancellazioni (solo rotazione chiavi)", async () => {
+    tuya.listDeviceUserSchedules.mockRejectedValue(new Error("Tuya API error [500]"));
+    tuya.getAssignedKeys.mockResolvedValue({ unlock_keys: [{ unlock_no: 1, unlock_type: "password" }] });
+    const prisma = fakePrisma([makeUser({ id: "a", tuyaUserId: "t-a" })]);
+
+    const r = await runTuyaPinHealthJob(prisma as never, { now: NOW, rotationDays: 1, delayMs: 0 });
+
+    expect(r.deviceMembers).toBe(-1);
+    expect(tuya.recreateTuyaMember).not.toHaveBeenCalled();
+    expect(tuya.deleteTuyaUser).not.toHaveBeenCalled();
+    expect(r.checked).toBe(1);
   });
 });

@@ -158,3 +158,8 @@ Route interna `/api/internal/tuya-pin-resync/run` (header `Authorization: Bearer
 | `?recreate=<codice>&newcode=1` | Idem con **codice nuovo** univoco (codice prestato/compromesso); il vecchio smette di aprire. |
 
 Verifica: dopo ~20 s `?schedule=<codice>` deve dare `SUCCESS` e `?keys=<codice>` una chiave `password`.
+
+In automatico ci pensa il cron notturno `tuya-pin-health` (04:30 UTC). Con 1 scansione
+ricrea i member con validità FAILED/ONGOING vecchia (max 10 a notte) e cancella i member
+orfani con PIN ancora valido (max 40 a notte). Nel log: `tuyaCalls`, `stuckRecreated`,
+`orphansDeleted`, `orphansRemaining`.

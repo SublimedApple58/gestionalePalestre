@@ -1,48 +1,59 @@
 import { PaymentStatus, type PrismaClient } from "@gestionale/db";
 
 import { shouldHaveDoorPin } from "@/lib/subscription";
-import { enablePin, getAssignedKeys, setUserPermanent } from "@/lib/tuya/access-control";
+import {
+  deleteTuyaUser,
+  enablePin,
+  getAssignedKeys,
+  listDeviceUserSchedules,
+  setUserPermanent,
+  type DeviceUserSchedule,
+} from "@/lib/tuya/access-control";
+import { isTuyaUserGoneError, recreateTuyaMember } from "@/lib/services/tuya-pin-service";
 import { createHash } from "crypto";
 
 /**
- * Health-check NOTTURNO a ROTAZIONE dei PIN sul tastierino — la correzione
- * definitiva per i "codici che spariscono dalla serratura".
+ * Health-check NOTTURNO dei PIN sul tastierino (cron 04:30 UTC). Quattro fasi,
+ * tutte dentro un tetto DURO di chiamate Tuya (piano free ~26k/mese):
  *
- * PERCHÉ ESISTE (il buco che tappa):
- *  - `runTuyaPinSyncJob` (notturno) ripara gli orfani a livello UTENTE (tuyaUserId
- *    non più sul device, visto con 1 sola `listTuyaUsers`) ma SALTA chi è
- *    `tuyaPinActive` e ancora presente → NON si accorge se all'utente è sparita la
- *    PASSWORD KEY (il caso dei 42 e di Alessio: utente presente, chiave vuota).
- *  - `enablePin` considera il 200 dell'API come successo senza rileggere la chiave
- *    (l'endpoint di lettura è inaffidabile), quindi una scrittura non atterrata
- *    resta `tuyaPinActive=true` per sempre: morta e mai auto-guarita.
+ * A. SCAN (1 chiamata): `listDeviceUserSchedules` legge TUTTI i member con la
+ *    validità e il suo `delivery_status` (page_size 2000 → 1 pagina).
  *
- * COSA FA: verifica a livello CHIAVE con `getAssignedKeys` e ripara ripubblicando
- * il PIN SOLO per chi non ha davvero una password key. Assorbe anche il vecchio
- * `permanent-reassert` settimanale (su chi è sano chiama `setUserPermanent`).
+ * B. MEMBER INCASTRATI — "codice OK di giorno, KO la sera" (plans/access-control/004):
+ *    il cloud dice `permanent: true` ma la consegna alla serratura è FAILED/ONGOING
+ *    → il device tiene la finestra limitata. Ri-inviare il permanente NON basta:
+ *    → `recreateTuyaMember` (delete → create → PIN → permanente), max
+ *    MAX_RECREATES_PER_RUN a notte, e solo se la delete riesce. Un ONGOING è
+ *    "vecchio" (incastrato) se l'utente non è stato toccato nelle ultime
+ *    FRESH_WINDOW_MS (una consegna sana arriva in secondi). Chi semplicemente
+ *    NON è permanente riceve 1 `setUserPermanent`.
  *
- * BUDGET TUYA (vincolo forte: piano free ~26k chiamate/mese):
- *  - NON esiste una lettura in blocco delle chiavi per questo device `mk`:
- *    `getAssignedKeys` è per-utente. Quindi ROTAZIONE: ogni notte si controlla solo
- *    ~1/ROTATION_DAYS degli idonei (bucket stabile per userId) → tutti coperti entro
- *    ROTATION_DAYS notti. Gli orfani a livello utente restano gratis a carico di
- *    `runTuyaPinSyncJob` (1 sola `listTuyaUsers`).
- *  - Tetti duri per esecuzione: MAX_CHECKS_PER_RUN e MAX_TUYA_CALLS_PER_RUN. Il
- *    numero di chiamate Tuya usate è SEMPRE loggato (`tuyaCalls`).
- *  - Costo tipico: ~1/7 di ~565 idonei ≈ 81 utenti × (1 read + 1 permanent) ≈
- *    ~160 chiamate/notte ≈ ~4.900/mese (sostituisce il reassert settimanale ~2.450).
+ * C. ROTAZIONE CHIAVI (il "codice sparito"): ~1/ROTATION_DAYS degli idonei a notte
+ *    (+ attivati nelle ultime 48h) letti con `getAssignedKeys`; chiave mancante →
+ *    ripubblica il PIN. NON ri-afferma più il permanente sui sani: lo stato reale
+ *    lo dà lo scan (A) e il ri-invio cieco costava ~85 chiamate/notte e creava
+ *    nuove consegne che potevano FALLIRE.
  *
- * SICUREZZA: ripubblica SOLO quando la lettura RIESCE e mostra zero password key.
- * Un errore di lettura transitorio/non-orfano NON innesca riscritture (si logga e
- * si salta), per non rischiare di toccare un PIN sano. Nessuna migrazione: la
- * rotazione è deterministica da `userId`, niente nuovi campi in DB.
+ * D. PULIZIA ORFANI: member sul device non collegati ad alcun utente (duplicati
+ *    da attivazioni parallele, o resti di ex iscritti) con validità ANCORA valida
+ *    = PIN che apre ma che il gestionale non controlla più. Cancellati max
+ *    MAX_ORPHAN_DELETES_PER_RUN a notte, prima gli ex iscritti. Se l'orfano è il
+ *    gemello di un iscritto ATTIVO, lo si cancella solo dopo aver verificato che il
+ *    member collegato abbia davvero la password (sennò è lui che lo fa entrare).
+ *    Scaduti → lasciati (non aprono).
+ *
+ * SICUREZZA: nessuna riscrittura su letture fallite; recreate solo se la delete
+ * riesce; i member più recenti dell'ultimo collegato non si toccano (potrebbero
+ * essere in creazione proprio ora).
  */
 
 export type PinHealthOptions = {
   now?: Date;
   rotationDays?: number; // in quante notti coprire tutti gli idonei
-  maxChecks?: number; // tetto utenti controllati per run
+  maxChecks?: number; // tetto utenti controllati per run (fase C)
   maxCalls?: number; // tetto DURO di chiamate Tuya per run
+  maxRecreates?: number; // tetto member incastrati ricreati per run (fase B)
+  maxOrphanDeletes?: number; // tetto orfani cancellati per run (fase D)
   delayMs?: number; // spaziatura tra le azioni (device asincrono + quota)
 };
 
@@ -50,23 +61,43 @@ export type PinHealthResult = {
   eligibleTotal: number;
   rotationDays: number;
   dayBucket: number;
-  priorityRecent: number; // idonei attivati nelle ultime 48h, sempre controllati
-  inBucket: number; // idonei che cadono nel bucket di stanotte (esclusi i priority)
-  checked: number; // utenti effettivamente letti (getAssignedKeys)
-  healthyReasserted: number; // chiave presente → setUserPermanent
+  // A — scan
+  deviceMembers: number; // -1 se lo scan è fallito (fasi B e D saltate)
+  // B — validità non consegnata
+  stuckFound: number; // idonei FAILED / ONGOING vecchi
+  stuckRecreated: number;
+  stuckCodes: string[]; // nome: codice (cap 50)
+  permanentResent: number; // idonei non permanenti → 1 setUserPermanent
+  // C — rotazione chiavi
+  priorityRecent: number;
+  inBucket: number;
+  checked: number;
+  healthyOk: number; // chiave presente → nessuna scrittura
   repaired: number; // chiave mancante → ripubblicata
-  repairedCodes: string[]; // nome: codice (cap 50)
+  repairedCodes: string[];
   orphansSeen: number; // utente non più sul device → lo ripara pin-sync
-  deferred: number; // non controllati per via dei tetti (al prossimo giro)
-  readErrors: number; // letture fallite non-orfane → saltate (nessuna riscrittura)
-  tuyaCalls: number; // chiamate Tuya totali usate in questo run
+  readErrors: number;
+  // D — orfani
+  orphansValid: number; // orfani con validità ancora valida (aprono)
+  orphansExpired: number; // scaduti → lasciati
+  orphansDeleted: number;
+  orphansSkippedNoLinkedKey: number; // gemello attivo senza password: lasciato
+  orphansRemaining: number; // validi non ancora cancellati (prossime notti)
+  deferred: number; // azioni rimandate per i tetti
+  tuyaCalls: number; // chiamate Tuya usate in questo run (recreate stimato 6)
   errors: string[];
 };
 
 const ROTATION_DAYS = 7;
 const MAX_CHECKS_PER_RUN = 120;
 const MAX_TUYA_CALLS_PER_RUN = 400;
+const MAX_RECREATES_PER_RUN = 10;
+const MAX_ORPHAN_DELETES_PER_RUN = 40;
+const RECREATE_CALLS = 6; // delete, create, permanent, ticket, entry, permanent
+const FRESH_WINDOW_MS = 2 * 60 * 60 * 1000;
 const DELAY_MS = 300;
+/** user_type dei member creati via API (panel_user); 50 = owner dell'app Tuya. */
+const PANEL_USER_TYPE = 20;
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -87,6 +118,23 @@ function isOrphanError(message: string): boolean {
   );
 }
 
+const hasPasswordKey = (keys: unknown): boolean =>
+  ((keys as { unlock_keys?: Array<{ unlock_type: string }> })?.unlock_keys ?? []).some(
+    (k) => k.unlock_type === "password"
+  );
+
+const normName = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** La validità del member gli permette ancora di aprire? (permanente o non scaduta) */
+function isStillValid(row: DeviceUserSchedule, now: Date): boolean {
+  const s = row.time_schedule_info;
+  if (!s) return true; // senza info: prudenza, trattalo come valido
+  if (s.permanent) return true;
+  const exp = s.expired_time ?? 0;
+  const expMs = exp > 1e12 ? exp : exp * 1000;
+  return expMs > now.getTime();
+}
+
 export async function runTuyaPinHealthJob(
   prisma: PrismaClient,
   opts: PinHealthOptions = {}
@@ -95,6 +143,8 @@ export async function runTuyaPinHealthJob(
   const rotationDays = Math.max(1, opts.rotationDays ?? ROTATION_DAYS);
   const maxChecks = opts.maxChecks ?? MAX_CHECKS_PER_RUN;
   const maxCalls = opts.maxCalls ?? MAX_TUYA_CALLS_PER_RUN;
+  const maxRecreates = opts.maxRecreates ?? MAX_RECREATES_PER_RUN;
+  const maxOrphanDeletes = opts.maxOrphanDeletes ?? MAX_ORPHAN_DELETES_PER_RUN;
   const delayMs = opts.delayMs ?? DELAY_MS;
   const dayBucket = Math.floor(now.getTime() / 86_400_000) % rotationDays;
 
@@ -102,27 +152,40 @@ export async function runTuyaPinHealthJob(
     eligibleTotal: 0,
     rotationDays,
     dayBucket,
+    deviceMembers: -1,
+    stuckFound: 0,
+    stuckRecreated: 0,
+    stuckCodes: [],
+    permanentResent: 0,
     priorityRecent: 0,
     inBucket: 0,
     checked: 0,
-    healthyReasserted: 0,
+    healthyOk: 0,
     repaired: 0,
     repairedCodes: [],
     orphansSeen: 0,
-    deferred: 0,
     readErrors: 0,
+    orphansValid: 0,
+    orphansExpired: 0,
+    orphansDeleted: 0,
+    orphansSkippedNoLinkedKey: 0,
+    orphansRemaining: 0,
+    deferred: 0,
     tuyaCalls: 0,
     errors: [],
   };
+  const canSpend = (n: number): boolean => result.tuyaCalls + n <= maxCalls;
 
   const users = await prisma.user.findMany({
-    where: { tuyaUserId: { not: null }, tuyaPinActive: true },
+    where: { tuyaUserId: { not: null } },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       accessCode: true,
       tuyaUserId: true,
+      tuyaPinActive: true,
+      updatedAt: true,
       role: true,
       subscription: {
         select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true },
@@ -131,17 +194,80 @@ export async function runTuyaPinHealthJob(
     },
   });
 
-  const eligible = users.filter((u) =>
-    shouldHaveDoorPin(
-      { role: u.role, subscription: u.subscription, entryPackage: u.entryPackage },
-      now
-    )
+  const eligible = users.filter(
+    (u) =>
+      u.tuyaPinActive &&
+      shouldHaveDoorPin(
+        { role: u.role, subscription: u.subscription, entryPackage: u.entryPackage },
+        now
+      )
   );
   result.eligibleTotal = eligible.length;
+  const label = (u: { firstName: string; lastName: string }) => `${u.firstName} ${u.lastName}`;
 
+  // ── A. SCAN validità (1 chiamata) ─────────────────────────────────────────
+  let rows: DeviceUserSchedule[] | null = null;
+  if (canSpend(1)) {
+    try {
+      const scan = await listDeviceUserSchedules();
+      result.tuyaCalls += scan.calls;
+      rows = scan.rows;
+      result.deviceMembers = rows.length;
+    } catch (err) {
+      result.tuyaCalls++;
+      result.errors.push(`scan: ${(err as Error).message}`);
+    }
+  }
+  const rowById = new Map((rows ?? []).map((r) => [r.user_id, r]));
+
+  // ── B. Validità non consegnata (codice KO la sera) ────────────────────────
+  const touched = new Set<string>(); // userId già riscritti stanotte
+  if (rows) {
+    for (const u of eligible) {
+      const row = rowById.get(u.tuyaUserId!);
+      if (!row) continue; // sparito dal device: lo ricrea pin-sync (orphan-fix)
+      const s = row.time_schedule_info;
+      const status = s?.delivery_status;
+      const fresh = now.getTime() - new Date(u.updatedAt).getTime() < FRESH_WINDOW_MS;
+      if (fresh && status !== "FAILED") continue; // consegna forse ancora in corso
+
+      if (status === "FAILED" || status === "ONGOING") {
+        result.stuckFound++;
+        if (result.stuckRecreated >= maxRecreates || !canSpend(RECREATE_CALLS)) {
+          result.deferred++;
+          continue;
+        }
+        result.tuyaCalls += RECREATE_CALLS;
+        try {
+          await recreateTuyaMember(prisma, u.id);
+          result.stuckRecreated++;
+          touched.add(u.id);
+          if (result.stuckCodes.length < 50) result.stuckCodes.push(`${label(u)}: ${u.accessCode}`);
+        } catch (err) {
+          result.errors.push(`recreate ${label(u)} (${u.accessCode}): ${(err as Error).message}`);
+        }
+        await delay(delayMs);
+      } else if (s && s.permanent !== true) {
+        if (!canSpend(1)) {
+          result.deferred++;
+          continue;
+        }
+        result.tuyaCalls++;
+        try {
+          await setUserPermanent(u.tuyaUserId!);
+          result.permanentResent++;
+        } catch (err) {
+          result.errors.push(`permanent ${label(u)} (${u.accessCode}): ${(err as Error).message}`);
+        }
+        await delay(delayMs);
+      }
+    }
+  }
+
+  // ── C. Rotazione chiavi (PIN sparito dalla serratura) ─────────────────────
   // PRIORITÀ: codici attivati di recente (pagamento PAID nelle ultime 48h). Un PIN
   // appena pubblicato che non è atterrato va scoperto subito, non alla prossima
-  // rotazione. Costa 1 lettura a testa (insieme piccolo: le attivazioni di 2 giorni).
+  // rotazione.
   const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000);
   const recentPaid = await prisma.payment.findMany({
     where: { status: PaymentStatus.PAID, paidAt: { gte: cutoff } },
@@ -149,80 +275,130 @@ export async function runTuyaPinHealthJob(
   });
   const recentIds = new Set(recentPaid.map((p) => p.userId));
 
-  const priority = eligible.filter((u) => recentIds.has(u.id));
-  const bucketSlice = eligible.filter(
+  const pool = eligible.filter((u) => !touched.has(u.id));
+  const priority = pool.filter((u) => recentIds.has(u.id));
+  const bucketSlice = pool.filter(
     (u) => !recentIds.has(u.id) && bucketOf(u.id, rotationDays) === dayBucket
   );
   result.priorityRecent = priority.length;
   result.inBucket = bucketSlice.length;
 
-  // Prima i recenti, poi la fetta a rotazione (entrambi sotto i tetti di budget).
-  const targets = [...priority, ...bucketSlice];
-
-  for (const u of targets) {
-    // Tetto utenti e tetto DURO di chiamate: ciò che resta va al prossimo giro.
-    if (result.checked >= maxChecks || result.tuyaCalls + 1 > maxCalls) {
+  for (const u of [...priority, ...bucketSlice]) {
+    if (result.checked >= maxChecks || !canSpend(1)) {
       result.deferred++;
       continue;
     }
 
-    const label = `${u.firstName} ${u.lastName}`;
-    let keys: { unlock_keys?: Array<{ unlock_type: string }> };
+    let keys: unknown;
     try {
       result.tuyaCalls++;
-      keys = (await getAssignedKeys(u.tuyaUserId!)) as typeof keys;
+      keys = await getAssignedKeys(u.tuyaUserId!);
     } catch (err) {
       const msg = (err as Error).message;
       if (isOrphanError(msg)) {
-        // Utente sparito dal device: lo ricrea `runTuyaPinSyncJob` (orphan-fix).
         result.orphansSeen++;
       } else {
         // Errore transitorio/non chiaro: NON riscriviamo (niente rischio su PIN sani).
         result.readErrors++;
-        result.errors.push(`${label} (${u.accessCode}): read ${msg}`);
+        result.errors.push(`${label(u)} (${u.accessCode}): read ${msg}`);
       }
       result.checked++;
       await delay(delayMs);
       continue;
     }
-
-    const hasPassword = (keys.unlock_keys ?? []).some((k) => k.unlock_type === "password");
     result.checked++;
 
-    try {
-      if (hasPassword) {
-        // Chiave presente → ri-afferma permanente (assorbe il reassert settimanale).
-        if (result.tuyaCalls + 1 > maxCalls) {
-          result.deferred++;
-        } else {
-          result.tuyaCalls++;
-          await setUserPermanent(u.tuyaUserId!);
-          result.healthyReasserted++;
-        }
-      } else {
-        // Chiave DAVVERO mancante → ripubblica il PIN (enablePin + permanent).
-        if (result.tuyaCalls + 2 > maxCalls) {
-          result.deferred++;
-        } else {
-          result.tuyaCalls++;
-          const unlockNo = await enablePin(u.tuyaUserId!, u.accessCode);
-          result.tuyaCalls++;
-          await setUserPermanent(u.tuyaUserId!).catch(() => {});
-          await prisma.user.update({
-            where: { id: u.id },
-            data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
-          });
-          result.repaired++;
-          if (result.repairedCodes.length < 50) {
-            result.repairedCodes.push(`${label}: ${u.accessCode}`);
-          }
-        }
+    if (hasPasswordKey(keys)) {
+      result.healthyOk++;
+    } else if (!canSpend(2)) {
+      result.deferred++;
+    } else {
+      // Chiave DAVVERO mancante → ripubblica il PIN (enablePin + permanent).
+      try {
+        result.tuyaCalls++;
+        const unlockNo = await enablePin(u.tuyaUserId!, u.accessCode);
+        result.tuyaCalls++;
+        await setUserPermanent(u.tuyaUserId!).catch(() => {});
+        await prisma.user.update({
+          where: { id: u.id },
+          data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
+        });
+        result.repaired++;
+        if (result.repairedCodes.length < 50) result.repairedCodes.push(`${label(u)}: ${u.accessCode}`);
+      } catch (err) {
+        result.errors.push(`${label(u)} (${u.accessCode}): ${(err as Error).message}`);
       }
-    } catch (err) {
-      result.errors.push(`${label} (${u.accessCode}): ${(err as Error).message}`);
+    }
+    await delay(delayMs);
+  }
+
+  // ── D. Pulizia orfani con PIN ancora valido ───────────────────────────────
+  if (rows) {
+    const linkedIds = new Set(users.map((u) => u.tuyaUserId!));
+    // Member più recente collegato a un utente: quelli più nuovi di lui possono
+    // essere in creazione proprio ora (createTuyaUser fatto, DB non ancora
+    // aggiornato) → non si toccano stanotte.
+    const maxLinkedLock = Math.max(
+      0,
+      ...rows.filter((r) => linkedIds.has(r.user_id)).map((r) => r.lock_user_id ?? 0)
+    );
+    const eligibleByName = new Map(eligible.map((u) => [normName(label(u)), u]));
+
+    const exMembers: DeviceUserSchedule[] = [];
+    const twins: Array<{ row: DeviceUserSchedule; linkedTuyaId: string }> = [];
+    for (const r of rows) {
+      if (r.user_type !== PANEL_USER_TYPE || linkedIds.has(r.user_id)) continue;
+      if (!isStillValid(r, now)) {
+        result.orphansExpired++;
+        continue;
+      }
+      if ((r.lock_user_id ?? 0) > maxLinkedLock) continue;
+      result.orphansValid++;
+      const twin = eligibleByName.get(normName(r.nick_name));
+      if (twin) twins.push({ row: r, linkedTuyaId: twin.tuyaUserId! });
+      else exMembers.push(r);
     }
 
-    await delay(delayMs);
+    const linkedHasKey = new Map<string, boolean>();
+    const queue = [
+      ...exMembers.map((row) => ({ row, linkedTuyaId: null as string | null })),
+      ...twins,
+    ];
+    for (const { row, linkedTuyaId } of queue) {
+      if (result.orphansDeleted >= maxOrphanDeletes || !canSpend(linkedTuyaId ? 2 : 1)) break;
+
+      if (linkedTuyaId) {
+        // Gemello di un iscritto attivo: cancellalo solo se il member collegato
+        // ha la password, altrimenti è proprio l'orfano a farlo entrare.
+        if (!linkedHasKey.has(linkedTuyaId)) {
+          result.tuyaCalls++;
+          try {
+            linkedHasKey.set(linkedTuyaId, hasPasswordKey(await getAssignedKeys(linkedTuyaId)));
+          } catch {
+            linkedHasKey.set(linkedTuyaId, false);
+          }
+        }
+        if (!linkedHasKey.get(linkedTuyaId)) {
+          result.orphansSkippedNoLinkedKey++;
+          continue;
+        }
+      }
+
+      result.tuyaCalls++;
+      try {
+        await deleteTuyaUser(row.user_id);
+        result.orphansDeleted++;
+      } catch (err) {
+        const msg = (err as Error).message;
+        if (isTuyaUserGoneError(msg)) result.orphansDeleted++;
+        else result.errors.push(`orphan ${row.nick_name} (${row.user_id}): ${msg}`);
+      }
+      await delay(delayMs);
+    }
+    result.orphansRemaining = Math.max(
+      0,
+      result.orphansValid - result.orphansDeleted - result.orphansSkippedNoLinkedKey
+    );
   }
 
   return result;

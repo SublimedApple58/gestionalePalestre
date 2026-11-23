@@ -84,14 +84,86 @@ export async function ensureTuyaUser(
     }
   }
 
-  await prisma.user.update({
-    where: { id: userId },
+  // Collega il member SOLO se nel frattempo nessun altro l'ha fatto. Più conferme
+  // dello stesso pagamento (webhook + pagina di successo + conferma mobile)
+  // lanciano syncPinToKeypad in parallelo: senza questa guardia ognuna creava il
+  // SUO member con lo stesso PIN e il DB ne teneva uno solo → duplicati orfani
+  // che restano aperti anche dopo la scadenza (435 trovati il 23/11/2026).
+  const claimed = await prisma.user.updateMany({
+    where: { id: userId, tuyaUserId: null },
     data: { tuyaUserId },
   });
+  if (claimed.count === 0) {
+    const winner = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { tuyaUserId: true },
+    });
+    if (winner.tuyaUserId && winner.tuyaUserId !== tuyaUserId) {
+      // Ha vinto l'altra esecuzione: togli il member appena creato (best-effort,
+      // altrimenti lo raccoglie la pulizia orfani notturna).
+      await deleteTuyaUser(tuyaUserId).catch(() => {});
+      return winner.tuyaUserId;
+    }
+  }
 
   await assertUserPermanent(tuyaUserId);
 
   return tuyaUserId;
+}
+
+/** Il member non esiste (più) sul device: per una delete equivale a "fatto". */
+export function isTuyaUserGoneError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("1109") || m.includes("not exist") || m.includes("param is illegal");
+}
+
+/**
+ * RICREA da zero il member di un utente: cancella quello attuale dal device e ne
+ * crea uno nuovo (PIN + permanente) via syncPinToKeypad. È la cura per un member
+ * "incastrato" la cui validità permanente non viene mai consegnata alla serratura
+ * (`delivery_status` FAILED/ONGOING → codice KO la sera): ri-inviare il
+ * permanente non basta, un member nuovo invece riceve SUCCESS.
+ *
+ * Sicurezza: se la delete fallisce (per un motivo diverso da "già assente") NON
+ * procede → mai due member con lo stesso PIN. `newAccessCode` cambia anche il
+ * codice (codice prestato/compromesso): il vecchio smette di aprire.
+ * Costo Tuya: ~6 chiamate (delete, create, permanent, ticket, entry, permanent).
+ */
+export async function recreateTuyaMember(
+  prisma: PrismaClient,
+  userId: string,
+  opts: { newAccessCode?: string } = {}
+): Promise<{ oldTuyaUserId: string | null; tuyaUserId: string | null; accessCode: string }> {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { tuyaUserId: true, accessCode: true },
+  });
+
+  if (user.tuyaUserId) {
+    try {
+      await deleteTuyaUser(user.tuyaUserId);
+    } catch (err) {
+      if (!isTuyaUserGoneError((err as Error).message)) throw err;
+    }
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      tuyaUserId: null,
+      tuyaPinActive: false,
+      tuyaPinUnlockNo: null,
+      ...(opts.newAccessCode ? { accessCode: opts.newAccessCode } : {}),
+    },
+  });
+
+  await syncPinToKeypad(prisma, userId);
+
+  const after = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { tuyaUserId: true, accessCode: true },
+  });
+  return { oldTuyaUserId: user.tuyaUserId, ...after };
 }
 
 /**
