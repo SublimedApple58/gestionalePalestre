@@ -16,6 +16,7 @@ import {
   listTempPasswords,
   listTuyaUsers,
   listUserPasswords,
+  readUserSchedule,
 } from "@/lib/tuya/access-control";
 
 export const runtime = "nodejs";
@@ -196,6 +197,19 @@ export async function GET(request: Request): Promise<NextResponse> {
     } catch (err) {
       return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
     }
+  }
+
+  // ── DIAGNOSTICA SCHEDULE MEMBER (permanente o fascia oraria?) ──────────
+  // ?schedule=<code> → sola lettura: la validità reale del member sul device.
+  if (params.has("schedule")) {
+    const code = params.get("schedule")?.trim();
+    const u = await db.user.findFirst({
+      where: { accessCode: code, tuyaUserId: { not: null } },
+      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+    });
+    if (!u?.tuyaUserId) return NextResponse.json({ mode: "schedule", error: "no tuyaUserId" });
+    const schedule = await readUserSchedule(u.tuyaUserId);
+    return NextResponse.json({ mode: "schedule", user: `${u.firstName} ${u.lastName}`, code: u.accessCode, schedule });
   }
 
   // ── DIAGNOSTICA TEMP-PASSWORD (validità reale sul cloud) ───────────────

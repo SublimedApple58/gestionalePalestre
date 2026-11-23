@@ -206,6 +206,32 @@ export async function listUserPasswords(tuyaUserId: string): Promise<unknown> {
   );
 }
 
+/**
+ * DIAGNOSTICA (sola lettura): legge la VALIDITÀ reale del member (lo schedule
+ * che `setUserPermanent` scrive: permanent / effective_time / expired_time /
+ * fasce orarie). Il dettaglio `GET /devices/{id}/users/{uid}` non la riporta,
+ * quindi proviamo gli endpoint Smart Lock candidati e restituiamo il raw di
+ * ciascuno (o l'errore): solo GET, nessuna scrittura sul device.
+ */
+export async function readUserSchedule(
+  tuyaUserId: string
+): Promise<Record<string, unknown>> {
+  const paths = [
+    `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}`,
+    `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}/schedule`,
+    `/v1.0/devices/${DEVICE_ID}/door-lock/users/${tuyaUserId}`,
+  ];
+  const out: Record<string, unknown> = {};
+  for (const path of paths) {
+    try {
+      out[path] = await tuyaRequest<unknown>("GET", path);
+    } catch (err) {
+      out[path] = { error: (err as Error).message };
+    }
+  }
+  return out;
+}
+
 // ─── PIN crypto ──────────────────────────────────────────────────────────────
 
 function decryptTicketKey(encryptedHex: string): Buffer {
