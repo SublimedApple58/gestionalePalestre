@@ -206,6 +206,18 @@ export async function listUserPasswords(tuyaUserId: string): Promise<unknown> {
   );
 }
 
+/** Dalle risposte "lista" tiene solo il member richiesto (+ un campione per confronto). */
+function pickUser(raw: unknown, tuyaUserId: string): unknown {
+  const arr = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+      ? Object.values(raw).find(Array.isArray)
+      : undefined;
+  if (!Array.isArray(arr)) return raw;
+  const match = arr.filter((x) => JSON.stringify(x).includes(`"${tuyaUserId}"`));
+  return { listSize: arr.length, match, sample: arr.slice(0, 1) };
+}
+
 /**
  * DIAGNOSTICA (sola lettura): legge la VALIDITÀ reale del member (lo schedule
  * che `setUserPermanent` scrive: permanent / effective_time / expired_time /
@@ -220,11 +232,17 @@ export async function readUserSchedule(
     `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}`,
     `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}/schedule`,
     `/v1.0/devices/${DEVICE_ID}/door-lock/users/${tuyaUserId}`,
+    `/v1.1/devices/${DEVICE_ID}/users/${tuyaUserId}`,
+    `/v1.1/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}`,
+    // query in ordine ASCII (Tuya firma la query ordinata)
+    `/v1.0/smart-lock/devices/${DEVICE_ID}/users?page_no=1&page_size=100`,
+    `/v1.1/devices/${DEVICE_ID}/users?page_no=1&page_size=100`,
   ];
   const out: Record<string, unknown> = {};
   for (const path of paths) {
     try {
-      out[path] = await tuyaRequest<unknown>("GET", path);
+      const raw = await tuyaRequest<unknown>("GET", path);
+      out[path] = pickUser(raw, tuyaUserId);
     } catch (err) {
       out[path] = { error: (err as Error).message };
     }
