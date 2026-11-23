@@ -218,7 +218,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // member idonei la cui validità permanente NON è stata consegnata al device
   // (delivery_status ≠ SUCCESS): sono i codici "OK di giorno, KO la sera".
   if (params.get("schedulescan") === "1") {
-    const rows = await listDeviceUserSchedules();
+    const rows = await listDeviceUserSchedules(Number(params.get("pagesize")) || 100);
     const byId = new Map(rows.map((r) => [r.user_id, r]));
     const users = await db.user.findMany({
       where: { tuyaUserId: { not: null } },
@@ -270,6 +270,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         linkedToIneligibleUser: extra.filter((r) => dbIds.has(r.user_id)).length,
         notInDb: extra.filter((r) => !dbIds.has(r.user_id)).length,
       },
+      rowSample: rows.filter((r) => r.user_type !== 50).slice(0, 2),
       ...(check.length ? { stillOnDevice: check.filter((id) => byId.has(id)) } : {}),
     });
   }

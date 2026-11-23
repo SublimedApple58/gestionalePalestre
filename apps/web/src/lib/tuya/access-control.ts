@@ -227,8 +227,7 @@ export type DeviceUserSchedule = {
  * appena il cloud accetta la modifica, la consegna al device avviene dopo e può
  * fallire (`delivery_status: FAILED`) → member ancora LIMITATO (codice KO la sera).
  */
-export async function listDeviceUserSchedules(): Promise<DeviceUserSchedule[]> {
-  const pageSize = 100;
+export async function listDeviceUserSchedules(pageSize = 100): Promise<DeviceUserSchedule[]> {
   const all: DeviceUserSchedule[] = [];
   for (let pageNo = 1; pageNo <= 50; pageNo++) {
     const page = await tuyaRequest<unknown>(
