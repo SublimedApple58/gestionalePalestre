@@ -165,7 +165,10 @@ imposte dal codice:
 - Prima di ogni operazione dire quante chiamate costa. Mai cicli di tentativi su una
   route, mai chiamare una route nuova prima che il deploy sia attivo.
 - Raffiche di scritture saturano la serratura (`2328 operation in progress`): una
-  `recreate` che fallisce dopo la delete lascia l'iscritto senza codice. Distanziare.
+  `recreate` che fallisce dopo la delete lascia l'iscritto senza codice. Per scritture
+  in serie: **almeno 60 s tra una e l'altra**, stop al primo errore, e per riparare un
+  PIN preferire `mode=pin` (non cancella nulla) a `mode=recreate`. Il 24/11 con 30 s
+  la serratura si è saturata dopo ~50 scritture.
 
 Header: `Authorization: Bearer $CRON_SECRET`. Costi indicativi, token compreso:
 

@@ -41,7 +41,13 @@
 2. Letture solo da `tuya-diag`; scritture solo da `tuya-pin-resync` con dry-run prima.
 3. Mai cicli di tentativi su una route; mai chiamare una route nuova prima che il
    deploy sia attivo (controllare Vercel: READY + alias su app.houseofmuscle.it).
-4. Raffiche di scritture saturano la serratura: distanziare (≥ 30 s tra recreate).
+4. Raffiche di scritture saturano la serratura (`2328 operation in progress`): per
+   scritture in serie **≥ 60 s tra una e l'altra**, stop al primo errore. Il 24/11:
+   ~25 s tra recreate → saturazione dopo ~70; 30 s tra `pin` → saturazione dopo ~50;
+   60 s dopo 10 minuti di pausa per smaltire la coda.
+5. Per riparare un PIN preferire `mode=pin` (non cancella: se fallisce l'iscritto resta
+   com'era) a `mode=recreate` (cancella prima di creare: se fallisce resta senza codice).
+   `recreate` solo per i member con validità FAILED.
 
 ## Da valutare
 - `recreateTuyaMember` cancella prima di creare: se la creazione fallisce l'iscritto

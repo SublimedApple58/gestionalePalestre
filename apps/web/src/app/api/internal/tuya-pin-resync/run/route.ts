@@ -48,7 +48,10 @@ const FULL_MAX_BUDGET = 1500;
 const FULL_DRYRUN_KEY = "tuya:full-dryrun";
 const FULL_DRYRUN_TTL_MS = 15 * 60_000;
 const FULL_TIME_LIMIT_MS = 240_000; // margine sul maxDuration
-const FULL_DELAY_MS = 1500; // non saturare la serratura (errori 2328 "operation in progress")
+// Scritture in serie: ≥ 60 s tra un iscritto e l'altro, sennò la serratura si satura
+// (`2328 operation in progress`; il 24/11 con 30 s dopo ~50 scritture). Lento di
+// proposito: `full` è uno strumento di recupero, va a blocchi con `nextFrom`.
+const FULL_DELAY_MS = 60_000;
 
 const MODES: Record<string, string[]> = {
   recreate: ["code", "newcode", "apply"],
