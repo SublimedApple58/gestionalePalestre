@@ -256,7 +256,7 @@ describe("runTuyaPinHealthJob", () => {
     expect(tuya.setUserPermanent).toHaveBeenCalledWith("t-limited");
   });
 
-  it("orfani: cancella i validi (prima ex iscritti), lascia scaduti, i più recenti e i gemelli senza password collegata", async () => {
+  it("orfani: cancella solo gli ex iscritti validi; lascia scaduti, i più recenti e TUTTI i gemelli di iscritti attivi", async () => {
     const users = [
       makeUser({ id: "a", tuyaUserId: "t-a", firstName: "Simone", lastName: "Attivo" }),
       makeUser({ id: "b", tuyaUserId: "t-b", firstName: "Bruno", lastName: "Senzachiave" }),
@@ -282,10 +282,10 @@ describe("runTuyaPinHealthJob", () => {
     const r = await runTuyaPinHealthJob(prisma as never, { now: NOW, rotationDays: 100000, delayMs: 0 });
 
     expect(r.orphansExpired).toBe(1);
-    expect(r.orphansValid).toBe(3);
-    expect(r.orphansDeleted).toBe(2);
-    expect(r.orphansSkippedNoLinkedKey).toBe(1);
-    expect(tuya.deleteTuyaUser.mock.calls.map((c) => c[0])).toEqual(["o-ex", "o-twin"]);
+    expect(r.orphansValid).toBe(1);
+    expect(r.orphansTwinsKept).toBe(2);
+    expect(r.orphansDeleted).toBe(1);
+    expect(tuya.deleteTuyaUser.mock.calls.map((c) => c[0])).toEqual(["o-ex"]);
   });
 
   it("orfani: rispetta maxOrphanDeletes (spalmate su più notti)", async () => {

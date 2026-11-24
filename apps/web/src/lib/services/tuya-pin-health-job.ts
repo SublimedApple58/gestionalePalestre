@@ -37,10 +37,11 @@ import { createHash } from "crypto";
  * D. PULIZIA ORFANI: member sul device non collegati ad alcun utente (duplicati
  *    da attivazioni parallele, o resti di ex iscritti) con validità ANCORA valida
  *    = PIN che apre ma che il gestionale non controlla più. Cancellati max
- *    MAX_ORPHAN_DELETES_PER_RUN a notte, prima gli ex iscritti. Se l'orfano è il
- *    gemello di un iscritto ATTIVO, lo si cancella solo dopo aver verificato che il
- *    member collegato abbia davvero la password (sennò è lui che lo fa entrare).
- *    Scaduti → lasciati (non aprono).
+ *    MAX_ORPHAN_DELETES_PER_RUN a notte, SOLO ex iscritti. I gemelli di iscritti
+ *    ATTIVI (stesso nome) NON si cancellano: il 24/11/2026 diversi iscritti
+ *    entravano proprio dal duplicato, e una password presente sul cloud per il
+ *    member collegato non garantisce che sia arrivata alla serratura → cancellarli
+ *    può chiudere fuori un iscritto. Scaduti → lasciati (non aprono).
  *
  * SICUREZZA: nessuna riscrittura su letture fallite; recreate solo se la delete
  * riesce; i member più recenti dell'ultimo collegato non si toccano (potrebbero
@@ -81,7 +82,7 @@ export type PinHealthResult = {
   orphansValid: number; // orfani con validità ancora valida (aprono)
   orphansExpired: number; // scaduti → lasciati
   orphansDeleted: number;
-  orphansSkippedNoLinkedKey: number; // gemello attivo senza password: lasciato
+  orphansTwinsKept: number; // gemelli di iscritti attivi: mai cancellati (vedi D)
   orphansRemaining: number; // validi non ancora cancellati (prossime notti)
   deferred: number; // azioni rimandate per i tetti
   tuyaCalls: number; // chiamate Tuya usate in questo run (recreate stimato 6)
@@ -168,7 +169,7 @@ export async function runTuyaPinHealthJob(
     orphansValid: 0,
     orphansExpired: 0,
     orphansDeleted: 0,
-    orphansSkippedNoLinkedKey: 0,
+    orphansTwinsKept: 0,
     orphansRemaining: 0,
     deferred: 0,
     tuyaCalls: 0,
@@ -345,7 +346,6 @@ export async function runTuyaPinHealthJob(
     const eligibleByName = new Map(eligible.map((u) => [normName(label(u)), u]));
 
     const exMembers: DeviceUserSchedule[] = [];
-    const twins: Array<{ row: DeviceUserSchedule; linkedTuyaId: string }> = [];
     for (const r of rows) {
       if (r.user_type !== PANEL_USER_TYPE || linkedIds.has(r.user_id)) continue;
       if (!isStillValid(r, now)) {
@@ -353,36 +353,16 @@ export async function runTuyaPinHealthJob(
         continue;
       }
       if ((r.lock_user_id ?? 0) > maxLinkedLock) continue;
+      if (eligibleByName.has(normName(r.nick_name))) {
+        result.orphansTwinsKept++;
+        continue;
+      }
       result.orphansValid++;
-      const twin = eligibleByName.get(normName(r.nick_name));
-      if (twin) twins.push({ row: r, linkedTuyaId: twin.tuyaUserId! });
-      else exMembers.push(r);
+      exMembers.push(r);
     }
 
-    const linkedHasKey = new Map<string, boolean>();
-    const queue = [
-      ...exMembers.map((row) => ({ row, linkedTuyaId: null as string | null })),
-      ...twins,
-    ];
-    for (const { row, linkedTuyaId } of queue) {
-      if (result.orphansDeleted >= maxOrphanDeletes || !canSpend(linkedTuyaId ? 2 : 1)) break;
-
-      if (linkedTuyaId) {
-        // Gemello di un iscritto attivo: cancellalo solo se il member collegato
-        // ha la password, altrimenti è proprio l'orfano a farlo entrare.
-        if (!linkedHasKey.has(linkedTuyaId)) {
-          result.tuyaCalls++;
-          try {
-            linkedHasKey.set(linkedTuyaId, hasPasswordKey(await getAssignedKeys(linkedTuyaId)));
-          } catch {
-            linkedHasKey.set(linkedTuyaId, false);
-          }
-        }
-        if (!linkedHasKey.get(linkedTuyaId)) {
-          result.orphansSkippedNoLinkedKey++;
-          continue;
-        }
-      }
+    for (const row of exMembers) {
+      if (result.orphansDeleted >= maxOrphanDeletes || !canSpend(1)) break;
 
       result.tuyaCalls++;
       try {
@@ -397,7 +377,7 @@ export async function runTuyaPinHealthJob(
     }
     result.orphansRemaining = Math.max(
       0,
-      result.orphansValid - result.orphansDeleted - result.orphansSkippedNoLinkedKey
+      result.orphansValid - result.orphansDeleted
     );
   }
 

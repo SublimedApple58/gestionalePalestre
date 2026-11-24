@@ -98,3 +98,16 @@ Vincolo: chiamate Tuya al minimo (piano free ~26k/mese, vedi 001).
 Una tantum: pulizia orfani ≤435 delete (+ ≤1 lettura per gemello), ~11 notti,
 picco ≤~170/notte, sotto le 173 di prima. Recreate: ~6 chiamate ciascuno, attesi
 0–1 a notte.
+
+## Update 2026-11-24 — incidente risync + stop cancellazione gemelli
+- ~07:56–08:01 una risync completa partita per errore (route `tuya-pin-resync` senza
+  parametri riconosciuti, chiamata mentre il deploy con `?member=` non era ancora attivo)
+  ha riscritto PIN + permanente a 207 iscritti ed è andata in timeout. Da quel momento
+  diversi codici non aprivano (es. Salvatore Fones); 1 member FAILED (Lorenzo Ulissi).
+  Riparazione: `?recreate=<codice>` sui 207, codici invariati, ~6 chiamate ciascuno.
+- Il log ingressi del 24/11 mostra 7 ingressi da member NON collegati: alcuni iscritti
+  entrano dal duplicato. Una password presente sul cloud per il member collegato non
+  garantisce che sia arrivata alla serratura → il job health **non cancella più i
+  gemelli di iscritti attivi** (`orphansTwinsKept`), solo gli orfani di ex iscritti.
+- Regola: prima di chiamare una route nuova, verificare che il deploy sia attivo (mai
+  cicli di tentativi sulla route di resync: senza parametri fa una risync completa).
