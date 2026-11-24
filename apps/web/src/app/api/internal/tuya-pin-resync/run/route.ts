@@ -343,6 +343,22 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // ── DIAGNOSTICA SCHEDULE MEMBER (permanente o fascia oraria?) ──────────
+  // ?member=<tuyaUserId> → sola lettura, 1 chiamata: chi è un member del device
+  // (es. `unmatchedUserIds` del log ingressi) e se è collegato a un utente del DB.
+  if (params.has("member")) {
+    const id = params.get("member")?.trim() ?? "";
+    const linked = await db.user.findFirst({
+      where: { tuyaUserId: id },
+      select: { firstName: true, lastName: true, accessCode: true },
+    });
+    try {
+      const member = await getDeviceUser(id);
+      return NextResponse.json({ mode: "member", member, linked });
+    } catch (err) {
+      return NextResponse.json({ mode: "member", id, linked, error: (err as Error).message });
+    }
+  }
+
   // ?schedule=<code> → sola lettura: la validità reale del member sul device.
   if (params.has("schedule")) {
     const code = params.get("schedule")?.trim();
