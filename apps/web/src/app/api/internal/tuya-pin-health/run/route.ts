@@ -2,9 +2,13 @@ import { db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
 import { runTuyaPinHealthJob } from "@/lib/services/tuya-pin-health-job";
+import { withTuyaBudget } from "@/lib/tuya/client";
+import { withTuyaLock } from "@/lib/tuya/lock";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+const CRON_CALL_BUDGET = 600;
 
 function isAuthorized(request: Request): boolean {
   const expected = process.env.CRON_SECRET;
@@ -34,13 +38,24 @@ export async function GET(request: Request): Promise<NextResponse> {
     return v != null && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined;
   };
 
-  const summary = await runTuyaPinHealthJob(db, {
-    rotationDays: num("rotationDays"),
-    maxChecks: num("maxChecks"),
-    maxCalls: num("maxCalls"),
-    maxRecreates: num("maxRecreates"),
-    maxOrphanDeletes: num("maxOrphanDeletes"),
-  });
+  // Lock condiviso con le route manuali + rete di sicurezza sul client Tuya (il
+  // job ha già il suo tetto `maxCalls`; questo ferma solo una fuga di chiamate).
+  const locked = await withTuyaLock(db, "cron:tuya-pin-health", () =>
+    withTuyaBudget({ max: CRON_CALL_BUDGET }, () =>
+      runTuyaPinHealthJob(db, {
+        rotationDays: num("rotationDays"),
+        maxChecks: num("maxChecks"),
+        maxCalls: num("maxCalls"),
+        maxRecreates: num("maxRecreates"),
+        maxOrphanDeletes: num("maxOrphanDeletes"),
+      })
+    )
+  );
+  if ("busy" in locked) {
+    console.error(`[tuya-pin-health] saltato: lock Tuya occupato da ${locked.busy}`);
+    return NextResponse.json({ error: "TUYA_LOCKED", heldBy: locked.busy }, { status: 409 });
+  }
+  const summary = locked.result.result;
 
   // Log esplicito delle chiamate Tuya usate (vincolo budget piano free).
   console.log(

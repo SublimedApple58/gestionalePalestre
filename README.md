@@ -147,19 +147,44 @@ device può restare `ONGOING`/`FAILED` (il cloud dice `permanent: true`, la
 serratura tiene la vecchia finestra limitata). Storia e dettagli:
 `plans/access-control/004-codice-ko-sera-delivery-failed.md`.
 
-Route interna `/api/internal/tuya-pin-resync/run` (header `Authorization: Bearer $CRON_SECRET`):
+### Regola: operazioni manuali sulla serratura
 
-| Query | Effetto |
-|-------|---------|
-| `?schedulescan=1` | Sola lettura (~1 chiamata/100 member): idonei con validità non consegnata + member extra sul device. **Primo passo** di ogni segnalazione. |
-| `?schedule=<codice>` | Sola lettura: `time_schedule_info.delivery_status` del member (deve essere `SUCCESS`). |
-| `?permanent=<codice>` | Ri-invia il permanente. Se resta `FAILED` il member è incastrato → `recreate`. |
-| `?recreate=<codice>` | Cancella e ricrea il member (PIN + permanente), codice invariato. |
-| `?recreate=<codice>&newcode=1` | Idem con **codice nuovo** univoco (codice prestato/compromesso); il vecchio smette di aprire. |
+Ogni chiamata Tuya, **lettura compresa**, consuma la quota del piano gratuito
+(26.000/mese). Dopo l'incidente del 24/11/2026 (risync completa partita per errore:
+~1.000 chiamate, 207 PIN riscritti, iscritti chiusi fuori) valgono queste regole,
+imposte dal codice:
 
-Verifica: dopo ~20 s `?schedule=<codice>` deve dare `SUCCESS` e `?keys=<codice>` una chiave `password`.
+- **Letture** solo da `/api/internal/tuya-diag/run`: il client Tuya lì è in sola
+  lettura (rifiuta ogni metodo ≠ GET) e un test fa fallire la build se la route
+  importa una funzione che scrive.
+- **Scritture** solo da `/api/internal/tuya-pin-resync/run`. `?mode=` obbligatorio
+  da una lista chiusa: mode o parametri sconosciuti → **400, nessuna azione**.
+  Di default è un **dry-run** (chi tocca, quante chiamate); scrive solo con `&apply=1`.
+- Ogni invocazione ha un **budget di chiamate** imposto dal client (si ferma da solo)
+  e passa da un **lock** condiviso con i cron notturni (409 se occupato).
+- Prima di ogni operazione dire quante chiamate costa. Mai cicli di tentativi su una
+  route, mai chiamare una route nuova prima che il deploy sia attivo.
+- Raffiche di scritture saturano la serratura (`2328 operation in progress`): una
+  `recreate` che fallisce dopo la delete lascia l'iscritto senza codice. Distanziare.
+
+Header: `Authorization: Bearer $CRON_SECRET`. Costi indicativi, token compreso:
+
+| Route + query | Effetto | Chiamate |
+|---------------|---------|----------|
+| `tuya-diag?mode=schedulescan` | Stato consegna validità di tutti i member + member extra. **Primo passo** di ogni segnalazione. | 2 |
+| `tuya-diag?mode=schedule&code=<codice>` | `delivery_status` del member (deve essere `SUCCESS`). | 2 |
+| `tuya-diag?mode=keys&code=<codice>` | Chiavi del member (password presente?). | 2 |
+| `tuya-diag?mode=member&id=<tuyaUserId>` | Chi è un member del device (es. `unmatchedUserIds` del log ingressi). | 2 |
+| `tuya-pin-resync?mode=permanent&code=<codice>[&apply=1]` | Ri-invia il permanente. Se resta `FAILED` → `recreate`. | ~2 |
+| `tuya-pin-resync?mode=pin&code=<codice>[&apply=1]` | Riscrive PIN + permanente sul member attuale. | ~5 |
+| `tuya-pin-resync?mode=recreate&code=<codice>[&newcode=1][&apply=1]` | Cancella e ricrea il member; con `newcode=1` codice nuovo (il vecchio smette di aprire). | ~6 |
+| `tuya-pin-resync?mode=full&confirm=<AAAA-MM-GG>&budget=N[&from=<id>][&apply=1]` | Risync completa, **solo recupero** (serratura che ha perso i codici). Richiede la data di oggi, budget esplicito e un dry-run identico negli ultimi 15 min; va a blocchi e restituisce `nextFrom`. | ~5 × iscritto |
+
+Verifica dopo una riparazione: dopo ~20 s `mode=schedule` deve dare `SUCCESS` e
+`mode=keys` una chiave `password`.
 
 In automatico ci pensa il cron notturno `tuya-pin-health` (04:30 UTC). Con 1 scansione
 ricrea i member con validità FAILED/ONGOING vecchia (max 10 a notte) e cancella i member
-orfani con PIN ancora valido (max 40 a notte). Nel log: `tuyaCalls`, `stuckRecreated`,
-`orphansDeleted`, `orphansRemaining`.
+orfani di **ex iscritti** con PIN ancora valido (max 40 a notte). I duplicati di iscritti
+attivi non si toccano (alcuni entrano proprio da lì). Nel log: `tuyaCalls`,
+`stuckRecreated`, `orphansDeleted`, `orphansRemaining`.

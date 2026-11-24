@@ -11,11 +11,52 @@
  *  TUYA_BASE_URL       — default: https://openapi.tuyaeu.com (Europa)
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import crypto from "crypto";
 
 const BASE_URL   = process.env.TUYA_BASE_URL    ?? "https://openapi.tuyaeu.com";
 const CLIENT_ID  = process.env.TUYA_CLIENT_ID!;
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET!;
+
+// ─── Budget per invocazione (anti-raffica) ────────────────────────────────────
+//
+// Ogni operazione MANUALE gira dentro `withTuyaBudget`: il client conta OGNI
+// chiamata (token compreso, consuma quota anche lui) e si blocca da solo oltre il
+// tetto. `readOnly` rifiuta qualsiasi metodo ≠ GET: le diagnostiche fisicamente
+// non possono scrivere. Nato dall'incidente del 24/11/2026 (risync completa
+// partita per errore: ~1.000 chiamate e 207 PIN riscritti).
+
+type TuyaBudget = { max: number; used: number; readOnly: boolean };
+
+const budgetStore = new AsyncLocalStorage<TuyaBudget>();
+
+export class TuyaBudgetError extends Error {}
+
+export async function withTuyaBudget<T>(
+  opts: { max: number; readOnly?: boolean },
+  fn: () => Promise<T>
+): Promise<{ result: T; tuyaCalls: number }> {
+  const budget: TuyaBudget = { max: opts.max, used: 0, readOnly: opts.readOnly ?? false };
+  const result = await budgetStore.run(budget, fn);
+  return { result, tuyaCalls: budget.used };
+}
+
+/** Chiamate Tuya fatte finora nell'invocazione corrente (0 fuori da un budget). */
+export function tuyaCallsUsed(): number {
+  return budgetStore.getStore()?.used ?? 0;
+}
+
+function spendBudget(method: string): void {
+  const b = budgetStore.getStore();
+  if (!b) return;
+  if (b.readOnly && method !== "GET") {
+    throw new TuyaBudgetError(`Tuya: ${method} vietato in modalità sola lettura`);
+  }
+  if (b.used >= b.max) {
+    throw new TuyaBudgetError(`Tuya: budget di ${b.max} chiamate esaurito`);
+  }
+  b.used++;
+}
 
 // ─── Token cache (module-level, persists across requests in same process) ────
 
@@ -81,6 +122,7 @@ type TuyaTokenResponse = {
 };
 
 async function fetchNewToken(): Promise<TokenCache> {
+  spendBudget("GET");
   const path   = "/v1.0/token?grant_type=1";
   const t      = Date.now().toString();
   const nonce  = makeNonce();
@@ -135,6 +177,7 @@ export async function tuyaRequest<T>(
   path:   string,  // e.g. "/v2.0/cloud/access/devices/xxx/users"
   body?:  Record<string, unknown>
 ): Promise<T> {
+  spendBudget(method);
   const accessToken = await getAccessToken();
   const t           = Date.now().toString();
   const nonce       = makeNonce();

@@ -150,18 +150,6 @@ export async function getDeviceUser(tuyaUserId: string): Promise<unknown> {
 }
 
 /**
- * DIAGNOSTICA: legge le temp-password del device, che riportano la validità
- * reale (effective_time / invalid_time / schedule_list / phase). Serve a
- * vedere se le nostre password hanno una finestra oraria attaccata.
- */
-export async function listTempPasswords(): Promise<unknown> {
-  return await tuyaRequest<unknown>(
-    "GET",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/temp-passwords`
-  );
-}
-
-/**
  * DIAGNOSTICA: legge le "assigned keys" (metodi di sblocco) di un utente,
  * inclusi effective_time / invalid_time / schedule → così vediamo se le
  * password create via API hanno una validità/fascia oraria attaccata.
@@ -180,30 +168,6 @@ export async function getAssignedKeys(tuyaUserId: string): Promise<unknown> {
  */
 export async function getDeviceStatus(): Promise<unknown> {
   return await tuyaRequest<unknown>("GET", `/v1.0/devices/${DEVICE_ID}/status`);
-}
-
-/**
- * DIAGNOSTICA: legge i TIMER schedulati (Device Timer service) sul device.
- * Un timer serale che manda un DP di blocco (e uno mattutino che sblocca)
- * spiegherebbe il pattern "codici KO la sera, OK la mattina, offline sempre OK".
- */
-export async function listDeviceTimers(): Promise<unknown> {
-  return await tuyaRequest<unknown>(
-    "GET",
-    `/v2.0/cloud/timer/device/${DEVICE_ID}`
-  );
-}
-
-/**
- * DIAGNOSTICA: legge i record password registrati sul device per un utente.
- * Restituisce il raw così vediamo eventuali fasce orarie/validità
- * (effective_time / invalid_time / schedule / phase) attaccate al PIN.
- */
-export async function listUserPasswords(tuyaUserId: string): Promise<unknown> {
-  return await tuyaRequest<unknown>(
-    "GET",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/user-types/2/users/${tuyaUserId}/unlock-types/password`
-  );
 }
 
 export type DeviceUserSchedule = {
@@ -268,50 +232,6 @@ export async function getDeviceUserSchedule(
     `/v1.1/devices/${DEVICE_ID}/users/${tuyaUserId}`
   );
   return u?.time_schedule_info;
-}
-
-/** Dalle risposte "lista" tiene solo il member richiesto (+ un campione per confronto). */
-function pickUser(raw: unknown, tuyaUserId: string): unknown {
-  const arr = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === "object"
-      ? Object.values(raw).find(Array.isArray)
-      : undefined;
-  if (!Array.isArray(arr)) return raw;
-  const match = arr.filter((x) => JSON.stringify(x).includes(`"${tuyaUserId}"`));
-  return { listSize: arr.length, match, sample: arr.slice(0, 1) };
-}
-
-/**
- * DIAGNOSTICA (sola lettura): legge la VALIDITÀ reale del member (lo schedule
- * che `setUserPermanent` scrive: permanent / effective_time / expired_time /
- * fasce orarie). Il dettaglio `GET /devices/{id}/users/{uid}` non la riporta,
- * quindi proviamo gli endpoint Smart Lock candidati e restituiamo il raw di
- * ciascuno (o l'errore): solo GET, nessuna scrittura sul device.
- */
-export async function readUserSchedule(
-  tuyaUserId: string
-): Promise<Record<string, unknown>> {
-  const paths = [
-    `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}`,
-    `/v1.0/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}/schedule`,
-    `/v1.0/devices/${DEVICE_ID}/door-lock/users/${tuyaUserId}`,
-    `/v1.1/devices/${DEVICE_ID}/users/${tuyaUserId}`,
-    `/v1.1/smart-lock/devices/${DEVICE_ID}/users/${tuyaUserId}`,
-    // query in ordine ASCII (Tuya firma la query ordinata)
-    `/v1.0/smart-lock/devices/${DEVICE_ID}/users?page_no=1&page_size=100`,
-    `/v1.1/devices/${DEVICE_ID}/users?page_no=1&page_size=100`,
-  ];
-  const out: Record<string, unknown> = {};
-  for (const path of paths) {
-    try {
-      const raw = await tuyaRequest<unknown>("GET", path);
-      out[path] = pickUser(raw, tuyaUserId);
-    } catch (err) {
-      out[path] = { error: (err as Error).message };
-    }
-  }
-  return out;
 }
 
 // ─── PIN crypto ──────────────────────────────────────────────────────────────
@@ -419,75 +339,6 @@ export async function setUserPermanent(tuyaUserId: string): Promise<unknown> {
       permanent: true,
       effective_time: nowSec,
       expired_time: nowSec + 100 * 365 * 86400, // +100 anni (fallback se richiesto)
-    }
-  );
-}
-
-/**
- * FIX CANDIDATO: ALLOCA (assegna/attiva) uno o più metodi di sblocco già
- * presenti a un utente. Passo che potrebbe mancare a `actions/entry`: creare il
- * metodo non basta, va "allocato" all'utente per essere onorato in modo stabile.
- */
-export async function allocateUnlockMethods(
-  tuyaUserId: string,
-  unlockList: Array<{ dp_code: string; unlock_sn: number }>
-): Promise<unknown> {
-  return await tuyaRequest<unknown>(
-    "POST",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/opmodes/actions/allocate`,
-    { user_id: tuyaUserId, unlock_list: unlockList }
-  );
-}
-
-/**
- * FIX CANDIDATO: forza il device a ri-sincronizzare i metodi di sblocco dal
- * cloud. Applicabile ai lock WiFi keepalive / access control (il nostro).
- * Se il tastierino ha droppato le password al riavvio ma il cloud le ha ancora,
- * questa chiamata gliele ri-fa scaricare → ri-abilita i codici senza ricrearli.
- * UNA sola chiamata per tutto il device (non per-utente).
- */
-export async function syncUnlockMethods(
-  codes = "unlock_password"
-): Promise<unknown> {
-  return await tuyaRequest<unknown>(
-    "POST",
-    `/v1.0/smart-lock/devices/${DEVICE_ID}/opmodes/actions/sync`,
-    { codes }
-  );
-}
-
-/**
- * TEST FIX: crea una PASSWORD TEMPORANEA "quasi-permanente" (metodo cloud
- * ufficiale per i lock WiFi) invece del member-code via `actions/entry` (che è
- * la via Bluetooth e viene disabilitata dal cloud su questo device).
- *
- * effective_time = adesso (con buffer), invalid_time = 2099 → di fatto sempre
- * valida, type=0 = usi illimitati. Ritorna la risposta raw (contiene l'id).
- */
-export async function createTempPassword(
-  pin: string,
-  name: string,
-  opts?: { days?: number }
-): Promise<unknown> {
-  const ticket = await getPasswordTicket();
-  const ticketKey = decryptTicketKey(ticket.ticket_key);
-  const encryptedPin = encryptPin(pin, ticketKey);
-
-  const nowSec = Math.floor(Date.now() / 1000);
-  const days = opts?.days ?? 365;
-  const invalidSec = nowSec + days * 86400;
-
-  return await tuyaRequest<unknown>(
-    "POST",
-    `/v1.0/devices/${DEVICE_ID}/door-lock/temp-password`,
-    {
-      name: name.slice(0, 30) || "HOM",
-      password: encryptedPin,
-      password_type: "ticket",
-      ticket_id: ticket.ticket_id,
-      effective_time: nowSec,
-      invalid_time: invalidSec,
-      type: 0,
     }
   );
 }

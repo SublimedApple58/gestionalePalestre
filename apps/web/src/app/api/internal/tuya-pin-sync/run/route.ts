@@ -3,8 +3,14 @@ import { NextResponse } from "next/server";
 
 import { runTuyaPinSyncJob } from "@/lib/services/tuya-pin-sync-job";
 import { runTuyaAccessLogSyncJob } from "@/lib/services/tuya-access-log-sync-job";
+import { withTuyaBudget } from "@/lib/tuya/client";
+import { withTuyaLock } from "@/lib/tuya/lock";
 
 export const runtime = "nodejs";
+
+// Rete di sicurezza sul client Tuya: ferma solo una fuga di chiamate (un giorno
+// pieno di scadenze resta molto sotto).
+const CRON_CALL_BUDGET = 600;
 
 function isAuthorized(request: Request): boolean {
   const expected = process.env.CRON_SECRET;
@@ -36,7 +42,15 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // 2) Rigira tutti i PIN in base allo stato (abbonamenti scaduti + pacchetti esauriti).
-  const result = await runTuyaPinSyncJob(db);
+  //    Sotto lock: mai insieme a un'operazione manuale o al health-check.
+  const locked = await withTuyaLock(db, "cron:tuya-pin-sync", () =>
+    withTuyaBudget({ max: CRON_CALL_BUDGET }, () => runTuyaPinSyncJob(db))
+  );
+  if ("busy" in locked) {
+    console.error(`[tuya-pin-sync] pin-sync saltato: lock Tuya occupato da ${locked.busy}`);
+    return NextResponse.json({ accessLog, error: "TUYA_LOCKED", heldBy: locked.busy }, { status: 409 });
+  }
+  const result = { ...locked.result.result, tuyaCalls: locked.result.tuyaCalls };
 
   console.log(
     "[tuya-pin-sync] Job completed:",

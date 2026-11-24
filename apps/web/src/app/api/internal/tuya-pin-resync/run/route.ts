@@ -1,26 +1,13 @@
-import { AuditAction, db, UserRole } from "@gestionale/db";
+import { AuditAction, db } from "@gestionale/db";
 import { NextResponse } from "next/server";
 
-import { shouldHaveDoorPin } from "@/lib/subscription";
 import { generateAccessCode } from "@/lib/access-code";
 import { logAdminAction } from "@/lib/services/audit-log-service";
 import { ensureTuyaUser, recreateTuyaMember } from "@/lib/services/tuya-pin-service";
-import {
-  allocateUnlockMethods,
-  setUserPermanent,
-  createTempPassword,
-  enablePin,
-  syncUnlockMethods,
-  getAssignedKeys,
-  getDeviceStatus,
-  getDeviceUser,
-  listDeviceTimers,
-  listTempPasswords,
-  listDeviceUserSchedules,
-  listTuyaUsers,
-  listUserPasswords,
-  readUserSchedule,
-} from "@/lib/tuya/access-control";
+import { shouldHaveDoorPin } from "@/lib/subscription";
+import { TuyaBudgetError, tuyaCallsUsed, withTuyaBudget } from "@/lib/tuya/client";
+import { enablePin, setUserPermanent } from "@/lib/tuya/access-control";
+import { withTuyaLock } from "@/lib/tuya/lock";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,8 +20,49 @@ function isAuthorized(request: Request): boolean {
   return bearer === expected || headerSecret === expected;
 }
 
-const DELAY_MS = 350;
+/**
+ * OPERAZIONI MANUALI CHE SCRIVONO SULLA SERRATURA TUYA.
+ * (Le letture stanno in /api/internal/tuya-diag/run, che non può scrivere.)
+ *
+ * Regole (incidente 24/11/2026: una chiamata senza parametri riconosciuti faceva
+ * una risync completa → ~1.000 chiamate, 207 PIN riscritti, iscritti chiusi fuori):
+ *  - `?mode=` obbligatorio, da una lista chiusa. Mode o parametri sconosciuti → 400.
+ *  - DRY-RUN di default: dice chi tocca e quante chiamate costa, non chiama Tuya.
+ *    Scrive solo con `&apply=1`.
+ *  - Budget di chiamate per invocazione imposto dal client Tuya (si ferma da solo).
+ *  - Lock condiviso con i cron notturni: mai due scritture insieme (409).
+ *
+ *   ?mode=recreate&code=<codice>[&newcode=1]  ricrea il member (stesso codice o nuovo)  ~6
+ *   ?mode=permanent&code=<codice>             ri-invia la validità permanente          ~2
+ *   ?mode=pin&code=<codice>                   riscrive PIN + permanente di un iscritto ~5
+ *   ?mode=full&confirm=<AAAA-MM-GG>&budget=N[&from=<userId>]
+ *        risync completa (strumento di RECUPERO, es. serratura che ha perso i codici).
+ *        Richiede: confirm = data di oggi (Europe/Rome), budget esplicito, e un
+ *        dry-run con gli stessi parametri negli ultimi 15 minuti. Va a blocchi:
+ *        si ferma prima di esaurire budget/tempo e restituisce `nextFrom` per
+ *        riprendere. Mai lanciarla in un ciclo automatico.
+ */
+const PER_USER_CALLS = { recreate: 6, permanent: 2, pin: 5 } as const;
+const SINGLE_BUDGET = 12; // tetto per le modalità su un singolo iscritto
+const FULL_MAX_BUDGET = 1500;
+const FULL_DRYRUN_KEY = "tuya:full-dryrun";
+const FULL_DRYRUN_TTL_MS = 15 * 60_000;
+const FULL_TIME_LIMIT_MS = 240_000; // margine sul maxDuration
+const FULL_DELAY_MS = 1500; // non saturare la serratura (errori 2328 "operation in progress")
+
+const MODES: Record<string, string[]> = {
+  recreate: ["code", "newcode", "apply"],
+  permanent: ["code", "apply"],
+  pin: ["code", "apply"],
+  full: ["confirm", "budget", "from", "apply"],
+};
+
+const bad = (error: string) => NextResponse.json({ error }, { status: 400 });
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+function todayRome(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date());
+}
 
 /** Codice a 6 cifre non usato da nessun altro utente (accessCode non è @unique). */
 async function generateUniqueAccessCode(): Promise<string> {
@@ -46,286 +74,69 @@ async function generateUniqueAccessCode(): Promise<string> {
   throw new Error("impossibile generare un codice univoco");
 }
 
-/**
- * RE-SYNC FORZATO dei PIN sul tastierino.
- *
- * A differenza di /tuya-pin-migration (sync "intelligente" che agisce solo se lo
- * stato in DB cambia), qui RISCRIVIAMO il codice sul device anche se il DB lo dà
- * già `tuyaPinActive`. Serve quando il device ha PERSO/desincronizzato la sua
- * tabella codici locale (es. dopo un riavvio da glitch elettrico): il cloud
- * mostra ancora i codici ma la tastiera li rifiuta tutti. `enablePin` ripubblica
- * la password → la tabella locale del device viene riscritta.
- *
- * Query:
- *   ?only=<accessCode>  → risincronizza SOLO quell'utente (per test mirato).
- *   (nessun parametro)  → risincronizza TUTTI gli aventi diritto (attivi + staff).
- *
- * Auth: header Authorization: Bearer <CRON_SECRET> (o x-cron-secret).
- */
 export async function GET(request: Request): Promise<NextResponse> {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const params = new URL(request.url).searchParams;
-  const only = params.get("only")?.trim();
-  // fresh=1 → ricrea da zero l'utente sul device (azzera il tuyaUserId fantasma
-  // in DB). Serve quando il tastierino ha svuotato la sua tabella utenti locale
-  // (es. dopo un riavvio): riusare il vecchio id fa accettare la scrittura al
-  // cloud ma il device la scarta → codice negato (rosso). Ricreando l'utente
-  // pulito, il PIN viene realmente registrato sul device.
-  const fresh = params.get("fresh") === "1";
-  const inspect = params.get("inspect");
+  const mode = params.get("mode") ?? "";
+  const allowed = MODES[mode];
+  if (!allowed) return bad(`mode mancante o sconosciuto; validi: ${Object.keys(MODES).join(", ")}`);
+  const unknown = [...params.keys()].filter((k) => k !== "mode" && !allowed.includes(k));
+  if (unknown.length) return bad(`parametri sconosciuti per ${mode}: ${unknown.join(", ")}`);
+  const apply = params.get("apply") === "1";
 
-  // ── FIX BATCH: rendi PERMANENTI tutti gli aventi diritto ───────────────
-  if (params.get("permanentall") === "1") {
-    const users = await db.user.findMany({
-      where: { tuyaUserId: { not: null } },
-      select: {
-        firstName: true,
-        lastName: true,
-        accessCode: true,
-        tuyaUserId: true,
-        role: true,
-        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true } },
-        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
-      },
-    });
-    const eligible = users.filter((u) =>
-      shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
-    );
-    const summary = { total: eligible.length, ok: 0, errors: [] as string[] };
-    for (const u of eligible) {
-      try {
-        await setUserPermanent(u.tuyaUserId!);
-        summary.ok++;
-      } catch (err) {
-        summary.errors.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${(err as Error).message}`);
-      }
-      await delay(250);
-    }
-    return NextResponse.json({ mode: "permanentall", ...summary });
-  }
+  if (mode === "full") return full(params, apply);
+  return single(mode as keyof typeof PER_USER_CALLS, params, apply);
+}
 
-  // ── FIX CANDIDATO: imposta il MEMBER a validità PERMANENTE ─────────────
-  if (params.has("permanent")) {
-    const code = params.get("permanent")?.trim();
-    const u = await db.user.findFirst({
-      where: { accessCode: code },
-      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u?.tuyaUserId) return NextResponse.json({ mode: "permanent", error: "no tuyaUserId" });
-    try {
-      const result = await setUserPermanent(u.tuyaUserId);
-      return NextResponse.json({
-        mode: "permanent",
-        user: `${u.firstName} ${u.lastName}`,
-        code: u.accessCode,
-        result,
-        note: "Prova il codice al tastierino.",
-      });
-    } catch (err) {
-      return NextResponse.json({ mode: "permanent", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
-    }
-  }
+// ── Singolo iscritto ──────────────────────────────────────────────────────────
 
-  // ── FIX CANDIDATO: ALLOCA i metodi password all'utente ────────────────
-  if (params.has("allocate")) {
-    const code = params.get("allocate")?.trim();
-    const u = await db.user.findFirst({
-      where: { accessCode: code },
-      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u?.tuyaUserId) return NextResponse.json({ mode: "allocate", error: "no tuyaUserId" });
-    try {
-      const keys = (await getAssignedKeys(u.tuyaUserId)) as {
-        unlock_keys?: Array<{ unlock_no: number; unlock_type: string }>;
-      };
-      const list = (keys.unlock_keys ?? [])
-        .filter((k) => k.unlock_type === "password")
-        .map((k) => ({ dp_code: "unlock_password", unlock_sn: k.unlock_no }));
-      if (!list.length) return NextResponse.json({ mode: "allocate", error: "nessuna password key sul device" });
-      const result = await allocateUnlockMethods(u.tuyaUserId, list);
-      return NextResponse.json({
-        mode: "allocate",
-        user: `${u.firstName} ${u.lastName}`,
-        code: u.accessCode,
-        allocated: list,
-        result,
-        note: "Prova il codice al tastierino.",
-      });
-    } catch (err) {
-      return NextResponse.json({ mode: "allocate", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
-    }
-  }
+async function single(
+  mode: keyof typeof PER_USER_CALLS,
+  params: URLSearchParams,
+  apply: boolean
+): Promise<NextResponse> {
+  const code = params.get("code")?.trim();
+  if (!code) return bad("manca code");
+  const matches = await db.user.findMany({
+    where: { accessCode: code },
+    select: { id: true, firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
+  });
+  const u = matches[0];
+  if (!u || matches.length !== 1) return bad(`codice ${code}: ${matches.length} utenti (serve esattamente 1)`);
+  const user = `${u.firstName} ${u.lastName}`;
+  if (mode === "permanent" && !u.tuyaUserId) return bad(`${user}: nessun member Tuya`);
 
-  // ── FIX CANDIDATO: forza sync metodi di sblocco dal cloud → device ─────
-  if (params.get("syncmethods") === "1") {
-    try {
-      const result = await syncUnlockMethods("unlock_password");
-      return NextResponse.json({ mode: "syncmethods", result, note: "Prova un codice al tastierino." });
-    } catch (err) {
-      return NextResponse.json({ mode: "syncmethods", error: (err as Error).message });
-    }
-  }
-
-  // ── TEST FIX: crea TEMP-PASSWORD (metodo cloud WiFi) per un utente ─────
-  if (params.has("temptest")) {
-    const code = params.get("temptest")?.trim();
-    if (!code) return NextResponse.json({ mode: "temptest", error: "manca ?temptest=<code>" });
-    const u = await db.user.findFirst({
-      where: { accessCode: code },
-      select: { firstName: true, lastName: true, accessCode: true },
-    });
-    if (!u) return NextResponse.json({ mode: "temptest", error: `nessun utente con codice ${code}` });
-    const days = Number(params.get("days")) || 365;
-    try {
-      const result = await createTempPassword(u.accessCode, `${u.firstName} ${u.lastName}`, { days });
-      return NextResponse.json({
-        mode: "temptest",
-        user: `${u.firstName} ${u.lastName}`,
-        code: u.accessCode,
-        days,
-        result,
-        note: "Vai al tastierino e prova questo codice.",
-      });
-    } catch (err) {
-      return NextResponse.json({ mode: "temptest", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
-    }
-  }
-
-  // ── DIAGNOSTICA DETTAGLIO MEMBER (validità sull'utente) ────────────────
-  if (params.has("userinfo")) {
-    const code = params.get("userinfo")?.trim();
-    const u = await db.user.findFirst({
-      where: code
-        ? { accessCode: code, tuyaUserId: { not: null } }
-        : { tuyaUserId: { not: null }, role: UserRole.SUBSCRIBER },
-      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u?.tuyaUserId) return NextResponse.json({ mode: "userinfo", error: "no tuyaUserId" });
-    try {
-      const detail = await getDeviceUser(u.tuyaUserId);
-      return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, code: u.accessCode, detail });
-    } catch (err) {
-      return NextResponse.json({ mode: "userinfo", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
-    }
-  }
-
-  // ── SCAN CONSEGNA VALIDITÀ (chi è ancora LIMITATO sulla serratura) ─────
-  // ?schedulescan=1 → sola lettura, ~1 chiamata ogni 100 member. Elenca i
-  // member idonei la cui validità permanente NON è stata consegnata al device
-  // (delivery_status ≠ SUCCESS): sono i codici "OK di giorno, KO la sera".
-  if (params.get("schedulescan") === "1") {
-    const { rows } = await listDeviceUserSchedules(Number(params.get("pagesize")) || undefined);
-    const byId = new Map(rows.map((r) => [r.user_id, r]));
-    const users = await db.user.findMany({
-      where: { tuyaUserId: { not: null } },
-      select: {
-        firstName: true,
-        lastName: true,
-        accessCode: true,
-        tuyaUserId: true,
-        role: true,
-        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true } },
-        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
-      },
-    });
-    const eligible = users.filter((u) =>
-      shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
-    );
-    const byStatus: Record<string, number> = {};
-    const notDelivered: string[] = [];
-    let missingOnDevice = 0;
-    for (const u of eligible) {
-      const row = byId.get(u.tuyaUserId!);
-      if (!row) {
-        missingOnDevice++;
-        continue;
-      }
-      const s = row.time_schedule_info;
-      const status = s?.delivery_status ?? (s?.permanent ? "PERMANENT_NO_STATUS" : "NO_SCHEDULE");
-      byStatus[status] = (byStatus[status] ?? 0) + 1;
-      if (status !== "SUCCESS" && status !== "PERMANENT_NO_STATUS") {
-        notDelivered.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${status} permanent=${s?.permanent}`);
-      }
-    }
-    // Member sul device NON legati a un idoneo: ex iscritti mai cancellati
-    // (PIN potenzialmente ancora valido) o orfani senza utente in DB.
-    // user_type 50 = owner/admin dell'app Tuya, non un member del gestionale.
-    const eligibleIds = new Set(eligible.map((u) => u.tuyaUserId!));
-    const dbIds = new Set(users.map((u) => u.tuyaUserId!));
-    const extra = rows.filter((r) => !eligibleIds.has(r.user_id) && r.user_type !== 50);
-    const check = (params.get("check") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!apply) {
     return NextResponse.json({
-      mode: "schedulescan",
-      deviceUsers: rows.length,
-      eligible: eligible.length,
-      missingOnDevice,
-      byStatus,
-      notDelivered,
-      extraOnDevice: {
-        total: extra.length,
-        linkedToIneligibleUser: extra.filter((r) => dbIds.has(r.user_id)).length,
-        notInDb: extra.filter((r) => !dbIds.has(r.user_id)).length,
-      },
-      orphanValidity: (() => {
-        const nowSec = Date.now() / 1000;
-        const c = { permanent: 0, validWindow: 0, expired: 0, noSchedule: 0, byType: {} as Record<string, number> };
-        for (const r of extra) {
-          const s = r.time_schedule_info;
-          c.byType[String(r.user_type)] = (c.byType[String(r.user_type)] ?? 0) + 1;
-          if (!s) c.noSchedule++;
-          else if (s.permanent) c.permanent++;
-          else if ((s.expired_time ?? 0) > nowSec) c.validWindow++;
-          else c.expired++;
-        }
-        return c;
-      })(),
-      orphanKeySample: await (async () => {
-        const n = Math.min(10, Number(params.get("orphansample")) || 0);
-        const out: Array<{ id: string; name: string; sched: unknown; keys: unknown }> = [];
-        for (const r of extra.slice(0, n)) {
-          let keys: unknown;
-          try {
-            keys = await getAssignedKeys(r.user_id);
-          } catch (err) {
-            keys = { error: (err as Error).message };
-          }
-          out.push({ id: r.user_id, name: r.nick_name, sched: r.time_schedule_info, keys });
-          await delay(250);
-        }
-        return out;
-      })(),
-      orphanIds: params.get("orphanids") === "1" ? extra.map((r) => r.user_id) : undefined,
-      ...(check.length ? { stillOnDevice: check.filter((id) => byId.has(id)) } : {}),
+      mode,
+      dryRun: true,
+      user,
+      code: u.accessCode,
+      tuyaUserId: u.tuyaUserId,
+      membersTouched: 1,
+      estimatedCalls: PER_USER_CALLS[mode],
+      budget: SINGLE_BUDGET,
+      next: "ripeti con &apply=1 per eseguire",
     });
   }
 
-  // ── RICREA il member da zero (member "incastrato" sulla serratura) ─────
-  // ?recreate=<code>            → cancella il member dal device e lo ricrea pulito
-  //                               (nuovo member + PIN + permanente).
-  // ?recreate=<code>&newcode=1  → idem, ma con un CODICE NUOVO: il vecchio smette
-  //                               di funzionare (codice prestato/compromesso).
-  // Serve quando la validità del member resta FAILED/ONGOING anche ri-inviando
-  // `?permanent`: il device rifiuta ogni modifica di quel member, quindi l'unica
-  // via è un member nuovo. Verificare dopo con ?schedule=<code> → SUCCESS.
-  if (params.has("recreate")) {
-    const code = params.get("recreate")?.trim();
-    const u = await db.user.findFirst({
-      where: { accessCode: code },
-      select: { id: true, firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u) return NextResponse.json({ mode: "recreate", error: `nessun utente con codice ${code}` });
-    const label = `${u.firstName} ${u.lastName}`;
-    const newAccessCode = params.get("newcode") === "1" ? await generateUniqueAccessCode() : undefined;
-
-    let result;
-    try {
-      result = await recreateTuyaMember(db, u.id, { newAccessCode });
-    } catch (err) {
-      return NextResponse.json({ mode: "recreate", user: label, error: (err as Error).message });
+  const run = async (): Promise<Record<string, unknown>> => {
+    if (mode === "permanent") return { result: await setUserPermanent(u.tuyaUserId!) };
+    if (mode === "pin") {
+      const tuyaUserId = await ensureTuyaUser(db, u.id);
+      const unlockNo = await enablePin(tuyaUserId, u.accessCode);
+      await setUserPermanent(tuyaUserId).catch(() => {});
+      await db.user.update({
+        where: { id: u.id },
+        data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
+      });
+      return { tuyaUserId };
     }
+    const newAccessCode = params.get("newcode") === "1" ? await generateUniqueAccessCode() : undefined;
+    const r = await recreateTuyaMember(db, u.id, { newAccessCode });
     if (newAccessCode) {
       await logAdminAction(db, {
         actorId: null,
@@ -334,222 +145,114 @@ export async function GET(request: Request): Promise<NextResponse> {
         payload: { before: { accessCode: "******" }, after: { accessCode: "nuovo" }, source: "tuya-pin-resync recreate&newcode" },
       });
     }
-    return NextResponse.json({
-      mode: "recreate",
-      user: label,
-      ...result,
-      note: `Verifica con ?schedule=${result.accessCode}: delivery_status deve diventare SUCCESS.`,
-    });
-  }
+    return r;
+  };
 
-  // ── DIAGNOSTICA SCHEDULE MEMBER (permanente o fascia oraria?) ──────────
-  // ?member=<tuyaUserId> → sola lettura, 1 chiamata: chi è un member del device
-  // (es. `unmatchedUserIds` del log ingressi) e se è collegato a un utente del DB.
-  if (params.has("member")) {
-    const id = params.get("member")?.trim() ?? "";
-    const linked = await db.user.findFirst({
-      where: { tuyaUserId: id },
-      select: { firstName: true, lastName: true, accessCode: true },
-    });
-    try {
-      const member = await getDeviceUser(id);
-      return NextResponse.json({ mode: "member", member, linked });
-    } catch (err) {
-      return NextResponse.json({ mode: "member", id, linked, error: (err as Error).message });
-    }
-  }
-
-  // ?schedule=<code> → sola lettura: la validità reale del member sul device.
-  if (params.has("schedule")) {
-    const code = params.get("schedule")?.trim();
-    const u = await db.user.findFirst({
-      where: { accessCode: code, tuyaUserId: { not: null } },
-      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u?.tuyaUserId) return NextResponse.json({ mode: "schedule", error: "no tuyaUserId" });
-    const schedule = await readUserSchedule(u.tuyaUserId);
-    return NextResponse.json({ mode: "schedule", user: `${u.firstName} ${u.lastName}`, code: u.accessCode, schedule });
-  }
-
-  // ── DIAGNOSTICA TEMP-PASSWORD (validità reale sul cloud) ───────────────
-  if (params.get("temppw") === "1") {
-    try {
-      const list = await listTempPasswords();
-      return NextResponse.json({ mode: "temppw", list });
-    } catch (err) {
-      return NextResponse.json({ mode: "temppw", error: (err as Error).message });
-    }
-  }
-
-  // ── DIAGNOSTICA VALIDITÀ CHIAVI (effective/invalid/schedule) ───────────
-  // ?keys=<code opzionale> → assigned-keys del device per l'utente indicato
-  // (o il primo idoneo): mostra la validità reale della password.
-  if (params.has("keys")) {
-    const code = params.get("keys")?.trim();
-    const u = await db.user.findFirst({
-      where: code
-        ? { accessCode: code, tuyaUserId: { not: null } }
-        : { tuyaUserId: { not: null }, role: UserRole.SUBSCRIBER },
-      select: { firstName: true, lastName: true, accessCode: true, tuyaUserId: true },
-    });
-    if (!u?.tuyaUserId) {
-      return NextResponse.json({ mode: "keys", error: "nessun utente con tuyaUserId" });
-    }
-    try {
-      const keys = await getAssignedKeys(u.tuyaUserId);
-      return NextResponse.json({
-        mode: "keys",
-        user: `${u.firstName} ${u.lastName}`,
-        code: u.accessCode,
-        tuyaUserId: u.tuyaUserId,
-        keys,
-      });
-    } catch (err) {
-      return NextResponse.json({ mode: "keys", user: `${u.firstName} ${u.lastName}`, error: (err as Error).message });
-    }
-  }
-
-  // ── DIAGNOSTICA STATO DEVICE (tutti i DP) ──────────────────────────────
-  if (params.get("status") === "1") {
-    try {
-      const status = await getDeviceStatus();
-      return NextResponse.json({ mode: "status", status });
-    } catch (err) {
-      return NextResponse.json({ mode: "status", error: (err as Error).message });
-    }
-  }
-
-  // ── DIAGNOSTICA TIMER ──────────────────────────────────────────────────
-  // ?timers=1 → dumpa i task schedulati (Device Timer) sul device. Cerchiamo un
-  // timer serale/mattutino che spenga/riaccenda la validazione dei codici.
-  if (params.get("timers") === "1") {
-    try {
-      const timers = await listDeviceTimers();
-      return NextResponse.json({ mode: "timers", timers });
-    } catch (err) {
-      return NextResponse.json({ mode: "timers", error: (err as Error).message });
-    }
-  }
-
-  // ── MODALITÀ ISPEZIONE ─────────────────────────────────────────────────
-  // ?inspect=N → per i primi N utenti idonei (con tuyaUserId), dumpa i record
-  // password dal device, così vediamo se hanno fasce orarie/validità attaccate.
-  if (inspect) {
-    const n = Math.max(1, Math.min(10, Number(inspect) || 3));
-    const candidates = await db.user.findMany({
-      where: { tuyaUserId: { not: null } },
-      select: {
-        firstName: true,
-        lastName: true,
-        accessCode: true,
-        tuyaUserId: true,
-        role: true,
-        subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true } },
-        entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
-      },
-      take: 200,
-    });
-    const eligible = candidates
-      .filter((u) =>
-        shouldHaveDoorPin({
-          role: u.role,
-          subscription: u.subscription,
-          entryPackage: u.entryPackage,
-        })
-      )
-      .slice(0, n);
-
-    const records = [];
-    for (const u of eligible) {
+  const locked = await withTuyaLock(db, `manual:${mode}:${code}`, () =>
+    withTuyaBudget({ max: SINGLE_BUDGET }, async () => {
       try {
-        const raw = await listUserPasswords(u.tuyaUserId!);
-        records.push({ name: `${u.firstName} ${u.lastName}`, code: u.accessCode, tuyaUserId: u.tuyaUserId, passwords: raw });
+        return await run();
       } catch (err) {
-        records.push({ name: `${u.firstName} ${u.lastName}`, code: u.accessCode, error: (err as Error).message });
+        return { error: (err as Error).message };
       }
-    }
-    return NextResponse.json({ mode: "inspect", inspected: records.length, records });
+    })
+  );
+  if ("busy" in locked) {
+    return NextResponse.json({ mode, error: "TUYA_LOCKED", heldBy: locked.busy }, { status: 409 });
   }
+  const { result, tuyaCalls } = locked.result;
+  console.log(`[tuya-pin-resync] mode=${mode} code=${code} tuyaCalls=${tuyaCalls}`);
+  return NextResponse.json({ mode, user, tuyaCalls, ...result }, { status: "error" in result ? 502 : 200 });
+}
 
-  // Diagnostica: quanti utenti risultano ANCORA sul device? Se il device ha
-  // svuotato la tabella, questo numero sara' molto piu' basso dell'atteso.
-  let deviceUserCount = -1;
-  try {
-    deviceUserCount = (await listTuyaUsers()).length;
-  } catch {
-    /* best-effort */
+// ── Risync completa (recupero) ────────────────────────────────────────────────
+
+async function full(params: URLSearchParams, apply: boolean): Promise<NextResponse> {
+  const confirm = params.get("confirm");
+  if (confirm !== todayRome()) return bad(`confirm deve essere la data di oggi (${todayRome()})`);
+  const budget = Number(params.get("budget"));
+  if (!Number.isInteger(budget) || budget < PER_USER_CALLS.pin || budget > FULL_MAX_BUDGET) {
+    return bad(`budget obbligatorio, intero tra ${PER_USER_CALLS.pin} e ${FULL_MAX_BUDGET}`);
   }
+  const from = params.get("from")?.trim() || undefined;
 
   const users = await db.user.findMany({
-    where: only ? { accessCode: only } : undefined,
+    where: from ? { id: { gt: from } } : undefined,
+    orderBy: { id: "asc" },
     select: {
       id: true,
       role: true,
       accessCode: true,
       firstName: true,
       lastName: true,
-      tuyaUserId: true,
-      subscription: {
-        select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true },
-      },
+      subscription: { select: { startsAt: true, endsAt: true, deactivatedAt: true, autoRenew: true, arrearsSuspendedAt: true } },
       entryPackage: { select: { deactivatedAt: true, remainingEntries: true } },
     },
   });
+  const eligible = users.filter((u) =>
+    shouldHaveDoorPin({ role: u.role, subscription: u.subscription, entryPackage: u.entryPackage })
+  );
+  const perRun = Math.min(eligible.length, Math.floor(budget / PER_USER_CALLS.pin));
+  const fingerprint = `${confirm}|${budget}|${from ?? ""}|${eligible.length}`;
 
-  const summary = {
-    scope: only ? `only:${only}` : "all-eligible",
-    fresh,
-    deviceUserCount,
-    candidates: users.length,
-    resynced: 0,
-    skipped: 0,
-    resyncedCodes: [] as string[],
-    errors: [] as string[],
-  };
-
-  for (const user of users) {
-    const shouldHavePin = shouldHaveDoorPin({
-      role: user.role,
-      subscription: user.subscription,
-      entryPackage: user.entryPackage,
+  if (!apply) {
+    const value = `${Date.now()}|${fingerprint}`;
+    await db.appConfig.upsert({
+      where: { key: FULL_DRYRUN_KEY },
+      create: { key: FULL_DRYRUN_KEY, value },
+      update: { value },
     });
-
-    if (!shouldHavePin) {
-      summary.skipped++;
-      continue;
-    }
-
-    try {
-      // fresh: scarta il tuyaUserId fantasma così ensureTuyaUser ricrea l'utente
-      // sul device da zero (il vecchio id non esiste più sul tastierino).
-      if (fresh && user.tuyaUserId) {
-        await db.user.update({
-          where: { id: user.id },
-          data: { tuyaUserId: null, tuyaPinActive: false, tuyaPinUnlockNo: null },
-        });
-      }
-      const tuyaUserId = await ensureTuyaUser(db, user.id);
-      const unlockNo = await enablePin(tuyaUserId, user.accessCode);
-      // Ri-afferma la validità permanente DOPO aver registrato il PIN: la
-      // password appena creata non eredita in modo affidabile lo schedule del
-      // member impostato prima che esistesse (→ codice limitato/notturno-KO).
-      await setUserPermanent(tuyaUserId).catch(() => {});
-      await db.user.update({
-        where: { id: user.id },
-        data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true },
-      });
-      summary.resynced++;
-      // Per il test mirato/piccoli batch restituiamo i codici riscritti così
-      // l'operatore sa cosa provare. Cap a 20 per non loggare l'intera lista.
-      if (summary.resyncedCodes.length < 20) {
-        summary.resyncedCodes.push(`${user.firstName} ${user.lastName}: ${user.accessCode}`);
-      }
-      await delay(DELAY_MS);
-    } catch (err) {
-      summary.errors.push(`${user.firstName} ${user.lastName} (${user.accessCode}): ${(err as Error).message}`);
-    }
+    return NextResponse.json({
+      mode: "full",
+      dryRun: true,
+      membersEligible: eligible.length,
+      membersThisRun: perRun,
+      estimatedCallsThisRun: perRun * PER_USER_CALLS.pin,
+      estimatedCallsTotal: eligible.length * PER_USER_CALLS.pin,
+      next: "ripeti con gli stessi parametri + &apply=1 entro 15 minuti",
+    });
   }
 
-  console.log("[tuya-pin-resync] completed:", JSON.stringify({ ...summary, resyncedCodes: "<hidden>" }));
-  return NextResponse.json(summary);
+  const dry = await db.appConfig.findUnique({ where: { key: FULL_DRYRUN_KEY } });
+  const [dryAt, ...dryFp] = (dry?.value ?? "").split("|");
+  if (!dry || Date.now() - Number(dryAt) > FULL_DRYRUN_TTL_MS || dryFp.join("|") !== fingerprint) {
+    return bad("serve un dry-run con gli stessi parametri negli ultimi 15 minuti");
+  }
+  await db.appConfig.delete({ where: { key: FULL_DRYRUN_KEY } }); // un dry-run = un'esecuzione
+
+  const started = Date.now();
+  const summary = { resynced: 0, errors: [] as string[], nextFrom: null as string | null };
+  const locked = await withTuyaLock(db, "manual:full", () =>
+    withTuyaBudget({ max: budget }, async () => {
+      for (const u of eligible) {
+        // Mai iniziare un iscritto che non si può finire (budget o tempo).
+        if (budget - tuyaCallsUsed() < PER_USER_CALLS.pin || Date.now() - started > FULL_TIME_LIMIT_MS) {
+          summary.nextFrom = u.id;
+          break;
+        }
+        try {
+          const tuyaUserId = await ensureTuyaUser(db, u.id);
+          const unlockNo = await enablePin(tuyaUserId, u.accessCode);
+          await setUserPermanent(tuyaUserId).catch(() => {});
+          await db.user.update({ where: { id: u.id }, data: { tuyaPinUnlockNo: unlockNo, tuyaPinActive: true } });
+          summary.resynced++;
+        } catch (err) {
+          summary.errors.push(`${u.firstName} ${u.lastName} (${u.accessCode}): ${(err as Error).message}`);
+          if (err instanceof TuyaBudgetError) {
+            summary.nextFrom = u.id;
+            break;
+          }
+        }
+        await delay(FULL_DELAY_MS);
+      }
+    })
+  );
+  if ("busy" in locked) {
+    return NextResponse.json({ mode: "full", error: "TUYA_LOCKED", heldBy: locked.busy }, { status: 409 });
+  }
+  const tuyaCalls = locked.result.tuyaCalls;
+  console.log(
+    `[tuya-pin-resync] mode=full tuyaCalls=${tuyaCalls} resynced=${summary.resynced} errors=${summary.errors.length} nextFrom=${summary.nextFrom}`
+  );
+  return NextResponse.json({ mode: "full", tuyaCalls, ...summary });
 }
